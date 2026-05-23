@@ -1,0 +1,77 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | Ödeme ve güvence</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell security-shell">
+      <section class="auth-intro" aria-labelledby="payment-title">
+        <p class="eyebrow">Ödeme ve güvence</p>
+        <h1 id="payment-title">İş bitmeden ödeme netleşsin.</h1>
+        <p class="lead">
+          İş veren işi onayladığında ödeme, puanlama ve destek süreci aynı yerden yönetilir.
+        </p>
+      </section>
+
+      <section class="auth-card security-card" aria-labelledby="payment-form-title">
+        <div class="auth-card-head">
+          <a class="back-button" href="pazar.html">← Panele dön</a>
+          <p class="eyebrow">İş veren güvencesi</p>
+          <h2 id="payment-form-title">Ödeme tercihleri</h2>
+        </div>
+
+        <form class="register-form active" id="paymentForm">
+          <fieldset class="profile-fieldset">
+            <legend>Ödeme yöntemi</legend>
+            <div class="checkbox-grid">
+              <label><input name="paymentMethods" type="checkbox" value="Kart" /> Kart</label>
+              <label><input name="paymentMethods" type="checkbox" value="Havale/EFT" /> Havale/EFT</label>
+              <label><input name="paymentMethods" type="checkbox" value="Nakit" /> Nakit</label>
+              <label><input name="paymentMethods" type="checkbox" value="Platform güvencesi" /> Platform güvencesi</label>
+            </div>
+          </fieldset>
+
+          <fieldset class="profile-fieldset">
+            <legend>İş onayı</legend>
+            <div class="checkbox-grid">
+              <label><input name="approvalPrefs" type="checkbox" value="Fotoğraf kanıtı" /> İş bitince fotoğraf kanıtı iste</label>
+              <label><input name="approvalPrefs" type="checkbox" value="Fatura/fiş" /> Fatura veya fiş iste</label>
+              <label><input name="approvalPrefs" type="checkbox" value="Puanlama hatırlatması" /> Puanlama hatırlatması gönder</label>
+              <label><input name="approvalPrefs" type="checkbox" value="Destek incelemesi" /> Anlaşmazlıkta destek incelemesi iste</label>
+            </div>
+          </fieldset>
+
+          <div class="form-grid">
+            <label>
+              Varsayılan bütçe limiti
+              <input name="budgetLimit" type="number" min="500" step="100" placeholder="Örn. 5000" />
+            </label>
+            <label>
+              Ödeme zamanı
+              <select name="paymentTiming">
+                <option value="İş bitince">İş bitince</option>
+                <option value="Keşif sonrası">Keşif sonrası</option>
+                <option value="Parça parça">Parça parça</option>
+              </select>
+            </label>
+          </div>
+
+          <button class="primary-action" type="submit">Ödeme tercihlerini kaydet</button>
+        </form>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+  </body>
+</html>

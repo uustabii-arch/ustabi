@@ -1,0 +1,188 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | Profil özelleştir</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell profile-edit-shell">
+      <section class="auth-intro" aria-labelledby="profile-edit-title">
+        <p class="eyebrow">Profil özelleştir</p>
+        <h1 id="profile-edit-title">Güven veren bir profil oluştur.</h1>
+        <p class="lead">
+          Fotoğraf, meslek, çalışma bölgesi, ücret, müsaitlik ve iş örnekleri profilinin
+          daha çok tıklanmasını sağlar.
+        </p>
+      </section>
+
+      <section class="auth-card profile-edit-card" aria-labelledby="profile-form-title">
+        <div class="auth-card-head">
+          <a class="back-button" href="pazar.html">← Panele dön</a>
+          <p class="eyebrow">Hesap bilgileri</p>
+          <h2 id="profile-form-title">Profil bilgilerini düzenle</h2>
+        </div>
+
+        <form class="register-form active" id="profileEditForm">
+          <div class="profile-photo-row">
+            <div class="profile-photo-preview" id="profilePhotoPreview">U</div>
+            <label>
+              Profil fotoğrafı
+              <input name="profilePhoto" id="profilePhotoInput" type="file" accept="image/*" />
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              Ad soyad
+              <input name="fullName" type="text" autocomplete="name" required />
+            </label>
+
+            <label>
+              Telefon
+              <input name="phone" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" required />
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              E-posta
+              <input name="email" type="email" autocomplete="email" required />
+            </label>
+
+            <label>
+              Görünen başlık
+              <input name="title" type="text" placeholder="Örn. Boya ve tadilat ustası" />
+            </label>
+          </div>
+
+          <div class="form-grid master-only">
+            <label>
+              Meslek
+              <input name="profession" type="text" placeholder="Örn. Elektrik ustası" />
+            </label>
+
+            <label>
+              Deneyim
+              <select name="experience">
+                <option value="">Seç</option>
+                <option value="0-1 yıl">0-1 yıl</option>
+                <option value="1-3 yıl">1-3 yıl</option>
+                <option value="3-5 yıl">3-5 yıl</option>
+                <option value="5+ yıl">5+ yıl</option>
+                <option value="10+ yıl">10+ yıl</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              İl
+              <select name="city" id="profileCitySelect">
+                <option value="">Seç</option>
+              </select>
+            </label>
+
+            <label>
+              İlçe
+              <select name="district" id="profileDistrictSelect" disabled>
+                <option value="">Önce il seç</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-grid master-only">
+            <label>
+              Günlük ücret beklentisi
+              <input name="dailyRate" type="number" min="500" step="100" placeholder="Örn. 2500" />
+            </label>
+
+            <label>
+              Müsaitlik
+              <select name="availability">
+                <option value="">Seç</option>
+                <option value="Bugün müsait">Bugün müsait</option>
+                <option value="Hafta içi">Hafta içi</option>
+                <option value="Hafta sonu">Hafta sonu</option>
+                <option value="Akşam saatleri">Akşam saatleri</option>
+                <option value="Esnek">Esnek</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="master-only">
+            Kısa tanıtım
+            <textarea name="bio" rows="5" placeholder="Kendini, yaptığın işleri, ekipman durumunu ve çalışma tarzını anlat."></textarea>
+          </label>
+
+          <fieldset class="profile-fieldset master-only">
+            <legend>Hizmet verdiğin işler</legend>
+            <div class="checkbox-grid">
+              <label><input name="services" type="checkbox" value="Boya" /> Boya</label>
+              <label><input name="services" type="checkbox" value="Tesisat" /> Tesisat</label>
+              <label><input name="services" type="checkbox" value="Elektrik" /> Elektrik</label>
+              <label><input name="services" type="checkbox" value="Montaj" /> Montaj</label>
+              <label><input name="services" type="checkbox" value="Taşıma" /> Taşıma</label>
+              <label><input name="services" type="checkbox" value="Temizlik" /> Temizlik</label>
+              <label><input name="services" type="checkbox" value="Marangoz" /> Marangoz</label>
+              <label><input name="services" type="checkbox" value="Klima" /> Klima</label>
+              <label><input name="services" type="checkbox" value="Kombi" /> Kombi</label>
+              <label><input name="services" type="checkbox" value="Bahçe" /> Bahçe</label>
+              <label><input name="services" type="checkbox" value="Fayans" /> Fayans</label>
+              <label><input name="services" type="checkbox" value="Seramik" /> Seramik</label>
+              <label><input name="services" type="checkbox" value="Parke" /> Parke</label>
+              <label><input name="services" type="checkbox" value="Alçıpan" /> Alçıpan</label>
+              <label><input name="services" type="checkbox" value="Çatı" /> Çatı</label>
+              <label><input name="services" type="checkbox" value="Kaynak" /> Kaynak</label>
+              <label><input name="services" type="checkbox" value="Cam balkon" /> Cam balkon</label>
+              <label><input name="services" type="checkbox" value="Kapı pencere" /> Kapı pencere</label>
+              <label><input name="services" type="checkbox" value="Beyaz eşya" /> Beyaz eşya</label>
+              <label><input name="services" type="checkbox" value="Kamera güvenlik" /> Kamera güvenlik</label>
+            </div>
+          </fieldset>
+
+          <fieldset class="profile-fieldset master-only">
+            <legend>Güven ve ekipman</legend>
+            <div class="checkbox-grid">
+              <label><input name="trust" type="checkbox" value="Kimlik doğrulama" /> Kimlik doğrulama</label>
+              <label><input name="trust" type="checkbox" value="Telefon doğrulama" /> Telefon doğrulama</label>
+              <label><input name="trust" type="checkbox" value="Kendi ekipmanım var" /> Kendi ekipmanım var</label>
+              <label><input name="trust" type="checkbox" value="Araç var" /> Araç var</label>
+              <label><input name="trust" type="checkbox" value="Fatura kesebilirim" /> Fatura kesebilirim</label>
+              <label><input name="trust" type="checkbox" value="Acil iş alırım" /> Acil iş alırım</label>
+            </div>
+          </fieldset>
+
+          <label class="master-only">
+            İş fotoğrafları / portfolyo
+            <input name="portfolioPhotos" id="portfolioPhotosInput" type="file" accept="image/*" multiple />
+          </label>
+          <div class="portfolio-preview" id="portfolioPreview"></div>
+
+          <label>
+            Tercih edilen iletişim
+            <select name="contactPreference">
+              <option value="Telefon">Telefon</option>
+              <option value="Mesaj">Mesaj</option>
+              <option value="Telefon ve mesaj">Telefon ve mesaj</option>
+            </select>
+          </label>
+
+          <button class="primary-action" type="submit">Profili kaydet</button>
+        </form>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="turkey-locations.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>

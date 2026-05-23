@@ -1,0 +1,117 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | Güvenlik ve doğrulama</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell security-shell">
+      <section class="auth-intro" aria-labelledby="security-title">
+        <p class="eyebrow">Güvenlik ve doğrulama</p>
+        <h1 id="security-title">Hesabını güvenilir hale getir.</h1>
+        <p class="lead">
+          Telefon, e-posta ve kimlik doğrulaması güven puanını artırır. İş veren ve
+          ustalar anlaşmadan önce bu bilgileri görür.
+        </p>
+      </section>
+
+      <section class="auth-card security-card" aria-labelledby="security-form-title">
+        <div class="auth-card-head">
+          <a class="back-button" href="pazar.html">← Panele dön</a>
+          <p class="eyebrow">Hesap güvenliği</p>
+          <h2 id="security-form-title">Doğrulama durumları</h2>
+        </div>
+
+        <div class="verification-grid" id="verificationGrid">
+          <article class="verification-card" data-verification="phone">
+            <span class="verification-mark">TL</span>
+            <div>
+              <strong>Telefon doğrulama</strong>
+              <small>Teklif ve iş görüşmeleri için gerekli</small>
+            </div>
+            <button type="button" data-verify="phone">Doğrula</button>
+          </article>
+
+          <article class="verification-card" data-verification="email">
+            <span class="verification-mark">EP</span>
+            <div>
+              <strong>E-posta doğrulama</strong>
+              <small>Hesap kurtarma ve bildirimler için gerekli</small>
+            </div>
+            <button type="button" data-verify="email">Doğrula</button>
+          </article>
+
+          <article class="verification-card" data-verification="identity">
+            <span class="verification-mark">Kİ</span>
+            <div>
+              <strong>Kimlik doğrulama</strong>
+              <small>Güven rozeti ve yüksek bütçeli işler için önerilir</small>
+            </div>
+            <button type="button" data-verify="identity">Doğrula</button>
+          </article>
+        </div>
+
+        <form class="register-form active security-form" id="securityForm">
+          <div class="form-grid">
+            <label>
+              Telefon numarası
+              <input name="phone" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" />
+            </label>
+
+            <label>
+              E-posta
+              <input name="email" type="email" placeholder="ornek@mail.com" autocomplete="email" />
+            </label>
+          </div>
+
+          <label>
+            Kimlik belgesi yükle
+            <input name="identityFile" id="identityFileInput" type="file" accept="image/*,.pdf" />
+          </label>
+
+          <div class="upload-preview document-preview" id="identityPreview" hidden>
+            <span>Belge seçildi</span>
+          </div>
+
+          <fieldset class="profile-fieldset">
+            <legend>Güvenlik tercihleri</legend>
+            <div class="checkbox-grid">
+              <label><input name="securityPrefs" type="checkbox" value="Giriş bildirimi" /> Giriş bildirimi gönder</label>
+              <label><input name="securityPrefs" type="checkbox" value="Teklif onayı" /> Teklif işleminde onay iste</label>
+              <label><input name="securityPrefs" type="checkbox" value="Telefon gizle" /> Telefonu sadece anlaşınca göster</label>
+              <label><input name="securityPrefs" type="checkbox" value="Profil rozeti" /> Doğrulama rozetini göster</label>
+            </div>
+          </fieldset>
+
+          <fieldset class="profile-fieldset">
+            <legend>Şifre değiştir</legend>
+            <div class="form-grid">
+              <label>
+                Yeni şifre
+                <input name="newPassword" type="password" minlength="6" placeholder="En az 6 karakter" />
+              </label>
+              <label>
+                Yeni şifre tekrar
+                <input name="newPasswordConfirm" type="password" minlength="6" placeholder="Tekrar yaz" />
+              </label>
+            </div>
+          </fieldset>
+
+          <button class="primary-action" type="submit">Güvenlik bilgilerini kaydet</button>
+        </form>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+  </body>
+</html>

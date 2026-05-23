@@ -1,0 +1,138 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | Usta kaydı</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="USTABI ana sayfa">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell form-page">
+      <section class="auth-intro" aria-labelledby="master-title">
+        <p class="eyebrow">Usta kaydı</p>
+        <h1 id="master-title">Bugünün işlerini yakala.</h1>
+        <p class="lead">
+          Mesleğini, çalıştığın bölgeyi ve günlük ücretini gir. Hesabın açılınca
+          sana uygun işlere teklif verebilirsin.
+        </p>
+      </section>
+
+      <section class="auth-card" aria-labelledby="register-title">
+        <div class="auth-card-head">
+          <a class="back-button" href="index.html">← Seçime dön</a>
+          <p class="eyebrow">Usta kaydı</p>
+          <h2 id="register-title">Usta profilini oluştur</h2>
+        </div>
+
+        <form class="register-form active" id="masterRegisterPage">
+          <div class="form-grid">
+            <label>
+              Ad soyad
+              <input name="fullName" type="text" placeholder="Örn. Ali Kaya" autocomplete="name" required />
+            </label>
+
+            <label>
+              Meslek
+              <select name="profession" id="professionSelect" required>
+                <option value="">Seç</option>
+                <option value="Diğer">Diğer</option>
+                <option value="Boya ustası">Boya ustası</option>
+                <option value="Tesisat ustası">Tesisat ustası</option>
+                <option value="Elektrik ustası">Elektrik ustası</option>
+                <option value="Montaj ustası">Montaj ustası</option>
+                <option value="Taşıma ekibi">Taşıma ekibi</option>
+                <option value="Temizlik personeli">Temizlik personeli</option>
+                <option value="Marangoz">Marangoz</option>
+                <option value="Mobilya montaj ustası">Mobilya montaj ustası</option>
+                <option value="Klima servisi">Klima servisi</option>
+                <option value="Kombi servisi">Kombi servisi</option>
+                <option value="Kaynak ustası">Kaynak ustası</option>
+                <option value="Seramik ustası">Seramik ustası</option>
+                <option value="Fayans ustası">Fayans ustası</option>
+                <option value="Alçıpan ustası">Alçıpan ustası</option>
+                <option value="Parke ustası">Parke ustası</option>
+                <option value="Çatı ustası">Çatı ustası</option>
+                <option value="Cam balkon ustası">Cam balkon ustası</option>
+                <option value="Kapı pencere ustası">Kapı pencere ustası</option>
+                <option value="Bahçe bakım">Bahçe bakım</option>
+                <option value="İnşaat işçisi">İnşaat işçisi</option>
+                <option value="Gündelik yardımcı">Gündelik yardımcı</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="hidden-field" id="customProfessionField">
+            Mesleğini yaz
+            <input name="customProfession" id="customProfessionInput" type="text" placeholder="Örn. Mermer ustası" />
+          </label>
+
+          <div class="form-grid">
+            <label>
+              Telefon numarası
+              <input name="phone" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" required />
+            </label>
+
+            <label>
+              E-posta
+              <input name="email" type="email" placeholder="ornek@mail.com" autocomplete="email" required />
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              İlçe
+              <select name="district" required>
+                <option value="">Seç</option>
+                <option value="Kadıköy">Kadıköy</option>
+                <option value="Üsküdar">Üsküdar</option>
+                <option value="Şişli">Şişli</option>
+                <option value="Ataşehir">Ataşehir</option>
+                <option value="Bakırköy">Bakırköy</option>
+              </select>
+            </label>
+
+            <label>
+              Deneyim
+              <select name="experience" required>
+                <option value="">Seç</option>
+                <option value="0-1 yıl">0-1 yıl</option>
+                <option value="1-3 yıl">1-3 yıl</option>
+                <option value="3-5 yıl">3-5 yıl</option>
+                <option value="5+ yıl">5+ yıl</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              Günlük ücret beklentisi
+              <input name="dailyRate" type="number" min="500" step="100" placeholder="Örn. 2500" required />
+            </label>
+
+            <label>
+              Şifre
+              <input name="password" type="password" minlength="6" placeholder="En az 6 karakter" autocomplete="new-password" required />
+            </label>
+          </div>
+
+          <label>
+            Kısa profil açıklaması
+            <textarea name="bio" rows="4" placeholder="Hangi işleri yaptığını, ekipman durumunu ve hangi günler müsait olduğunu yaz." required></textarea>
+          </label>
+
+          <button class="primary-action" type="submit">Usta hesabı aç</button>
+        </form>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,67 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | Favori ustalar</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="listings-shell account-listings-shell">
+      <section class="all-listings-section" aria-labelledby="favorites-title">
+        <div class="list-section-head">
+          <div>
+            <p class="eyebrow">İş veren araçları</p>
+            <h1 id="favorites-title">Favori ustalar</h1>
+          </div>
+          <a class="ghost-link" href="pazar.html">İlanlara dön</a>
+        </div>
+
+        <div class="pro-grid">
+          <article class="pro-card">
+            <img src="assets/master-ali.svg" alt="Ali usta profil görseli" />
+            <div>
+              <h3>Ali K.</h3>
+              <p>Boya, alçı, tadilat · Kadıköy</p>
+              <div class="stars"><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span></div>
+              <small>9.4/10 · 26 değerlendirme · Bugün müsait</small>
+            </div>
+            <button class="job-action" type="button" data-invite-master="Ali K.">İlana davet et</button>
+          </article>
+
+          <article class="pro-card">
+            <img src="assets/master-deniz.svg" alt="Deniz usta profil görseli" />
+            <div>
+              <h3>Deniz Y.</h3>
+              <p>Elektrik, avize, priz · Şişli</p>
+              <div class="stars"><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span>★</span></div>
+              <small>9.3/10 · 19 değerlendirme · Yarın müsait</small>
+            </div>
+            <button class="job-action" type="button" data-invite-master="Deniz Y.">İlana davet et</button>
+          </article>
+
+          <article class="pro-card">
+            <img src="assets/master-cem.svg" alt="Cem usta profil görseli" />
+            <div>
+              <h3>Cem A.</h3>
+              <p>Tesisat, kombi, kaçak · Üsküdar</p>
+              <div class="stars"><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span class="filled">★</span><span>★</span></div>
+              <small>9.1/10 · 21 değerlendirme · Acil iş alır</small>
+            </div>
+            <button class="job-action" type="button" data-invite-master="Cem A.">İlana davet et</button>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+  </body>
+</html>

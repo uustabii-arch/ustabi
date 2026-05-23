@@ -1,0 +1,85 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | Bildirim ayarları</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell security-shell">
+      <section class="auth-intro" aria-labelledby="notification-title">
+        <p class="eyebrow">Bildirim ayarları</p>
+        <h1 id="notification-title">Sana ne zaman ulaşalım?</h1>
+        <p class="lead">
+          Yeni iş, teklif, mesaj ve güvenlik bildirimlerini hangi kanallardan almak
+          istediğini buradan yönet.
+        </p>
+      </section>
+
+      <section class="auth-card security-card" aria-labelledby="notification-form-title">
+        <div class="auth-card-head">
+          <a class="back-button" href="pazar.html">← Panele dön</a>
+          <p class="eyebrow">Bildirimler</p>
+          <h2 id="notification-form-title">Tercihlerini düzenle</h2>
+        </div>
+
+        <form class="register-form active" id="notificationForm">
+          <fieldset class="profile-fieldset">
+            <legend>Bildirim kanalları</legend>
+            <div class="checkbox-grid">
+              <label><input name="channels" type="checkbox" value="Uygulama içi" /> Uygulama içi</label>
+              <label><input name="channels" type="checkbox" value="SMS" /> SMS</label>
+              <label><input name="channels" type="checkbox" value="E-posta" /> E-posta</label>
+              <label><input name="channels" type="checkbox" value="Telefon araması" /> Telefon araması</label>
+            </div>
+          </fieldset>
+
+          <fieldset class="profile-fieldset">
+            <legend>Bildirim konuları</legend>
+            <div class="checkbox-grid">
+              <label><input name="topics" type="checkbox" value="Yeni ilanlar" /> Yeni ilanlar</label>
+              <label><input name="topics" type="checkbox" value="Teklif güncellemeleri" /> Teklif güncellemeleri</label>
+              <label><input name="topics" type="checkbox" value="Mesajlar" /> Mesajlar</label>
+              <label><input name="topics" type="checkbox" value="İş tamamlandı" /> İş tamamlandı</label>
+              <label><input name="topics" type="checkbox" value="Puan ve yorumlar" /> Puan ve yorumlar</label>
+              <label><input name="topics" type="checkbox" value="Güvenlik uyarıları" /> Güvenlik uyarıları</label>
+            </div>
+          </fieldset>
+
+          <div class="form-grid">
+            <label>
+              Bildirim sıklığı
+              <select name="frequency">
+                <option value="Anında">Anında</option>
+                <option value="Günde bir özet">Günde bir özet</option>
+                <option value="Haftada bir özet">Haftada bir özet</option>
+              </select>
+            </label>
+
+            <label>
+              Sessiz saatler
+              <select name="quietHours">
+                <option value="Yok">Yok</option>
+                <option value="22:00 - 08:00">22:00 - 08:00</option>
+                <option value="00:00 - 09:00">00:00 - 09:00</option>
+              </select>
+            </label>
+          </div>
+
+          <button class="primary-action" type="submit">Bildirimleri kaydet</button>
+        </form>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,147 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | İlan koy</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell form-page">
+      <section class="auth-intro" aria-labelledby="post-listing-title">
+        <p class="eyebrow">Yeni ilan</p>
+        <h1 id="post-listing-title">İşini yayına al.</h1>
+        <p class="lead">
+          Ustaların doğru teklif verebilmesi için işi, konumu, zamanı, bütçeyi ve
+          kısa açıklamayı net yaz.
+        </p>
+      </section>
+
+      <section class="auth-card" aria-labelledby="listing-form-title">
+        <div class="auth-card-head">
+          <a class="back-button" href="pazar.html">← İlanlara dön</a>
+          <p class="eyebrow">İlan bilgileri</p>
+          <h2 id="listing-form-title">İlan oluştur</h2>
+        </div>
+
+        <form class="register-form active" id="listingCreateForm">
+          <label>
+            İş başlığı
+            <input name="title" type="text" placeholder="Örn. 2+1 ev boya badana" required />
+          </label>
+
+          <div class="form-grid">
+            <label>
+              Kategori
+              <select name="category" required>
+                <option value="">Seç</option>
+                <option value="Boya">Boya</option>
+                <option value="Tesisat">Tesisat</option>
+                <option value="Elektrik">Elektrik</option>
+                <option value="Montaj">Montaj</option>
+                <option value="Taşıma">Taşıma</option>
+                <option value="Temizlik">Temizlik</option>
+                <option value="Marangoz">Marangoz</option>
+                <option value="Klima">Klima</option>
+                <option value="Bahçe">Bahçe</option>
+                <option value="Diğer">Diğer</option>
+              </select>
+            </label>
+
+            <label>
+              İl
+              <select name="city" id="citySelect" required>
+                <option value="">Seç</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            İlçe
+            <select name="district" id="districtSelect" required disabled>
+              <option value="">Önce il seç</option>
+            </select>
+          </label>
+
+          <div class="form-grid">
+            <label>
+              İş tarihi
+              <input name="workDate" id="workDateInput" type="date" required />
+            </label>
+
+            <label>
+              Tahmini süre
+              <select name="duration" required>
+                <option value="">Seç</option>
+                <option value="1-2 saat">1-2 saat</option>
+                <option value="Yarım gün">Yarım gün</option>
+                <option value="1 gün">1 gün</option>
+                <option value="2-3 gün">2-3 gün</option>
+                <option value="1 hafta+">1 hafta+</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              Bütçe
+              <input name="budget" type="number" min="500" step="100" placeholder="Örn. 2500" required />
+            </label>
+
+            <label>
+              Malzeme durumu
+              <select name="materials" required>
+                <option value="">Seç</option>
+                <option value="Malzeme bende">Malzeme bende</option>
+                <option value="Usta getirsin">Usta getirsin</option>
+                <option value="Birlikte karar verelim">Birlikte karar verelim</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            İletişim telefonu
+            <input name="phone" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" required />
+          </label>
+
+          <label>
+            Adres / ulaşım notu
+            <textarea name="addressNote" rows="3" placeholder="Mahalle, site/apartman bilgisi, asansör, park yeri veya ulaşım notu yaz."></textarea>
+          </label>
+
+          <label>
+            Ustadan beklentiler
+            <textarea name="expectations" rows="3" placeholder="Keşif ister misin, ekipman gerekli mi, temizlik beklentin var mı?"></textarea>
+          </label>
+
+          <label>
+            İlan fotoğrafı
+            <input name="image" id="listingImageInput" type="file" accept="image/*" />
+          </label>
+
+          <div class="upload-preview" id="listingImagePreview" hidden>
+            <img alt="İlan fotoğrafı önizleme" />
+          </div>
+
+          <label>
+            Açıklama
+            <textarea name="details" rows="5" placeholder="İşin kapsamını, malzeme durumunu, beklediğin süreyi ve özel notları yaz." required></textarea>
+          </label>
+
+          <button class="primary-action" type="submit">İlanı paylaş</button>
+        </form>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="turkey-locations.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>

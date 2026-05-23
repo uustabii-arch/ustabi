@@ -1,0 +1,200 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | İlanlar</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar market-topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+
+      <div class="market-toolbar">
+        <div class="market-search" role="search">
+          <span aria-hidden="true">⌕</span>
+          <input id="marketSearch" type="search" placeholder="İlan, meslek veya ilçe ara" />
+        </div>
+
+        <div class="notification-wrap">
+          <button
+            class="notification-button"
+            id="notificationButton"
+            type="button"
+            aria-label="Bildirimleri aç"
+            aria-expanded="false"
+            aria-controls="notificationPanel"
+          >
+            <span class="notification-icon" aria-hidden="true"></span>
+            <span class="notification-badge" id="notificationBadge" hidden>0</span>
+          </button>
+
+          <div class="notification-panel" id="notificationPanel" hidden>
+            <div class="notification-panel-head">
+              <div>
+                <strong>Bildirimler</strong>
+                <small id="notificationCountText">Güncel bildirimler</small>
+              </div>
+              <button class="notification-read-all" type="button" id="markAllNotificationsRead">
+                Tümünü okundu yap
+              </button>
+            </div>
+            <ul class="notification-list" id="notificationList" aria-live="polite"></ul>
+            <div class="notification-panel-actions">
+              <a href="teklifler.html">Teklifler</a>
+              <a href="bildirim-ayarlari.html">Ayarlar</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="profile-button" id="profileButton" type="button" aria-label="Profil panelini aç">
+        <span class="profile-avatar" id="profileAvatar">U</span>
+        <span>
+          <strong id="profileName">Profil</strong>
+          <small id="profileRole">Hesap</small>
+        </span>
+      </button>
+    </header>
+
+    <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+    <aside class="profile-drawer" id="profileDrawer" aria-hidden="true" aria-labelledby="drawerTitle">
+      <div class="drawer-head">
+        <div>
+          <h2 id="drawerTitle">Hesabım</h2>
+        </div>
+        <button class="close-button" id="closeProfileDrawer" type="button" aria-label="Paneli kapat">×</button>
+      </div>
+
+      <div class="drawer-profile">
+        <span class="profile-avatar drawer-avatar" id="drawerAvatar">U</span>
+        <div class="drawer-profile-copy">
+          <strong id="drawerName">Profil</strong>
+          <small id="drawerRole">Hesap</small>
+          <span class="verify-pill">Telefon doğrulanmadı</span>
+        </div>
+      </div>
+
+      <p class="drawer-section-label">Hızlı işlemler</p>
+      <div class="drawer-actions" aria-label="Profil işlemleri">
+        <button type="button" data-panel-action="İlan koy">
+          <span class="drawer-action-mark action-post">+</span>
+          <span>
+            <strong>İlan koy</strong>
+            <small>Yeni iş ihtiyacı oluştur</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="Profil özelleştir">
+          <span class="drawer-action-mark action-profile">◉</span>
+          <span>
+            <strong>Profil özelleştir</strong>
+            <small>Bilgilerini, mesleğini ve bölgeni düzenle</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="İlanlarım">
+          <span class="drawer-action-mark action-listings">▦</span>
+          <span>
+            <strong>İlanlarım</strong>
+            <small>Aktif ve süresi geçmiş ilanlarını gör</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="Önceki işlerim">
+          <span class="drawer-action-mark action-history">↺</span>
+          <span>
+            <strong>Önceki işlerim</strong>
+            <small>Süresi biten veya tamamlanan işleri gör</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="Teklifler">
+          <span class="drawer-action-mark action-offers">₺</span>
+          <span>
+            <strong>Teklifler</strong>
+            <small>Gelen ve gönderilen teklifleri gör</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="Favori ustalar">
+          <span class="drawer-action-mark action-favorites">★</span>
+          <span>
+            <strong>Favori ustalar</strong>
+            <small>Kısa listeye aldığın ustaları karşılaştır</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="Ödeme ve güvence">
+          <span class="drawer-action-mark action-payment">✓</span>
+          <span>
+            <strong>Ödeme ve güvence</strong>
+            <small>Ödeme yöntemi, iş onayı ve destek ayarları</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="Bildirim ayarları">
+          <span class="drawer-action-mark action-notify">!</span>
+          <span>
+            <strong>Bildirim ayarları</strong>
+            <small>İş, mesaj ve teklif bildirimlerini yönet</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="Güvenlik">
+          <span class="drawer-action-mark action-security">⌂</span>
+          <span>
+            <strong>Güvenlik ve doğrulama</strong>
+            <small>Telefon, e-posta ve kimlik durumunu kontrol et</small>
+          </span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="listings-shell">
+      <section class="featured-section" aria-labelledby="featured-title">
+        <div class="list-section-head">
+          <div>
+            <p class="eyebrow">Öne çıkan ilanlar</p>
+            <h1 id="featured-title" class="sr-only">Öne çıkan ilanlar</h1>
+          </div>
+        </div>
+
+        <div class="featured-carousel">
+          <button class="carousel-button" id="featuredPrev" type="button" aria-label="Önceki ilan">‹</button>
+          <div class="featured-viewport">
+            <div class="featured-strip" id="featuredListings"></div>
+          </div>
+          <button class="carousel-button" id="featuredNext" type="button" aria-label="Sonraki ilan">›</button>
+        </div>
+      </section>
+
+      <section class="all-listings-section" aria-labelledby="all-listings-title">
+        <div class="list-section-head">
+          <div>
+            <p class="eyebrow">Tüm ilanlar</p>
+            <h2 id="all-listings-title">Yakınındaki açık işler</h2>
+          </div>
+          <select id="categoryFilter" aria-label="Kategori filtresi">
+            <option value="Tümü">Tümü</option>
+          </select>
+          <div class="chip-row" aria-label="Hızlı filtreler">
+            <button class="chip active" type="button" data-time="Tümü">Tümü</button>
+            <button class="chip" type="button" data-time="Bugün">Bugün</button>
+            <button class="chip" type="button" data-time="Yarın">Yarın</button>
+            <button class="chip" type="button" data-time="Bu hafta">Bu hafta</button>
+          </div>
+        </div>
+
+        <div class="listing-grid" id="listingGrid"></div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

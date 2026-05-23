@@ -1,0 +1,63 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | İş veren kaydı</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="USTABI ana sayfa">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell form-page">
+      <section class="auth-intro" aria-labelledby="employer-title">
+        <p class="eyebrow">İş veren kaydı</p>
+        <h1 id="employer-title">İşini ustalara aç.</h1>
+        <p class="lead">
+          Temel bilgilerini gir, hesabını oluştur. Sonraki adımda iş ilanı açıp
+          ustalardan teklif alabileceksin.
+        </p>
+      </section>
+
+      <section class="auth-card" aria-labelledby="register-title">
+        <div class="auth-card-head">
+          <a class="back-button" href="index.html">← Seçime dön</a>
+          <p class="eyebrow">İş veren kaydı</p>
+          <h2 id="register-title">Hesabını oluştur</h2>
+        </div>
+
+        <form class="register-form active" id="employerRegisterPage">
+          <label>
+            Ad soyad
+            <input name="fullName" type="text" placeholder="Örn. Arman Yılmaz" autocomplete="name" required />
+          </label>
+
+          <label>
+            Telefon numarası
+            <input name="phone" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" required />
+          </label>
+
+          <label>
+            E-posta
+            <input name="email" type="email" placeholder="ornek@mail.com" autocomplete="email" required />
+          </label>
+
+          <label>
+            Şifre
+            <input name="password" type="password" minlength="6" placeholder="En az 6 karakter" autocomplete="new-password" required />
+          </label>
+
+          <button class="primary-action" type="submit">İş veren hesabı aç</button>
+        </form>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+  </body>
+</html>
