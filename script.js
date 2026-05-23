@@ -505,11 +505,22 @@ function addDays(days) {
   return toDateInputValue(date);
 }
 
-function addOneMonth() {
+function addTwoMonths() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
-  date.setMonth(date.getMonth() + 1);
+  date.setMonth(date.getMonth() + 2);
   return toDateInputValue(date);
+}
+
+function getWorkDateYear() {
+  return new Date().getFullYear();
+}
+
+function getWorkDateMaxValue() {
+  const maxDate = new Date(`${addTwoMonths()}T00:00:00`);
+  const yearEnd = new Date(getWorkDateYear(), 11, 31);
+  const capped = maxDate > yearEnd ? yearEnd : maxDate;
+  return toDateInputValue(capped);
 }
 
 function todayValue() {
@@ -534,7 +545,10 @@ function isExpiredListing(listing) {
 }
 
 function isAllowedWorkDate(workDate) {
-  return Boolean(workDate && workDate >= todayValue() && workDate <= addOneMonth());
+  if (!workDate) return false;
+  const year = workDate.slice(0, 4);
+  if (year !== String(getWorkDateYear())) return false;
+  return workDate >= todayValue() && workDate <= getWorkDateMaxValue();
 }
 
 function getRatingStars(score) {
@@ -973,9 +987,101 @@ function getStoredListings() {
   }
 }
 
-if (workDateInput) {
-  workDateInput.min = todayValue();
-  workDateInput.max = addOneMonth();
+const workDateDay = document.querySelector("#workDateDay");
+const workDateMonth = document.querySelector("#workDateMonth");
+const workDateYear = document.querySelector("#workDateYear");
+
+if (workDateInput && workDateDay && workDateMonth && workDateYear) {
+  const workDateMonthNames = [
+    "Ocak",
+    "Şubat",
+    "Mart",
+    "Nisan",
+    "Mayıs",
+    "Haziran",
+    "Temmuz",
+    "Ağustos",
+    "Eylül",
+    "Ekim",
+    "Kasım",
+    "Aralık",
+  ];
+
+  function parseWorkDateParts(value) {
+    const [year, month, day] = value.split("-").map(Number);
+    return { year, month, day };
+  }
+
+  function composeWorkDate(year, month, day) {
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  function getWorkDateBounds() {
+    return {
+      min: parseWorkDateParts(todayValue()),
+      max: parseWorkDateParts(getWorkDateMaxValue()),
+      year: getWorkDateYear(),
+    };
+  }
+
+  function getDaysInMonth(year, month) {
+    return new Date(year, month, 0).getDate();
+  }
+
+  function syncWorkDateInput() {
+    const { year } = getWorkDateBounds();
+    workDateInput.value = composeWorkDate(year, Number(workDateMonth.value), Number(workDateDay.value));
+  }
+
+  function populateWorkDateMonths() {
+    const { min, max, year } = getWorkDateBounds();
+    workDateYear.value = String(year);
+    workDateMonth.innerHTML = "";
+
+    for (let month = min.month; month <= max.month; month += 1) {
+      const option = document.createElement("option");
+      option.value = String(month);
+      option.textContent = workDateMonthNames[month - 1];
+      workDateMonth.appendChild(option);
+    }
+  }
+
+  function populateWorkDateDays() {
+    const { min, max, year } = getWorkDateBounds();
+    const month = Number(workDateMonth.value);
+    const startDay = month === min.month ? min.day : 1;
+    const endDay = month === max.month ? max.day : getDaysInMonth(year, month);
+
+    workDateDay.innerHTML = "";
+    for (let day = startDay; day <= endDay; day += 1) {
+      const option = document.createElement("option");
+      option.value = String(day);
+      option.textContent = String(day);
+      workDateDay.appendChild(option);
+    }
+
+    if (Number(workDateDay.value) < startDay) {
+      workDateDay.value = String(startDay);
+    } else if (Number(workDateDay.value) > endDay) {
+      workDateDay.value = String(endDay);
+    }
+  }
+
+  function initWorkDatePicker() {
+    populateWorkDateMonths();
+    workDateMonth.value = String(getWorkDateBounds().min.month);
+    populateWorkDateDays();
+    workDateDay.value = String(getWorkDateBounds().min.day);
+    syncWorkDateInput();
+  }
+
+  workDateMonth.addEventListener("change", () => {
+    populateWorkDateDays();
+    syncWorkDateInput();
+  });
+
+  workDateDay.addEventListener("change", syncWorkDateInput);
+  initWorkDatePicker();
 }
 
 if (listingImageInput && listingImagePreview) {
@@ -1299,7 +1405,7 @@ if (listingCreateForm) {
     }
 
     if (!isAllowedWorkDate(workDate)) {
-      showToast("İlan tarihi bugünden eski veya 1 aydan ileri olamaz.");
+      showToast("İlan tarihi bugünden eski, bu yılın dışında veya 2 aydan ileri olamaz.");
       return;
     }
 
