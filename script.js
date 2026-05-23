@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   getAuth,
   sendPasswordResetEmail,
+  signInAnonymously,
   signInWithEmailAndPassword,
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
@@ -66,9 +67,59 @@ function getFirebaseAuthMessage(error) {
     "auth/weak-password": "Şifre en az 6 karakter olmalı.",
     "auth/network-request-failed": "Bağlantı hatası oldu. İnternetini kontrol et.",
     "permission-denied": "Firestore yazma izni reddedildi. Firebase kurallarını kontrol etmek gerekiyor.",
+    "auth/operation-not-allowed":
+      "Firebase'de Anonim giriş kapalı. Console > Authentication > Sign-in method bölümünden Anonymous'u aç.",
   };
 
   return messages[code] || `Kayıt tamamlanamadı: ${error?.message || "Bilinmeyen hata"}`;
+}
+
+function getFirestoreErrorMessage(error) {
+  const code = error?.code || "";
+  const messages = {
+    "permission-denied":
+      "Firestore izni reddedildi. Firebase Console > Firestore > Rules kısmına firestore.rules dosyasını yapıştırıp yayınla.",
+    "invalid-argument": "İlan verisi Firestore'a uygun değil. Fotoğrafı küçültüp tekrar dene.",
+    "unavailable": "Firestore şu an ulaşılamıyor. Birkaç saniye sonra tekrar dene.",
+    "resource-exhausted": "İlan çok büyük. Daha küçük bir fotoğraf seç.",
+    "auth/operation-not-allowed":
+      "Anonim giriş kapalı. Firebase Console > Authentication > Anonymous sağlayıcısını etkinleştir.",
+  };
+
+  return messages[code] || error?.message || "Bilinmeyen Firestore hatası";
+}
+
+function sanitizeFirestoreData(value) {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeFirestoreData);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, entry]) => entry !== undefined)
+        .map(([key, entry]) => [key, sanitizeFirestoreData(entry)]),
+    );
+  }
+
+  return value;
+}
+
+async function ensureFirestoreAuth() {
+  if (auth.currentUser) return auth.currentUser;
+
+  const credential = await withTimeout(signInAnonymously(auth), 12000);
+  return credential.user;
+}
+
+function buildSharedListingPayload(listingData, image) {
+  const { id, createdAt, ...listingWithoutLocalMeta } = listingData;
+
+  return sanitizeFirestoreData({
+    ...listingWithoutLocalMeta,
+    image: image && image.length < 250000 ? image : "",
+    createdAt: serverTimestamp(),
+  });
 }
 
 function withTimeout(promise, milliseconds, code = "auth/timeout") {
@@ -1014,7 +1065,13 @@ function startSharedListingsFeed() {
     });
 }
 
-startSharedListingsFeed();
+ensureFirestoreAuth()
+  .catch((error) => {
+    console.warn("Firebase oturumu açılamadı:", error);
+  })
+  .finally(() => {
+    startSharedListingsFeed();
+  });
 
 function normalizeRemoteListing(snapshot) {
   const data = snapshot.data();
@@ -1524,14 +1581,16 @@ if (listingCreateForm) {
         submitButton.textContent = "İlan paylaşılıyor...";
       }
 
-      const sharedListing = {
-        ...listingData,
-        image: image && image.length < 700000 ? image : "",
-        createdAt: serverTimestamp(),
-      };
+      const authUser = await ensureFirestoreAuth();
+      if (!listingData.ownerUid) {
+        listingData.ownerUid = authUser.uid;
+      }
+
+      const sharedListing = buildSharedListingPayload(listingData, image);
       const listingRef = await withTimeout(addDoc(collection(db, "listings"), sharedListing), 12000);
       listingData.id = listingRef.id;
       listingData.createdAt = Date.now();
+      listingData.image = sharedListing.image || "";
       remoteListings = [
         listingData,
         ...remoteListings.filter((item) => String(item.id) !== String(listingData.id)),
@@ -1542,7 +1601,7 @@ if (listingCreateForm) {
       console.warn("Firestore ilan kaydı yazılamadı:", error);
       listings.unshift(listingData);
       localStorage.setItem("ustaListings", JSON.stringify(listings));
-      showToast("İlan yerel olarak kaydedildi. Firebase izinlerini kontrol etmek gerekiyor.");
+      showToast(`İlan yerel olarak kaydedildi. ${getFirestoreErrorMessage(error)}`);
     } finally {
       if (submitButton) {
         submitButton.disabled = false;
