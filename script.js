@@ -46,6 +46,8 @@ function getFirebaseAuthMessage(error) {
   const code = error?.code || "";
   const messages = {
     "auth/email-already-in-use": "Bu e-posta ile kayıtlı bir hesap var.",
+    "auth/configuration-not-found":
+      "Firebase Authentication açık değil. Console'da Authentication > Email/Password sağlayıcısını etkinleştir.",
     "auth/invalid-email": "E-posta adresi geçerli görünmüyor.",
     "auth/weak-password": "Şifre en az 6 karakter olmalı.",
     "auth/network-request-failed": "Bağlantı hatası oldu. İnternetini kontrol et.",
