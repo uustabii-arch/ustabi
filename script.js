@@ -592,6 +592,14 @@ function getCurrentUser() {
   }
 }
 
+function getAccountKey(user = getCurrentUser()) {
+  return user.uid || user.email || user.fullName || "guest";
+}
+
+function getNotificationStorageKey(accountKey = getAccountKey()) {
+  return `ustaNotificationInbox:${accountKey}`;
+}
+
 function getNotificationSettings() {
   try {
     return JSON.parse(localStorage.getItem("ustaNotifications")) || {};
@@ -600,25 +608,26 @@ function getNotificationSettings() {
   }
 }
 
-function getNotificationInbox() {
+function getNotificationInbox(accountKey = getAccountKey()) {
   try {
-    return JSON.parse(localStorage.getItem("ustaNotificationInbox")) || [];
+    return JSON.parse(localStorage.getItem(getNotificationStorageKey(accountKey))) || [];
   } catch {
     return [];
   }
 }
 
-function saveNotificationInbox(items) {
-  localStorage.setItem("ustaNotificationInbox", JSON.stringify(items));
+function saveNotificationInbox(items, accountKey = getAccountKey()) {
+  localStorage.setItem(getNotificationStorageKey(accountKey), JSON.stringify(items));
 }
 
-function pushNotification(notification) {
-  const inbox = getNotificationInbox();
+function pushNotification(notification, recipientKey = getAccountKey()) {
+  if (!recipientKey) return;
+  const inbox = getNotificationInbox(recipientKey);
   const withoutDuplicate = inbox.filter((item) => item.id !== notification.id);
   const nextInbox = [notification, ...withoutDuplicate].sort(
     (left, right) => new Date(right.time) - new Date(left.time),
   );
-  saveNotificationInbox(nextInbox);
+  saveNotificationInbox(nextInbox, recipientKey);
 }
 
 function syncRelatedOfferStatus(sourceOffer, status) {
@@ -634,6 +643,19 @@ function syncRelatedOfferStatus(sourceOffer, status) {
   });
 
   localStorage.setItem("ustaOffers", JSON.stringify(nextOffers));
+}
+
+function isOfferVisibleForAccount(offer, accountKey = getAccountKey()) {
+  if (!offer.requesterKey && !offer.ownerKey) return true;
+  if (offer.type === "sent") return offer.requesterKey === accountKey;
+  if (offer.type === "incoming") return offer.ownerKey === accountKey;
+  return offer.requesterKey === accountKey || offer.ownerKey === accountKey;
+}
+
+function saveVisibleOffersForAccount(updatedOffers, accountKey = getAccountKey()) {
+  const untouchedOffers = getStoredOffers().filter((offer) => !isOfferVisibleForAccount(offer, accountKey));
+  const visibleStoredOffers = updatedOffers.filter((offer) => !String(offer.id).startsWith("sample"));
+  localStorage.setItem("ustaOffers", JSON.stringify([...visibleStoredOffers, ...untouchedOffers]));
 }
 
 function formatNotificationTime(isoDate) {
@@ -667,58 +689,20 @@ function getNotificationTypeMark(type) {
 }
 
 function getDefaultNotificationInbox(role) {
-  const now = Date.now();
-  if (role === "employer") {
-    return [
-      {
-        id: "welcome-employer-1",
-        type: "offer",
-        title: "Yeni usta teklifi",
-        body: "Banyo fayans işine 3.800 ₺ teklif geldi.",
-        time: new Date(now - 45 * 60000).toISOString(),
-        read: false,
-        href: "teklifler.html",
-      },
-      {
-        id: "welcome-employer-2",
-        type: "message",
-        title: "Mesajın var",
-        body: "Usta, iş tarihini netleştirmek için yazdı.",
-        time: new Date(now - 3 * 3600000).toISOString(),
-        read: false,
-        href: "teklifler.html",
-      },
-    ];
-  }
-
-  return [
-    {
-      id: "welcome-master-1",
-      type: "offer",
-      title: "Teklifin inceleniyor",
-      body: "2+1 ev boya badana ilanına gönderdiğin teklif iş verene ulaştı.",
-      time: new Date(now - 30 * 60000).toISOString(),
-      read: false,
-      href: "teklifler.html",
-    },
-    {
-      id: "welcome-master-2",
-      type: "job",
-      title: "Yakınında yeni iş",
-      body: "Kadıköy'de elektrik tesisat işi yayınlandı.",
-      time: new Date(now - 2 * 3600000).toISOString(),
-      read: false,
-      href: "pazar.html",
-    },
-  ];
+  return [];
 }
 
-function mergeOfferNotifications(inbox) {
+function mergeOfferNotifications(inbox, accountKey = getAccountKey()) {
   const existingIds = new Set(inbox.map((item) => item.id));
   const merged = [...inbox];
 
   getStoredOffers()
-    .filter((offer) => offer.status === "Yeni" || offer.notificationTarget === "owner")
+    .filter(
+      (offer) =>
+        (offer.status === "Yeni" || offer.notificationTarget === "owner") &&
+        offer.ownerKey &&
+        offer.ownerKey === accountKey,
+    )
     .forEach((offer) => {
       const id = `offer-${offer.id}`;
       if (existingIds.has(id)) return;
@@ -1256,6 +1240,9 @@ if (listingCreateForm) {
 
     listings.unshift({
       id: Date.now(),
+      ownerKey: getAccountKey(currentUser),
+      ownerUid: currentUser.uid || "",
+      ownerEmail: currentUser.email || "",
       title: formData.get("title").trim(),
       category: formData.get("category"),
       city: formData.get("city"),
@@ -1274,6 +1261,7 @@ if (listingCreateForm) {
       image,
       owner: {
         name: currentUser.fullName || "İş veren",
+        key: getAccountKey(currentUser),
         rating: 10,
         reviewCount: 0,
       },
@@ -1477,30 +1465,33 @@ if (listingGrid) {
   function loadNotificationInbox() {
     const params = new URLSearchParams(window.location.search);
     const user = getUser();
+    const accountKey = getAccountKey(user);
     const role = params.get("role") || user.role || "master";
-    let inbox = getNotificationInbox();
+    let inbox = getNotificationInbox(accountKey);
 
     if (!inbox.length) {
       inbox = getDefaultNotificationInbox(role);
-      saveNotificationInbox(inbox);
+      saveNotificationInbox(inbox, accountKey);
     }
 
-    notificationInbox = mergeOfferNotifications(inbox);
-    saveNotificationInbox(notificationInbox);
+    notificationInbox = mergeOfferNotifications(inbox, accountKey);
+    saveNotificationInbox(notificationInbox, accountKey);
     renderNotificationInbox();
   }
 
   function markNotificationRead(notificationId) {
+    const accountKey = getAccountKey(getUser());
     notificationInbox = notificationInbox.map((item) =>
       item.id === notificationId ? { ...item, read: true } : item,
     );
-    saveNotificationInbox(notificationInbox);
+    saveNotificationInbox(notificationInbox, accountKey);
     renderNotificationInbox();
   }
 
   function markAllNotificationsReadHandler() {
+    const accountKey = getAccountKey(getUser());
     notificationInbox = notificationInbox.map((item) => ({ ...item, read: true }));
-    saveNotificationInbox(notificationInbox);
+    saveNotificationInbox(notificationInbox, accountKey);
     renderNotificationInbox();
     showToast("Tüm bildirimler okundu olarak işaretlendi.");
   }
@@ -1919,6 +1910,8 @@ if (listingDetail) {
       const amount = Number(formData.get("amount"));
       const message = formData.get("message").trim();
       const requesterName = user.fullName || user.profession || "Bir usta";
+      const requesterKey = getAccountKey(user);
+      const ownerKey = listing.ownerKey || listing.owner?.key || "";
       const requesterProfession = user.profession || `${listing.category || "Genel"} ustası`;
       const requesterRating = Number(user.rating || 9.1);
       const requesterReviewCount = Number(user.reviewCount || 12);
@@ -1930,6 +1923,12 @@ if (listingDetail) {
         message,
         type: "sent",
         status: "Gönderildi",
+        requesterKey,
+        requesterUid: user.uid || "",
+        requesterEmail: user.email || "",
+        ownerKey,
+        ownerUid: listing.ownerUid || "",
+        ownerEmail: listing.ownerEmail || "",
         requesterName,
         requesterProfession,
         requesterPhone: user.phone || "",
@@ -1949,19 +1948,24 @@ if (listingDetail) {
 
       saveOffer(sentOffer);
       saveOffer(ownerOffer);
-      pushNotification({
-        id: `offer-${ownerOffer.id}`,
-        type: "request",
-        title: "İlanına yeni talep geldi",
-        body: `${requesterName} "${listing.title}" ilanına ${amount.toLocaleString("tr-TR", {
-          style: "currency",
-          currency: "TRY",
-          maximumFractionDigits: 0,
-        })} teklif gönderdi.`,
-        time: createdAt,
-        read: false,
-        href: "teklifler.html?filter=incoming",
-      });
+      if (ownerKey && ownerKey !== requesterKey) {
+        pushNotification(
+          {
+            id: `offer-${ownerOffer.id}`,
+            type: "request",
+            title: "İlanına yeni talep geldi",
+            body: `${requesterName} "${listing.title}" ilanına ${amount.toLocaleString("tr-TR", {
+              style: "currency",
+              currency: "TRY",
+              maximumFractionDigits: 0,
+            })} teklif gönderdi.`,
+            time: createdAt,
+            read: false,
+            href: "teklifler.html?filter=incoming",
+          },
+          ownerKey,
+        );
+      }
 
       detailOfferForm.reset();
       showToast("Talep gönderildi. İlan sahibinin bildirim kutusuna düştü.");
@@ -2054,7 +2058,11 @@ if (offersList) {
       createdAt: new Date().toISOString(),
     },
   ];
-  let offers = [...getStoredOffers(), ...sampleOffers];
+  const currentOfferAccountKey = getAccountKey();
+  let offers = [
+    ...getStoredOffers().filter((offer) => isOfferVisibleForAccount(offer, currentOfferAccountKey)),
+    ...sampleOffers,
+  ];
   const initialOfferFilter = new URLSearchParams(window.location.search).get("filter") || "all";
   const masterReviewBackdrop = document.createElement("div");
   masterReviewBackdrop.className = "master-review-backdrop";
@@ -2163,10 +2171,7 @@ if (offersList) {
         ? { ...offer, status: offer.status === "Kabul edildi" ? "Gönderildi" : "Kabul edildi" }
         : offer,
     );
-    localStorage.setItem(
-      "ustaOffers",
-      JSON.stringify(offers.filter((offer) => !String(offer.id).startsWith("sample"))),
-    );
+    saveVisibleOffersForAccount(offers, currentOfferAccountKey);
     renderOffers(document.querySelector("[data-offer-filter].active").dataset.offerFilter);
     showToast("Teklif durumu güncellendi.");
   });
@@ -2189,10 +2194,7 @@ if (offersList) {
         ? { ...offer, status: nextStatus }
         : offer,
     );
-    localStorage.setItem(
-      "ustaOffers",
-      JSON.stringify(offers.filter((offer) => !String(offer.id).startsWith("sample"))),
-    );
+    saveVisibleOffersForAccount(offers, currentOfferAccountKey);
     if (selectedOffer) {
       syncRelatedOfferStatus(selectedOffer, nextStatus);
       pushNotification({
@@ -2203,7 +2205,7 @@ if (offersList) {
         time: new Date().toISOString(),
         read: false,
         href: "teklifler.html?filter=sent",
-      });
+      }, selectedOffer.requesterKey);
     }
     renderOffers(document.querySelector("[data-offer-filter].active").dataset.offerFilter);
     closeMasterReview();
