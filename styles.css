@@ -1189,6 +1189,28 @@ body:not(.auth-active) .auth-shell {
   display: grid;
 }
 
+.password-reset-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(49, 94, 159, 0.14);
+  border-radius: 8px;
+  background: #f7fbff;
+}
+
+.password-reset-form strong,
+.password-reset-form p {
+  margin: 0;
+}
+
+.password-reset-form p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .hidden-field {
   display: none;
 }

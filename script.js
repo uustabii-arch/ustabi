@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/fireba
 import {
   createUserWithEmailAndPassword,
   getAuth,
+  sendPasswordResetEmail,
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import {
@@ -45,7 +46,8 @@ function showToast(message) {
 function getFirebaseAuthMessage(error) {
   const code = error?.code || "";
   const messages = {
-    "auth/email-already-in-use": "Bu e-posta ile kayıtlı bir hesap var.",
+    "auth/email-already-in-use":
+      "Bu e-posta ile kayıtlı bir hesap var. Şifreni hatırlamıyorsan Şifremi unuttum alanından sıfırlama maili gönder.",
     "auth/configuration-not-found":
       "Firebase Authentication açık değil. Console'da Authentication > Email/Password sağlayıcısını etkinleştir.",
     "auth/invalid-email": "E-posta adresi geçerli görünmüyor.",
@@ -192,6 +194,47 @@ function handleRegister(form, role) {
 
 handleRegister(document.querySelector("#employerRegisterPage"), "employer");
 handleRegister(document.querySelector("#masterRegisterPage"), "master");
+
+document.querySelectorAll("[data-password-reset]").forEach((form) => {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = form.querySelector('button[type="submit"]');
+    const registerForm = form.closest(".auth-card")?.querySelector(".register-form");
+    const resetEmail = new FormData(form).get("resetEmail")?.trim();
+    const registerEmail = registerForm?.elements.email?.value?.trim();
+    const email = resetEmail || registerEmail;
+
+    if (!email) {
+      showToast("Şifre sıfırlama linki için e-posta adresini yaz.");
+      return;
+    }
+
+    try {
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Mail gönderiliyor...";
+      }
+
+      await sendPasswordResetEmail(auth, email);
+      showToast("Şifre sıfırlama maili gönderildi. Gelen kutunu kontrol et.");
+      form.reset();
+    } catch (error) {
+      const messages = {
+        "auth/invalid-email": "E-posta adresi geçerli görünmüyor.",
+        "auth/user-not-found": "Bu e-posta ile kayıtlı hesap bulunamadı.",
+        "auth/configuration-not-found":
+          "Firebase Authentication açık değil. Console'da Email/Password sağlayıcısını etkinleştir.",
+        "auth/network-request-failed": "Bağlantı hatası oldu. İnternetini kontrol et.",
+      };
+      showToast(messages[error?.code] || `Şifre sıfırlama maili gönderilemedi: ${error?.message || "Bilinmeyen hata"}`);
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "Şifremi unuttum";
+      }
+    }
+  });
+});
 
 const listingCreateForm = document.querySelector("#listingCreateForm");
 const listingImageInput = document.querySelector("#listingImageInput");
