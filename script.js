@@ -1,3 +1,38 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  updateProfile,
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import {
+  doc,
+  getFirestore,
+  serverTimestamp,
+  setDoc,
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+import {
+  getAnalytics,
+  isSupported as isAnalyticsSupported,
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDwp9YGeVKFQwi2FuVPCILzTkqvi87xAFw",
+  authDomain: "ustabi.firebaseapp.com",
+  projectId: "ustabi",
+  storageBucket: "ustabi.firebasestorage.app",
+  messagingSenderId: "957540789690",
+  appId: "1:957540789690:web:a260ca0816b7eaecc8c183",
+  measurementId: "G-PCN294TD1D",
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
+isAnalyticsSupported().then((supported) => {
+  if (supported) getAnalytics(firebaseApp);
+});
+
 const toast = document.querySelector("#toast");
 
 function showToast(message) {
@@ -5,6 +40,19 @@ function showToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
   window.setTimeout(() => toast.classList.remove("show"), 2400);
+}
+
+function getFirebaseAuthMessage(error) {
+  const code = error?.code || "";
+  const messages = {
+    "auth/email-already-in-use": "Bu e-posta ile kayıtlı bir hesap var.",
+    "auth/invalid-email": "E-posta adresi geçerli görünmüyor.",
+    "auth/weak-password": "Şifre en az 6 karakter olmalı.",
+    "auth/network-request-failed": "Bağlantı hatası oldu. İnternetini kontrol et.",
+    "permission-denied": "Firestore yazma izni reddedildi. Firebase kurallarını kontrol etmek gerekiyor.",
+  };
+
+  return messages[code] || `Kayıt tamamlanamadı: ${error?.message || "Bilinmeyen hata"}`;
 }
 
 function injectPageSwitcher() {
@@ -68,29 +116,75 @@ injectPageSwitcher();
 function handleRegister(form, role) {
   if (!form) return;
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(form);
-    const fullName = formData.get("fullName");
+    const submitButton = form.querySelector('button[type="submit"]');
+    const fullName = formData.get("fullName")?.trim();
+    const email = formData.get("email")?.trim();
+    const password = formData.get("password");
     const profession =
       formData.get("profession") === "Diğer"
-        ? formData.get("customProfession")
+        ? formData.get("customProfession")?.trim()
         : formData.get("profession");
-
-    localStorage.setItem(
-      "ustaUser",
-      JSON.stringify({
+    const userProfile = {
         role,
         fullName,
-        email: formData.get("email"),
+        email,
+        phone: formData.get("phone")?.trim() || "",
         profession,
-      }),
-    );
+        district: formData.get("district") || "",
+        experience: formData.get("experience") || "",
+        dailyRate: Number(formData.get("dailyRate") || 0),
+        bio: formData.get("bio")?.trim() || "",
+      };
 
-    showToast(`${fullName} için ${role === "master" ? "usta" : "iş veren"} hesabı hazır.`);
-    window.setTimeout(() => {
-      window.location.href = `pazar.html?role=${role}`;
-    }, 700);
+    try {
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Hesap açılıyor...";
+      }
+
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(credential.user, { displayName: fullName });
+      let profileSynced = true;
+
+      try {
+        await setDoc(doc(db, "users", credential.user.uid), {
+          ...userProfile,
+          uid: credential.user.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (profileError) {
+        profileSynced = false;
+        console.warn("Firestore profil kaydı yazılamadı:", profileError);
+      }
+
+      localStorage.setItem(
+        "ustaUser",
+        JSON.stringify({
+          ...userProfile,
+          uid: credential.user.uid,
+        }),
+      );
+
+      showToast(
+        profileSynced
+          ? `${fullName} için ${role === "master" ? "usta" : "iş veren"} hesabı Firebase'de açıldı.`
+          : "Hesap açıldı, profil verisi Firestore izni bekliyor.",
+      );
+      window.setTimeout(() => {
+        window.location.href = `pazar.html?role=${role}`;
+      }, 700);
+    } catch (error) {
+      showToast(getFirebaseAuthMessage(error));
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = role === "master" ? "Usta hesabı aç" : "İş veren hesabı aç";
+      }
+    }
   });
 }
 
