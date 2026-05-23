@@ -48,6 +48,7 @@ function showToast(message) {
 function getFirebaseAuthMessage(error) {
   const code = error?.code || "";
   const messages = {
+    "auth/timeout": "Firebase yanıt vermedi. Birkaç saniye sonra tekrar dene.",
     "auth/email-already-in-use":
       "Bu e-posta ile kayıtlı bir hesap var. Şifreni hatırlamıyorsan Şifremi unuttum alanından sıfırlama maili gönder.",
     "auth/configuration-not-found":
@@ -62,6 +63,22 @@ function getFirebaseAuthMessage(error) {
   };
 
   return messages[code] || `Kayıt tamamlanamadı: ${error?.message || "Bilinmeyen hata"}`;
+}
+
+function withTimeout(promise, milliseconds, code = "auth/timeout") {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      const error = new Error("İstek zaman aşımına uğradı.");
+      error.code = code;
+      reject(error);
+    }, milliseconds);
+  });
+
+  return Promise.race([
+    promise.finally(() => window.clearTimeout(timeoutId)),
+    timeout,
+  ]);
 }
 
 function injectPageSwitcher() {
@@ -155,17 +172,28 @@ function handleRegister(form, role) {
         submitButton.textContent = "Hesap açılıyor...";
       }
 
-      const credential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(credential.user, { displayName: fullName });
+      const credential = await withTimeout(
+        createUserWithEmailAndPassword(auth, email, password),
+        18000,
+      );
       let profileSynced = true;
 
       try {
-        await setDoc(doc(db, "users", credential.user.uid), {
-          ...userProfile,
-          uid: credential.user.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
+        await withTimeout(updateProfile(credential.user, { displayName: fullName }), 5000);
+      } catch (profileNameError) {
+        console.warn("Firebase displayName güncellenemedi:", profileNameError);
+      }
+
+      try {
+        await withTimeout(
+          setDoc(doc(db, "users", credential.user.uid), {
+            ...userProfile,
+            uid: credential.user.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }),
+          6000,
+        );
       } catch (profileError) {
         profileSynced = false;
         console.warn("Firestore profil kaydı yazılamadı:", profileError);
@@ -217,7 +245,10 @@ if (loginForm) {
         submitButton.textContent = "Giriş yapılıyor...";
       }
 
-      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const credential = await withTimeout(
+        signInWithEmailAndPassword(auth, email, password),
+        18000,
+      );
       let userProfile = {
         uid: credential.user.uid,
         fullName: credential.user.displayName || "Profil",
@@ -226,7 +257,7 @@ if (loginForm) {
       };
 
       try {
-        const profileSnapshot = await getDoc(doc(db, "users", credential.user.uid));
+        const profileSnapshot = await withTimeout(getDoc(doc(db, "users", credential.user.uid)), 6000);
         if (profileSnapshot.exists()) {
           userProfile = {
             ...userProfile,
@@ -287,7 +318,7 @@ document.querySelectorAll("[data-password-reset]").forEach((form) => {
         submitButton.textContent = "Mail gönderiliyor...";
       }
 
-      await sendPasswordResetEmail(auth, email);
+      await withTimeout(sendPasswordResetEmail(auth, email), 18000);
       showToast("Şifre sıfırlama maili gönderildi. Gelen kutunu kontrol et.");
       form.reset();
     } catch (error) {
