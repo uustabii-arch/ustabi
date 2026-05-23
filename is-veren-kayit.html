@@ -51,15 +51,15 @@
         </form>
 
         <form class="password-reset-form" data-password-reset>
-          <div>
-            <strong>Şifreni mi unuttun?</strong>
+          <button class="password-reset-toggle" type="button" data-password-reset-toggle>Şifremi unuttum</button>
+          <div class="password-reset-fields" hidden>
             <p>Kayıtlı e-postanı yaz, sıfırlama linki gönderelim.</p>
-          </div>
           <label>
             E-posta
             <input name="resetEmail" type="email" placeholder="ornek@mail.com" autocomplete="email" />
           </label>
-          <button class="ghost-action" type="submit">Şifremi unuttum</button>
+            <button class="ghost-action" type="submit">Sıfırlama maili gönder</button>
+          </div>
         </form>
       </section>
     </main>

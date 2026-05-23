@@ -196,6 +196,19 @@ handleRegister(document.querySelector("#employerRegisterPage"), "employer");
 handleRegister(document.querySelector("#masterRegisterPage"), "master");
 
 document.querySelectorAll("[data-password-reset]").forEach((form) => {
+  const toggleButton = form.querySelector("[data-password-reset-toggle]");
+  const fields = form.querySelector(".password-reset-fields");
+
+  toggleButton?.addEventListener("click", () => {
+    const isOpening = fields?.hidden;
+    if (!fields) return;
+
+    fields.hidden = !isOpening;
+    form.classList.toggle("open", isOpening);
+    toggleButton.setAttribute("aria-expanded", String(isOpening));
+    if (isOpening) fields.querySelector("input")?.focus();
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitButton = form.querySelector('button[type="submit"]');
@@ -230,7 +243,7 @@ document.querySelectorAll("[data-password-reset]").forEach((form) => {
     } finally {
       if (submitButton) {
         submitButton.disabled = false;
-        submitButton.textContent = "Şifremi unuttum";
+        submitButton.textContent = "Sıfırlama maili gönder";
       }
     }
   });
