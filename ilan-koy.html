@@ -73,7 +73,12 @@
           <div class="form-grid">
             <label>
               İş tarihi
-              <input name="workDate" id="workDateInput" type="date" required />
+              <div class="form-grid">
+                <select id="workDateDay" required aria-label="Gün"></select>
+                <select id="workDateMonth" required aria-label="Ay"></select>
+                <input id="workDateYear" type="text" readonly tabindex="-1" aria-label="Yıl" />
+              </div>
+              <input name="workDate" id="workDateInput" type="hidden" required />
             </label>
 
             <label>
