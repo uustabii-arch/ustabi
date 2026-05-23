@@ -1235,6 +1235,23 @@ body:not(.auth-active) .auth-shell {
   line-height: 1.45;
 }
 
+.auth-alt-link {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.auth-alt-link a {
+  color: var(--blue);
+  font-weight: 950;
+  text-decoration: none;
+}
+
+.auth-alt-link a:hover {
+  text-decoration: underline;
+}
+
 .hidden-field {
   display: none;
 }

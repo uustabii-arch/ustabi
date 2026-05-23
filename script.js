@@ -3,10 +3,12 @@ import {
   createUserWithEmailAndPassword,
   getAuth,
   sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import {
   doc,
+  getDoc,
   getFirestore,
   serverTimestamp,
   setDoc,
@@ -51,6 +53,9 @@ function getFirebaseAuthMessage(error) {
     "auth/configuration-not-found":
       "Firebase Authentication açık değil. Console'da Authentication > Email/Password sağlayıcısını etkinleştir.",
     "auth/invalid-email": "E-posta adresi geçerli görünmüyor.",
+    "auth/invalid-credential": "E-posta veya şifre hatalı.",
+    "auth/user-not-found": "Bu e-posta ile kayıtlı hesap bulunamadı.",
+    "auth/wrong-password": "Şifre hatalı. Şifreni hatırlamıyorsan sıfırlama maili gönderebilirsin.",
     "auth/weak-password": "Şifre en az 6 karakter olmalı.",
     "auth/network-request-failed": "Bağlantı hatası oldu. İnternetini kontrol et.",
     "permission-denied": "Firestore yazma izni reddedildi. Firebase kurallarını kontrol etmek gerekiyor.",
@@ -66,6 +71,7 @@ function injectPageSwitcher() {
     { href: "index.html", label: "Başlangıç" },
     { href: "is-veren-kayit.html", label: "İş veren kaydı" },
     { href: "usta-kayit.html", label: "Usta kaydı" },
+    { href: "giris.html", label: "Giriş yap" },
     { href: "pazar.html", label: "İlanlar" },
     { href: "ilan-koy.html", label: "İlan koy" },
     { href: "ilan-detay.html?id=1", label: "İlan detayı", match: "ilan-detay.html" },
@@ -194,6 +200,59 @@ function handleRegister(form, role) {
 
 handleRegister(document.querySelector("#employerRegisterPage"), "employer");
 handleRegister(document.querySelector("#masterRegisterPage"), "master");
+
+const loginForm = document.querySelector("#loginForm");
+
+if (loginForm) {
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = loginForm.querySelector('button[type="submit"]');
+    const formData = new FormData(loginForm);
+    const email = formData.get("email")?.trim();
+    const password = formData.get("password");
+
+    try {
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Giriş yapılıyor...";
+      }
+
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      let userProfile = {
+        uid: credential.user.uid,
+        fullName: credential.user.displayName || "Profil",
+        email: credential.user.email || email,
+        role: "master",
+      };
+
+      try {
+        const profileSnapshot = await getDoc(doc(db, "users", credential.user.uid));
+        if (profileSnapshot.exists()) {
+          userProfile = {
+            ...userProfile,
+            ...profileSnapshot.data(),
+            uid: credential.user.uid,
+          };
+        }
+      } catch (profileError) {
+        console.warn("Firestore profil kaydı okunamadı:", profileError);
+      }
+
+      localStorage.setItem("ustaUser", JSON.stringify(userProfile));
+      showToast("Giriş başarılı. Panele yönlendiriliyorsun.");
+      window.setTimeout(() => {
+        window.location.href = `pazar.html?role=${userProfile.role || "master"}`;
+      }, 700);
+    } catch (error) {
+      showToast(getFirebaseAuthMessage(error));
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "Giriş yap";
+      }
+    }
+  });
+}
 
 document.querySelectorAll("[data-password-reset]").forEach((form) => {
   const toggleButton = form.querySelector("[data-password-reset-toggle]");

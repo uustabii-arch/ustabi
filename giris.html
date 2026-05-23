@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>USTABI | İş veren kaydı</title>
+    <title>USTABI | Giriş yap</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="auth-active">
@@ -15,28 +15,18 @@
     </header>
 
     <main class="auth-shell form-page">
-      <section class="auth-intro" aria-labelledby="employer-title">
-        <h1 id="employer-title">İş veren hesabı aç</h1>
+      <section class="auth-intro" aria-labelledby="login-title">
+        <h1 id="login-title">Giriş yap</h1>
       </section>
 
-      <section class="auth-card" aria-labelledby="register-title">
+      <section class="auth-card" aria-labelledby="login-form-title">
         <div class="auth-card-head">
           <a class="back-button" href="index.html">← Seçime dön</a>
-          <p class="eyebrow">İş veren kaydı</p>
-          <h2 id="register-title">Hesabını oluştur</h2>
+          <p class="eyebrow">Kayıtlı hesap</p>
+          <h2 id="login-form-title">Hesabına gir</h2>
         </div>
 
-        <form class="register-form active" id="employerRegisterPage">
-          <label>
-            Ad soyad
-            <input name="fullName" type="text" placeholder="Örn. Arman Yılmaz" autocomplete="name" required />
-          </label>
-
-          <label>
-            Telefon numarası
-            <input name="phone" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" required />
-          </label>
-
+        <form class="register-form active" id="loginForm">
           <label>
             E-posta
             <input name="email" type="email" placeholder="ornek@mail.com" autocomplete="email" required />
@@ -44,26 +34,26 @@
 
           <label>
             Şifre
-            <input name="password" type="password" minlength="6" placeholder="En az 6 karakter" autocomplete="new-password" required />
+            <input name="password" type="password" minlength="6" placeholder="Şifren" autocomplete="current-password" required />
           </label>
 
-          <button class="primary-action" type="submit">İş veren hesabı aç</button>
+          <button class="primary-action" type="submit">Giriş yap</button>
         </form>
 
         <form class="password-reset-form" data-password-reset>
           <button class="password-reset-toggle" type="button" data-password-reset-toggle>Şifremi unuttum</button>
           <div class="password-reset-fields" hidden>
             <p>Kayıtlı e-postanı yaz, sıfırlama linki gönderelim.</p>
-          <label>
-            E-posta
-            <input name="resetEmail" type="email" placeholder="ornek@mail.com" autocomplete="email" />
-          </label>
+            <label>
+              E-posta
+              <input name="resetEmail" type="email" placeholder="ornek@mail.com" autocomplete="email" />
+            </label>
             <button class="ghost-action" type="submit">Sıfırlama maili gönder</button>
           </div>
         </form>
 
         <p class="auth-alt-link">
-          Zaten hesabın var mı? <a href="giris.html">Giriş yap</a>.
+          Hesabın yoksa <a href="index.html">hesap tipi seç</a>.
         </p>
       </section>
     </main>
