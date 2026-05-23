@@ -7,9 +7,14 @@ import {
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import {
+  addDoc,
+  collection,
   doc,
   getDoc,
   getFirestore,
+  onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
@@ -359,6 +364,7 @@ const identityPreview = document.querySelector("#identityPreview");
 const notificationForm = document.querySelector("#notificationForm");
 const offersList = document.querySelector("#offersList");
 const paymentForm = document.querySelector("#paymentForm");
+let remoteListings = [];
 
 const professionCategories = [
   "Boya",
@@ -915,7 +921,34 @@ const defaultListings = [
 ];
 
 function getAllListings() {
-  return [...getStoredListings(), ...defaultListings];
+  const listingMap = new Map();
+  [...remoteListings, ...getStoredListings(), ...defaultListings].forEach((listing) => {
+    listingMap.set(String(listing.id), listing);
+  });
+  return [...listingMap.values()];
+}
+
+function normalizeRemoteListing(snapshot) {
+  const data = snapshot.data();
+  return {
+    ...data,
+    id: snapshot.id,
+    budget: Number(data.budget || 0),
+    offers: Number(data.offers || 0),
+    featured: data.featured !== false,
+    owner: data.owner || { name: "İş veren", rating: 10, reviewCount: 0 },
+    master: data.master || { name: "Atanmadı", rating: 0, reviewCount: 0 },
+  };
+}
+
+async function getRemoteListing(listingId) {
+  try {
+    const snapshot = await withTimeout(getDoc(doc(db, "listings", listingId)), 8000);
+    return snapshot.exists() ? normalizeRemoteListing(snapshot) : null;
+  } catch (error) {
+    console.warn("Firestore ilanı okunamadı:", error);
+    return null;
+  }
 }
 
 function readImageAsDataUrl(file) {
@@ -1253,6 +1286,7 @@ if (listingCreateForm) {
   listingCreateForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(listingCreateForm);
+    const submitButton = listingCreateForm.querySelector('button[type="submit"]');
     const image = await readImageAsDataUrl(formData.get("image"));
     const workDate = formData.get("workDate");
     const listings = getStoredListings();
@@ -1269,7 +1303,7 @@ if (listingCreateForm) {
       return;
     }
 
-    listings.unshift({
+    const listingData = {
       id: Date.now(),
       ownerKey: getAccountKey(currentUser),
       ownerUid: currentUser.uid || "",
@@ -1301,10 +1335,35 @@ if (listingCreateForm) {
         rating: 0,
         reviewCount: 0,
       },
-    });
+      createdAt: Date.now(),
+    };
 
-    localStorage.setItem("ustaListings", JSON.stringify(listings));
-    showToast("İlan paylaşıldı. İlan sayfasına yönlendiriliyorsun.");
+    try {
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "İlan paylaşılıyor...";
+      }
+
+      const sharedListing = {
+        ...listingData,
+        image: image && image.length < 700000 ? image : "",
+        createdAt: serverTimestamp(),
+      };
+      const listingRef = await withTimeout(addDoc(collection(db, "listings"), sharedListing), 12000);
+      listingData.id = listingRef.id;
+      showToast("İlan paylaşıldı. Herkesin ana akışında görünecek.");
+    } catch (error) {
+      console.warn("Firestore ilan kaydı yazılamadı:", error);
+      listings.unshift(listingData);
+      localStorage.setItem("ustaListings", JSON.stringify(listings));
+      showToast("İlan yerel olarak kaydedildi. Firebase izinlerini kontrol etmek gerekiyor.");
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "İlanı paylaş";
+      }
+    }
+
     window.setTimeout(() => {
       window.location.href = "pazar.html";
     }, 700);
@@ -1329,7 +1388,7 @@ if (professionSelect && customProfessionField && customProfessionInput) {
 const listingGrid = document.querySelector("#listingGrid");
 
 if (listingGrid) {
-  const listings = getAllListings();
+  let listings = getAllListings();
 
   const categoryMarks = {
     Boya: "BO",
@@ -1685,6 +1744,22 @@ if (listingGrid) {
       ? filteredListings.map((listing) => listingCard(listing)).join("")
       : `<article class="listing-card"><h3>Sonuç bulunamadı</h3><p>Arama veya filtreyi genişletmeyi dene.</p></article>`;
   }
+
+  function listenSharedListings() {
+    const listingsQuery = query(collection(db, "listings"), orderBy("createdAt", "desc"));
+    return onSnapshot(
+      listingsQuery,
+      (snapshot) => {
+        remoteListings = snapshot.docs.map(normalizeRemoteListing);
+        listings = getAllListings();
+        renderListings();
+      },
+      (error) => {
+        console.warn("Ortak ilan akışı dinlenemedi:", error);
+      },
+    );
+  }
+
   featuredPrev?.addEventListener("click", () => {
     moveFeatured(-1);
     restartCarousel();
@@ -1752,6 +1827,7 @@ if (listingGrid) {
   setupProfile();
   setupNotifications();
   renderListings();
+  listenSharedListings();
 }
 
 function accountListingCard(listing, passive = false) {
@@ -1810,10 +1886,10 @@ if (pastJobsGrid) {
 const listingDetail = document.querySelector("#listingDetail");
 if (listingDetail) {
   const params = new URLSearchParams(window.location.search);
-  const listingId = Number(params.get("id"));
-  const listing = getAllListings().find((item) => Number(item.id) === listingId);
+  const listingId = params.get("id");
+  let listing = getAllListings().find((item) => String(item.id) === String(listingId));
 
-  if (!listing) {
+  function renderMissingListing() {
     listingDetail.innerHTML = `
       <section class="detail-empty">
         <p class="eyebrow">İlan bulunamadı</p>
@@ -1821,7 +1897,9 @@ if (listingDetail) {
         <a class="detail-back-link" href="pazar.html">İlanlara dön</a>
       </section>
     `;
-  } else {
+  }
+
+  function renderListingDetail(listing) {
     const imageSrc = getListingImage(listing);
     const inactive = isExpiredListing(listing);
     const owner = listing.owner || { name: "İş veren", rating: 10, reviewCount: 0 };
@@ -2014,6 +2092,24 @@ if (listingDetail) {
       showToast("İş tamamlandı olarak onaylandı ve puan kaydedildi.");
     });
   }
+
+  (async () => {
+    if (!listing && listingId) {
+      listingDetail.innerHTML = `
+        <section class="detail-empty">
+          <p class="eyebrow">İlan yükleniyor</p>
+          <h1>Ortak ilan akışı kontrol ediliyor.</h1>
+        </section>
+      `;
+      listing = await getRemoteListing(listingId);
+      if (listing) {
+        remoteListings = [listing, ...remoteListings.filter((item) => String(item.id) !== String(listing.id))];
+      }
+    }
+
+    if (!listing) renderMissingListing();
+    else renderListingDetail(listing);
+  })();
 }
 
 function getOfferMasterProfile(offer) {
