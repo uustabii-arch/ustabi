@@ -11,6 +11,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   getFirestore,
   onSnapshot,
   orderBy,
@@ -365,6 +366,8 @@ const notificationForm = document.querySelector("#notificationForm");
 const offersList = document.querySelector("#offersList");
 const paymentForm = document.querySelector("#paymentForm");
 let remoteListings = [];
+let sharedListingsUnsubscribe = null;
+const sharedListingListeners = new Set();
 
 const professionCategories = [
   "Boya",
@@ -936,11 +939,82 @@ const defaultListings = [
 
 function getAllListings() {
   const listingMap = new Map();
-  [...remoteListings, ...getStoredListings(), ...defaultListings].forEach((listing) => {
+  [...defaultListings, ...getStoredListings(), ...remoteListings].forEach((listing) => {
     listingMap.set(String(listing.id), listing);
   });
   return [...listingMap.values()];
 }
+
+function notifySharedListingListeners() {
+  const allListings = getAllListings();
+  sharedListingListeners.forEach((listener) => listener(allListings));
+}
+
+function subscribeSharedListings(listener) {
+  sharedListingListeners.add(listener);
+  listener(getAllListings());
+  return () => sharedListingListeners.delete(listener);
+}
+
+function isListingOwnedByCurrentUser(listing) {
+  const user = getCurrentUser();
+  const accountKey = getAccountKey(user);
+
+  return (
+    listing.ownerKey === accountKey ||
+    listing.ownerUid === user.uid ||
+    listing.owner?.key === accountKey ||
+    (user.email && listing.ownerEmail === user.email)
+  );
+}
+
+function getMyListings() {
+  return getAllListings().filter(isListingOwnedByCurrentUser);
+}
+
+function startSharedListingsFeed() {
+  if (sharedListingsUnsubscribe) return;
+
+  const applySnapshot = (snapshot) => {
+    remoteListings = snapshot.docs.map(normalizeRemoteListing);
+    notifySharedListingListeners();
+  };
+
+  const startFallbackFeed = () => {
+    if (sharedListingsUnsubscribe) {
+      sharedListingsUnsubscribe();
+    }
+
+    sharedListingsUnsubscribe = onSnapshot(
+      collection(db, "listings"),
+      applySnapshot,
+      (error) => {
+        console.warn("Ortak ilan akışı dinlenemedi:", error);
+      },
+    );
+  };
+
+  sharedListingsUnsubscribe = onSnapshot(
+    query(collection(db, "listings"), orderBy("createdAt", "desc")),
+    applySnapshot,
+    (error) => {
+      console.warn("Sıralı ilan akışı kullanılamadı, basit akışa geçiliyor:", error);
+      startFallbackFeed();
+    },
+  );
+
+  getDocs(collection(db, "listings"))
+    .then((snapshot) => {
+      if (!snapshot.empty) {
+        applySnapshot(snapshot);
+      }
+    })
+    .catch((error) => {
+      console.warn("Ortak ilanlar ilk yüklemede okunamadı:", error);
+    });
+}
+
+startSharedListingsFeed();
 
 function normalizeRemoteListing(snapshot) {
   const data = snapshot.data();
@@ -1457,7 +1531,13 @@ if (listingCreateForm) {
       };
       const listingRef = await withTimeout(addDoc(collection(db, "listings"), sharedListing), 12000);
       listingData.id = listingRef.id;
-      showToast("İlan paylaşıldı. Herkesin ana akışında görünecek.");
+      listingData.createdAt = Date.now();
+      remoteListings = [
+        listingData,
+        ...remoteListings.filter((item) => String(item.id) !== String(listingData.id)),
+      ];
+      notifySharedListingListeners();
+      showToast("İlan paylaşıldı. Tüm kullanıcıların ana akışında görünecek.");
     } catch (error) {
       console.warn("Firestore ilan kaydı yazılamadı:", error);
       listings.unshift(listingData);
@@ -1851,20 +1931,10 @@ if (listingGrid) {
       : `<article class="listing-card"><h3>Sonuç bulunamadı</h3><p>Arama veya filtreyi genişletmeyi dene.</p></article>`;
   }
 
-  function listenSharedListings() {
-    const listingsQuery = query(collection(db, "listings"), orderBy("createdAt", "desc"));
-    return onSnapshot(
-      listingsQuery,
-      (snapshot) => {
-        remoteListings = snapshot.docs.map(normalizeRemoteListing);
-        listings = getAllListings();
-        renderListings();
-      },
-      (error) => {
-        console.warn("Ortak ilan akışı dinlenemedi:", error);
-      },
-    );
-  }
+  subscribeSharedListings((allListings) => {
+    listings = allListings;
+    renderListings();
+  });
 
   featuredPrev?.addEventListener("click", () => {
     moveFeatured(-1);
@@ -1933,7 +2003,6 @@ if (listingGrid) {
   setupProfile();
   setupNotifications();
   renderListings();
-  listenSharedListings();
 }
 
 function accountListingCard(listing, passive = false) {
@@ -1975,18 +2044,28 @@ function accountListingCard(listing, passive = false) {
 
 const myListingsGrid = document.querySelector("#myListingsGrid");
 if (myListingsGrid) {
-  const listings = getStoredListings();
-  myListingsGrid.innerHTML = listings.length
-    ? listings.map((listing) => accountListingCard(listing, isExpiredListing(listing))).join("")
-    : `<article class="listing-card"><h3>${myListingsGrid.dataset.empty}</h3><p>İlan koyduğunda burada aktif ve pasif durumlarıyla görünür.</p></article>`;
+  function renderMyListings() {
+    const listings = getMyListings();
+    myListingsGrid.innerHTML = listings.length
+      ? listings.map((listing) => accountListingCard(listing, isExpiredListing(listing))).join("")
+      : `<article class="listing-card"><h3>${myListingsGrid.dataset.empty}</h3><p>İlan koyduğunda tüm kullanıcıların gördüğü ortak akışta yayınlanır.</p></article>`;
+  }
+
+  renderMyListings();
+  subscribeSharedListings(renderMyListings);
 }
 
 const pastJobsGrid = document.querySelector("#pastJobsGrid");
 if (pastJobsGrid) {
-  const expiredListings = getStoredListings().filter(isExpiredListing);
-  pastJobsGrid.innerHTML = expiredListings.length
-    ? expiredListings.map((listing) => accountListingCard(listing, true)).join("")
-    : `<article class="listing-card"><h3>${pastJobsGrid.dataset.empty}</h3><p>Süresi biten veya tamamlanan işler burada pasif olarak listelenecek.</p></article>`;
+  function renderPastJobs() {
+    const expiredListings = getMyListings().filter(isExpiredListing);
+    pastJobsGrid.innerHTML = expiredListings.length
+      ? expiredListings.map((listing) => accountListingCard(listing, true)).join("")
+      : `<article class="listing-card"><h3>${pastJobsGrid.dataset.empty}</h3><p>Süresi biten veya tamamlanan işler burada pasif olarak listelenecek.</p></article>`;
+  }
+
+  renderPastJobs();
+  subscribeSharedListings(renderPastJobs);
 }
 
 const listingDetail = document.querySelector("#listingDetail");
@@ -2199,6 +2278,16 @@ if (listingDetail) {
     });
   }
 
+  subscribeSharedListings((allListings) => {
+    if (!listingId) return;
+
+    const sharedListing = allListings.find((item) => String(item.id) === String(listingId));
+    if (!sharedListing) return;
+
+    listing = sharedListing;
+    renderListingDetail(listing);
+  });
+
   (async () => {
     if (!listing && listingId) {
       listingDetail.innerHTML = `
@@ -2210,6 +2299,7 @@ if (listingDetail) {
       listing = await getRemoteListing(listingId);
       if (listing) {
         remoteListings = [listing, ...remoteListings.filter((item) => String(item.id) !== String(listing.id))];
+        notifySharedListingListeners();
       }
     }
 
