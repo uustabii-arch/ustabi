@@ -1089,9 +1089,9 @@ button:disabled,
 
 .featured-card.colored-listing,
 .listing-card.colored-listing {
-  border-color: rgba(246, 189, 47, 0.58);
+  border-color: rgba(219, 39, 119, 0.42);
   background:
-    linear-gradient(135deg, rgba(246, 189, 47, 0.14), rgba(47, 143, 107, 0.08)),
+    linear-gradient(135deg, rgba(252, 231, 243, 0.92), rgba(244, 114, 182, 0.16)),
     var(--surface);
 }
 
@@ -1272,8 +1272,8 @@ button:disabled,
 }
 
 .promo-badge {
-  background: #fff1bf;
-  color: #8a5e00;
+  background: #fce7f3;
+  color: #be185d;
 }
 
 .featured-card .job-action {
