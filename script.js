@@ -19,6 +19,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  where,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 import {
   getAnalytics,
@@ -440,8 +441,11 @@ const notificationForm = document.querySelector("#notificationForm");
 const offersList = document.querySelector("#offersList");
 const paymentForm = document.querySelector("#paymentForm");
 let remoteListings = [];
+let remoteNotifications = [];
 let sharedListingsUnsubscribe = null;
+let sharedNotificationsUnsubscribe = null;
 const sharedListingListeners = new Set();
+const sharedNotificationListeners = new Set();
 
 const professionCategories = [
   "Boya",
@@ -758,6 +762,208 @@ function pushNotification(notification, recipientKey = getAccountKey()) {
   saveNotificationInbox(nextInbox, recipientKey);
 }
 
+function resolveListingOwnerKey(listing) {
+  return (
+    listing.ownerKey ||
+    listing.owner?.key ||
+    listing.ownerUid ||
+    listing.ownerEmail ||
+    ""
+  );
+}
+
+function buildOfferOwnerNotification(ownerOffer, requesterName, listingTitle, amount) {
+  return {
+    id: `offer-${ownerOffer.id}`,
+    type: "offer",
+    title: "İlanına yeni teklif",
+    body: `${requesterName} "${listingTitle}" ilanına ${amount.toLocaleString("tr-TR", {
+      style: "currency",
+      currency: "TRY",
+      maximumFractionDigits: 0,
+    })} teklif gönderdi.`,
+    time: ownerOffer.createdAt || new Date().toISOString(),
+    read: false,
+    href: "teklifler.html?filter=incoming",
+    offerId: ownerOffer.id,
+    listingId: ownerOffer.listingId,
+  };
+}
+
+async function publishOwnerNotification(notification, recipientKey, recipientUid = "") {
+  if (!recipientKey && !recipientUid) return;
+
+  pushNotification(notification, recipientKey);
+
+  try {
+    await ensureFirestoreAuth();
+    await addDoc(
+      collection(db, "notifications"),
+      sanitizeFirestoreData({
+        ...notification,
+        recipientKey,
+        recipientUid,
+        read: false,
+        createdAt: Date.now(),
+      }),
+    );
+  } catch (error) {
+    console.warn("Bildirim Firestore kaydı yazılamadı:", error);
+  }
+}
+
+async function publishOffersToFirestore(sentOffer, ownerOffer) {
+  try {
+    await ensureFirestoreAuth();
+    await addDoc(collection(db, "offers"), sanitizeFirestoreData(sentOffer));
+    await addDoc(collection(db, "offers"), sanitizeFirestoreData(ownerOffer));
+  } catch (error) {
+    console.warn("Teklif Firestore kaydı yazılamadı:", error);
+  }
+}
+
+let remoteOffers = [];
+let sharedOffersUnsubscribe = null;
+
+function normalizeRemoteOffer(snapshot) {
+  const data = snapshot.data();
+  return {
+    ...data,
+    id: data.id || snapshot.id,
+    amount: Number(data.amount || 0),
+  };
+}
+
+function startSharedOffersFeed(accountKey, uid, onUpdate) {
+  if (sharedOffersUnsubscribe) {
+    sharedOffersUnsubscribe();
+    sharedOffersUnsubscribe = null;
+  }
+
+  const offerMap = new Map();
+  const applyOffers = () => {
+    remoteOffers = [...offerMap.values()];
+    onUpdate();
+  };
+
+  const ingestOffers = (snapshot) => {
+    snapshot.docs.forEach((docSnapshot) => {
+      offerMap.set(docSnapshot.id, normalizeRemoteOffer(docSnapshot));
+    });
+    applyOffers();
+  };
+
+  const queries = [];
+  if (accountKey) {
+    queries.push(query(collection(db, "offers"), where("ownerKey", "==", accountKey)));
+    queries.push(query(collection(db, "offers"), where("requesterKey", "==", accountKey)));
+  }
+  if (uid) {
+    queries.push(query(collection(db, "offers"), where("ownerUid", "==", uid)));
+    queries.push(query(collection(db, "offers"), where("requesterUid", "==", uid)));
+  }
+
+  const unsubscribers = queries.map((offersQuery) =>
+    onSnapshot(offersQuery, ingestOffers, (error) => console.warn("Teklif akışı dinlenemedi:", error)),
+  );
+
+  sharedOffersUnsubscribe = () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+}
+
+function normalizeRemoteNotification(snapshot) {
+  const data = snapshot.data();
+  return {
+    id: data.id || snapshot.id,
+    type: data.type || "offer",
+    title: data.title || "Yeni bildirim",
+    body: data.body || "",
+    time: data.time || new Date(data.createdAt || Date.now()).toISOString(),
+    read: Boolean(data.read),
+    href: data.href || "teklifler.html?filter=incoming",
+    offerId: data.offerId || "",
+    listingId: data.listingId || "",
+  };
+}
+
+function notifyNotificationFeedListeners() {
+  sharedNotificationListeners.forEach((listener) => listener());
+}
+
+function subscribeNotificationFeed(listener) {
+  sharedNotificationListeners.add(listener);
+  listener();
+  return () => sharedNotificationListeners.delete(listener);
+}
+
+function mergeRemoteNotifications(inbox) {
+  const existingIds = new Set(inbox.map((item) => item.id));
+  const merged = [...inbox];
+
+  remoteNotifications.forEach((notification) => {
+    if (existingIds.has(notification.id)) return;
+    merged.unshift({
+      id: notification.id,
+      type: notification.type || "offer",
+      title: notification.title,
+      body: notification.body,
+      time: notification.time,
+      read: notification.read,
+      href: notification.href || "teklifler.html?filter=incoming",
+    });
+    existingIds.add(notification.id);
+  });
+
+  return merged.sort((left, right) => new Date(right.time) - new Date(left.time));
+}
+
+function startSharedNotificationsFeed() {
+  const user = getCurrentUser();
+  const accountKey = getAccountKey(user);
+  const uid = user.uid || "";
+
+  if (!accountKey && !uid) return;
+  if (sharedNotificationsUnsubscribe) {
+    sharedNotificationsUnsubscribe();
+    sharedNotificationsUnsubscribe = null;
+  }
+
+  const notificationMap = new Map();
+
+  const applyNotifications = () => {
+    remoteNotifications = [...notificationMap.values()];
+    notifyNotificationFeedListeners();
+  };
+
+  const ingestSnapshot = (snapshot) => {
+    snapshot.docs.forEach((docSnapshot) => {
+      notificationMap.set(docSnapshot.id, normalizeRemoteNotification(docSnapshot));
+    });
+    applyNotifications();
+  };
+
+  const queries = [];
+
+  if (accountKey) {
+    queries.push(query(collection(db, "notifications"), where("recipientKey", "==", accountKey)));
+  }
+
+  if (uid) {
+    queries.push(query(collection(db, "notifications"), where("recipientUid", "==", uid)));
+  }
+
+  const unsubscribers = queries.map((notificationsQuery) =>
+    onSnapshot(
+      notificationsQuery,
+      ingestSnapshot,
+      (error) => console.warn("Bildirim akışı dinlenemedi:", error),
+    ),
+  );
+
+  sharedNotificationsUnsubscribe = () => {
+    unsubscribers.forEach((unsubscribe) => unsubscribe());
+  };
+}
+
 function syncRelatedOfferStatus(sourceOffer, status) {
   const offers = getStoredOffers();
   const nextOffers = offers.map((offer) => {
@@ -827,9 +1033,9 @@ function mergeOfferNotifications(inbox, accountKey = getAccountKey()) {
   getStoredOffers()
     .filter(
       (offer) =>
-        (offer.status === "Yeni" || offer.notificationTarget === "owner") &&
-        offer.ownerKey &&
-        offer.ownerKey === accountKey,
+        offer.type === "incoming" &&
+        offer.ownerKey === accountKey &&
+        (offer.status === "Yeni" || offer.status === "Gönderildi"),
     )
     .forEach((offer) => {
       const id = `offer-${offer.id}`;
@@ -843,22 +1049,12 @@ function mergeOfferNotifications(inbox, accountKey = getAccountKey()) {
 
       merged.unshift({
         id,
-        type: offer.notificationTarget === "owner" ? "request" : "offer",
-        title:
-          offer.notificationTarget === "owner"
-            ? "İlanına yeni talep geldi"
-            : offer.type === "incoming"
-              ? "Yeni teklif"
-              : "Teklif gönderildi",
-        body:
-          offer.notificationTarget === "owner"
-            ? `${offer.requesterName || "Bir usta"} "${offer.listingTitle}" ilanına ${amount} teklif gönderdi.`
-            : offer.type === "incoming"
-            ? `${offer.listingTitle} ilanına ${amount} teklif geldi.`
-            : `${offer.listingTitle} ilanına ${amount} teklifin kaydedildi.`,
+        type: "offer",
+        title: "İlanına yeni teklif",
+        body: `${offer.requesterName || "Bir usta"} "${offer.listingTitle}" ilanına ${amount} teklif gönderdi.`,
         time: offer.createdAt || new Date().toISOString(),
         read: false,
-        href: offer.notificationTarget === "owner" ? "teklifler.html?filter=incoming" : "teklifler.html",
+        href: "teklifler.html?filter=incoming",
       });
       existingIds.add(id);
     });
@@ -1094,17 +1290,23 @@ ensureFirestoreAuth()
   })
   .finally(() => {
     startSharedListingsFeed();
+    startSharedNotificationsFeed();
   });
 
 function normalizeRemoteListing(snapshot) {
   const data = snapshot.data();
+  const owner = data.owner || { name: "İş veren", rating: 10, reviewCount: 0 };
+
   return {
     ...data,
     id: snapshot.id,
+    ownerKey: data.ownerKey || owner.key || data.ownerUid || data.ownerEmail || "",
+    ownerUid: data.ownerUid || "",
+    ownerEmail: data.ownerEmail || "",
     budget: Number(data.budget || 0),
     offers: Number(data.offers || 0),
     featured: data.featured !== false,
-    owner: data.owner || { name: "İş veren", rating: 10, reviewCount: 0 },
+    owner,
     master: data.master || { name: "Atanmadı", rating: 0, reviewCount: 0 },
   };
 }
@@ -1881,6 +2083,7 @@ if (listingGrid) {
     }
 
     notificationInbox = mergeOfferNotifications(inbox, accountKey);
+    notificationInbox = mergeRemoteNotifications(notificationInbox);
     saveNotificationInbox(notificationInbox, accountKey);
     renderNotificationInbox();
   }
@@ -1906,6 +2109,9 @@ if (listingGrid) {
     if (!notificationButton || !notificationPanel || !notificationList) return;
 
     loadNotificationInbox();
+    subscribeNotificationFeed(() => {
+      loadNotificationInbox();
+    });
 
     notificationButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -2335,7 +2541,7 @@ if (listingDetail) {
       const message = formData.get("message").trim();
       const requesterName = user.fullName || user.profession || "Bir usta";
       const requesterKey = getAccountKey(user);
-      const ownerKey = listing.ownerKey || listing.owner?.key || "";
+      const ownerKey = resolveListingOwnerKey(listing);
       const requesterProfession = user.profession || `${listing.category || "Genel"} ustası`;
       const requesterRating = Number(user.rating || 9.1);
       const requesterReviewCount = Number(user.reviewCount || 12);
@@ -2372,27 +2578,26 @@ if (listingDetail) {
 
       saveOffer(sentOffer);
       saveOffer(ownerOffer);
+
+      const ownerNotification = buildOfferOwnerNotification(
+        ownerOffer,
+        requesterName,
+        listing.title,
+        amount,
+      );
+
       if (ownerKey && ownerKey !== requesterKey) {
-        pushNotification(
-          {
-            id: `offer-${ownerOffer.id}`,
-            type: "request",
-            title: "İlanına yeni talep geldi",
-            body: `${requesterName} "${listing.title}" ilanına ${amount.toLocaleString("tr-TR", {
-              style: "currency",
-              currency: "TRY",
-              maximumFractionDigits: 0,
-            })} teklif gönderdi.`,
-            time: createdAt,
-            read: false,
-            href: "teklifler.html?filter=incoming",
-          },
-          ownerKey,
-        );
+        publishOwnerNotification(ownerNotification, ownerKey, listing.ownerUid || "");
       }
 
+      publishOffersToFirestore(sentOffer, ownerOffer);
+
       detailOfferForm.reset();
-      showToast("Talep gönderildi. İlan sahibinin bildirim kutusuna düştü.");
+      showToast(
+        ownerKey && ownerKey !== requesterKey
+          ? "Teklif gönderildi. İlan sahibine bildirim düştü."
+          : "Teklif gönderildi.",
+      );
     });
 
     const ratingForm = document.querySelector("#ratingForm");
@@ -2511,12 +2716,26 @@ if (offersList) {
       createdAt: new Date().toISOString(),
     },
   ];
-  const currentOfferAccountKey = getAccountKey();
+  const currentUser = getCurrentUser();
+  const currentOfferAccountKey = getAccountKey(currentUser);
+  const currentOfferUid = currentUser.uid || "";
   let offers = [
     ...getStoredOffers().filter((offer) => isOfferVisibleForAccount(offer, currentOfferAccountKey)),
     ...sampleOffers,
   ];
   const initialOfferFilter = new URLSearchParams(window.location.search).get("filter") || "all";
+
+  function mergeVisibleOffers() {
+    const offerMap = new Map();
+    [
+      ...getStoredOffers().filter((offer) => isOfferVisibleForAccount(offer, currentOfferAccountKey)),
+      ...sampleOffers,
+      ...remoteOffers.filter((offer) => isOfferVisibleForAccount(offer, currentOfferAccountKey)),
+    ].forEach((offer) => {
+      offerMap.set(String(offer.id), offer);
+    });
+    offers = [...offerMap.values()];
+  }
   const masterReviewBackdrop = document.createElement("div");
   masterReviewBackdrop.className = "master-review-backdrop";
   masterReviewBackdrop.hidden = true;
@@ -2594,6 +2813,7 @@ if (offersList) {
   }
 
   function renderOffers(filter = "all") {
+    mergeVisibleOffers();
     const filtered = filter === "all" ? offers : offers.filter((offer) => offer.type === filter);
     offersList.innerHTML = filtered.length
       ? filtered.map(offerCard).join("")
@@ -2675,6 +2895,18 @@ if (offersList) {
   document.querySelectorAll("[data-offer-filter]").forEach((item) => item.classList.remove("active"));
   initialOfferFilterButton?.classList.add("active");
   renderOffers(initialOfferFilterButton?.dataset.offerFilter || "all");
+
+  ensureFirestoreAuth()
+    .catch((error) => {
+      console.warn("Teklif akışı için oturum açılamadı:", error);
+    })
+    .finally(() => {
+      startSharedOffersFeed(currentOfferAccountKey, currentOfferUid, () => {
+        renderOffers(
+          document.querySelector("[data-offer-filter].active")?.dataset.offerFilter || "all",
+        );
+      });
+    });
 }
 
 function setupInviteButtons() {
