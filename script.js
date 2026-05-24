@@ -19,7 +19,6 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  where,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 import {
   getAnalytics,
@@ -764,11 +763,41 @@ function pushNotification(notification, recipientKey = getAccountKey()) {
 
 function resolveListingOwnerKey(listing) {
   return (
+    listing.ownerUid ||
     listing.ownerKey ||
     listing.owner?.key ||
-    listing.ownerUid ||
     listing.ownerEmail ||
     ""
+  );
+}
+
+function getOwnerRecipientKeys(listing) {
+  const keys = new Set();
+  if (listing.ownerUid) keys.add(listing.ownerUid);
+  if (listing.ownerKey) keys.add(listing.ownerKey);
+  if (listing.ownerEmail) keys.add(listing.ownerEmail);
+  if (listing.owner?.key) keys.add(listing.owner.key);
+  return [...keys];
+}
+
+function getAllOffers() {
+  const offerMap = new Map();
+  [...getStoredOffers(), ...remoteOffers].forEach((offer) => {
+    offerMap.set(String(offer.id), offer);
+  });
+  return [...offerMap.values()];
+}
+
+function isIncomingOfferForAccount(offer, accountKey = getAccountKey(), user = getCurrentUser()) {
+  if (offer.type !== "incoming") return false;
+
+  const uid = user.uid || "";
+  const email = user.email || "";
+
+  return (
+    offer.ownerKey === accountKey ||
+    (uid && offer.ownerUid === uid) ||
+    (email && offer.ownerEmail === email)
   );
 }
 
@@ -790,19 +819,24 @@ function buildOfferOwnerNotification(ownerOffer, requesterName, listingTitle, am
   };
 }
 
-async function publishOwnerNotification(notification, recipientKey, recipientUid = "") {
-  if (!recipientKey && !recipientUid) return;
+async function publishOwnerNotification(notification, listing) {
+  const recipientKeys = getOwnerRecipientKeys(listing);
+  if (!recipientKeys.length) return;
 
-  pushNotification(notification, recipientKey);
+  recipientKeys.forEach((recipientKey) => {
+    pushNotification(notification, recipientKey);
+  });
 
   try {
     await ensureFirestoreAuth();
-    await addDoc(
-      collection(db, "notifications"),
+    await setDoc(
+      doc(db, "notifications", String(notification.id)),
       sanitizeFirestoreData({
         ...notification,
-        recipientKey,
-        recipientUid,
+        recipientKey: listing.ownerUid || listing.ownerKey || listing.ownerEmail || "",
+        recipientUid: listing.ownerUid || "",
+        recipientEmail: listing.ownerEmail || "",
+        recipientKeys,
         read: false,
         createdAt: Date.now(),
       }),
@@ -813,17 +847,14 @@ async function publishOwnerNotification(notification, recipientKey, recipientUid
 }
 
 async function publishOffersToFirestore(sentOffer, ownerOffer) {
-  try {
-    await ensureFirestoreAuth();
-    await addDoc(collection(db, "offers"), sanitizeFirestoreData(sentOffer));
-    await addDoc(collection(db, "offers"), sanitizeFirestoreData(ownerOffer));
-  } catch (error) {
-    console.warn("Teklif Firestore kaydı yazılamadı:", error);
-  }
+  await ensureFirestoreAuth();
+  await setDoc(doc(db, "offers", String(sentOffer.id)), sanitizeFirestoreData(sentOffer));
+  await setDoc(doc(db, "offers", String(ownerOffer.id)), sanitizeFirestoreData(ownerOffer));
 }
 
 let remoteOffers = [];
 let sharedOffersUnsubscribe = null;
+const sharedOfferListeners = new Set();
 
 function normalizeRemoteOffer(snapshot) {
   const data = snapshot.data();
@@ -834,40 +865,30 @@ function normalizeRemoteOffer(snapshot) {
   };
 }
 
-function startSharedOffersFeed(accountKey, uid, onUpdate) {
-  if (sharedOffersUnsubscribe) {
-    sharedOffersUnsubscribe();
-    sharedOffersUnsubscribe = null;
-  }
+function notifyOfferFeedListeners() {
+  sharedOfferListeners.forEach((listener) => listener());
+}
 
-  const offerMap = new Map();
-  const applyOffers = () => {
-    remoteOffers = [...offerMap.values()];
-    onUpdate();
-  };
+function subscribeOfferFeed(listener) {
+  sharedOfferListeners.add(listener);
+  listener();
+  return () => sharedOfferListeners.delete(listener);
+}
 
-  const ingestOffers = (snapshot) => {
-    snapshot.docs.forEach((docSnapshot) => {
-      offerMap.set(docSnapshot.id, normalizeRemoteOffer(docSnapshot));
-    });
-    applyOffers();
-  };
+function startGlobalOffersFeed() {
+  if (sharedOffersUnsubscribe) return;
 
-  const queries = [];
-  if (accountKey) {
-    queries.push(query(collection(db, "offers"), where("ownerKey", "==", accountKey)));
-    queries.push(query(collection(db, "offers"), where("requesterKey", "==", accountKey)));
-  }
-  if (uid) {
-    queries.push(query(collection(db, "offers"), where("ownerUid", "==", uid)));
-    queries.push(query(collection(db, "offers"), where("requesterUid", "==", uid)));
-  }
-
-  const unsubscribers = queries.map((offersQuery) =>
-    onSnapshot(offersQuery, ingestOffers, (error) => console.warn("Teklif akışı dinlenemedi:", error)),
+  sharedOffersUnsubscribe = onSnapshot(
+    collection(db, "offers"),
+    (snapshot) => {
+      remoteOffers = snapshot.docs.map((docSnapshot) => normalizeRemoteOffer(docSnapshot));
+      notifyOfferFeedListeners();
+      notifyNotificationFeedListeners();
+    },
+    (error) => {
+      console.warn("Teklif akışı dinlenemedi:", error);
+    },
   );
-
-  sharedOffersUnsubscribe = () => unsubscribers.forEach((unsubscribe) => unsubscribe());
 }
 
 function normalizeRemoteNotification(snapshot) {
@@ -882,6 +903,10 @@ function normalizeRemoteNotification(snapshot) {
     href: data.href || "teklifler.html?filter=incoming",
     offerId: data.offerId || "",
     listingId: data.listingId || "",
+    recipientKey: data.recipientKey || "",
+    recipientUid: data.recipientUid || "",
+    recipientEmail: data.recipientEmail || "",
+    recipientKeys: Array.isArray(data.recipientKeys) ? data.recipientKeys : [],
   };
 }
 
@@ -895,73 +920,71 @@ function subscribeNotificationFeed(listener) {
   return () => sharedNotificationListeners.delete(listener);
 }
 
-function mergeRemoteNotifications(inbox) {
+function mergeRemoteNotifications(inbox, accountKey = getAccountKey(), user = getCurrentUser()) {
   const existingIds = new Set(inbox.map((item) => item.id));
   const merged = [...inbox];
 
-  remoteNotifications.forEach((notification) => {
-    if (existingIds.has(notification.id)) return;
-    merged.unshift({
-      id: notification.id,
-      type: notification.type || "offer",
-      title: notification.title,
-      body: notification.body,
-      time: notification.time,
-      read: notification.read,
-      href: notification.href || "teklifler.html?filter=incoming",
+  remoteNotifications
+    .filter((notification) => notificationMatchesAccount(notification, accountKey, user))
+    .forEach((notification) => {
+      if (existingIds.has(notification.id)) return;
+      merged.unshift({
+        id: notification.id,
+        type: notification.type || "offer",
+        title: notification.title,
+        body: notification.body,
+        time: notification.time,
+        read: notification.read,
+        href: notification.href || "teklifler.html?filter=incoming",
+      });
+      existingIds.add(notification.id);
     });
-    existingIds.add(notification.id);
-  });
 
   return merged.sort((left, right) => new Date(right.time) - new Date(left.time));
 }
 
-function startSharedNotificationsFeed() {
-  const user = getCurrentUser();
-  const accountKey = getAccountKey(user);
+function notificationMatchesAccount(notification, accountKey, user = getCurrentUser()) {
   const uid = user.uid || "";
+  const email = user.email || "";
+  const recipientKeys = Array.isArray(notification.recipientKeys) ? notification.recipientKeys : [];
 
-  if (!accountKey && !uid) return;
+  return (
+    notification.recipientKey === accountKey ||
+    (uid && notification.recipientUid === uid) ||
+    (email && notification.recipientEmail === email) ||
+    recipientKeys.includes(accountKey) ||
+    (uid && recipientKeys.includes(uid)) ||
+    (email && recipientKeys.includes(email))
+  );
+}
+
+function startGlobalNotificationsFeed() {
+  if (sharedNotificationsUnsubscribe) return;
+
+  sharedNotificationsUnsubscribe = onSnapshot(
+    collection(db, "notifications"),
+    (snapshot) => {
+      remoteNotifications = snapshot.docs.map((docSnapshot) => normalizeRemoteNotification(docSnapshot));
+      notifyNotificationFeedListeners();
+    },
+    (error) => {
+      console.warn("Bildirim akışı dinlenemedi:", error);
+    },
+  );
+}
+
+function restartSharedFeeds() {
+  if (sharedOffersUnsubscribe) {
+    sharedOffersUnsubscribe();
+    sharedOffersUnsubscribe = null;
+  }
   if (sharedNotificationsUnsubscribe) {
     sharedNotificationsUnsubscribe();
     sharedNotificationsUnsubscribe = null;
   }
 
-  const notificationMap = new Map();
-
-  const applyNotifications = () => {
-    remoteNotifications = [...notificationMap.values()];
-    notifyNotificationFeedListeners();
-  };
-
-  const ingestSnapshot = (snapshot) => {
-    snapshot.docs.forEach((docSnapshot) => {
-      notificationMap.set(docSnapshot.id, normalizeRemoteNotification(docSnapshot));
-    });
-    applyNotifications();
-  };
-
-  const queries = [];
-
-  if (accountKey) {
-    queries.push(query(collection(db, "notifications"), where("recipientKey", "==", accountKey)));
-  }
-
-  if (uid) {
-    queries.push(query(collection(db, "notifications"), where("recipientUid", "==", uid)));
-  }
-
-  const unsubscribers = queries.map((notificationsQuery) =>
-    onSnapshot(
-      notificationsQuery,
-      ingestSnapshot,
-      (error) => console.warn("Bildirim akışı dinlenemedi:", error),
-    ),
-  );
-
-  sharedNotificationsUnsubscribe = () => {
-    unsubscribers.forEach((unsubscribe) => unsubscribe());
-  };
+  startGlobalOffersFeed();
+  startGlobalNotificationsFeed();
 }
 
 function syncRelatedOfferStatus(sourceOffer, status) {
@@ -979,11 +1002,23 @@ function syncRelatedOfferStatus(sourceOffer, status) {
   localStorage.setItem("ustaOffers", JSON.stringify(nextOffers));
 }
 
-function isOfferVisibleForAccount(offer, accountKey = getAccountKey()) {
-  if (!offer.requesterKey && !offer.ownerKey) return true;
-  if (offer.type === "sent") return offer.requesterKey === accountKey;
-  if (offer.type === "incoming") return offer.ownerKey === accountKey;
-  return offer.requesterKey === accountKey || offer.ownerKey === accountKey;
+function isOfferVisibleForAccount(offer, accountKey = getAccountKey(), user = getCurrentUser()) {
+  const uid = user.uid || "";
+  const email = user.email || "";
+
+  if (!offer.requesterKey && !offer.ownerKey && !offer.ownerUid) return true;
+  if (offer.type === "sent") {
+    return offer.requesterKey === accountKey || (uid && offer.requesterUid === uid);
+  }
+  if (offer.type === "incoming") {
+    return isIncomingOfferForAccount(offer, accountKey, user);
+  }
+  return (
+    offer.requesterKey === accountKey ||
+    offer.ownerKey === accountKey ||
+    (uid && (offer.requesterUid === uid || offer.ownerUid === uid)) ||
+    (email && offer.ownerEmail === email)
+  );
 }
 
 function saveVisibleOffersForAccount(updatedOffers, accountKey = getAccountKey()) {
@@ -1026,15 +1061,14 @@ function getDefaultNotificationInbox(role) {
   return [];
 }
 
-function mergeOfferNotifications(inbox, accountKey = getAccountKey()) {
+function mergeOfferNotifications(inbox, accountKey = getAccountKey(), user = getCurrentUser()) {
   const existingIds = new Set(inbox.map((item) => item.id));
   const merged = [...inbox];
 
-  getStoredOffers()
+  getAllOffers()
     .filter(
       (offer) =>
-        offer.type === "incoming" &&
-        offer.ownerKey === accountKey &&
+        isIncomingOfferForAccount(offer, accountKey, user) &&
         (offer.status === "Yeni" || offer.status === "Gönderildi"),
     )
     .forEach((offer) => {
@@ -1290,7 +1324,7 @@ ensureFirestoreAuth()
   })
   .finally(() => {
     startSharedListingsFeed();
-    startSharedNotificationsFeed();
+    restartSharedFeeds();
   });
 
 function normalizeRemoteListing(snapshot) {
@@ -1981,6 +2015,7 @@ if (listingGrid) {
     setAvatarElement(drawerAvatar, user);
     marketSearch.placeholder =
       role === "master" ? "İlan, meslek veya ilçe ara" : "İlan, usta veya ilçe ara";
+    restartSharedFeeds();
   }
 
   function openProfileDrawer() {
@@ -2082,8 +2117,8 @@ if (listingGrid) {
       saveNotificationInbox(inbox, accountKey);
     }
 
-    notificationInbox = mergeOfferNotifications(inbox, accountKey);
-    notificationInbox = mergeRemoteNotifications(notificationInbox);
+    notificationInbox = mergeOfferNotifications(inbox, accountKey, user);
+    notificationInbox = mergeRemoteNotifications(notificationInbox, accountKey, user);
     saveNotificationInbox(notificationInbox, accountKey);
     renderNotificationInbox();
   }
@@ -2409,6 +2444,7 @@ if (listingDetail) {
   const params = new URLSearchParams(window.location.search);
   const listingId = params.get("id");
   let listing = getAllListings().find((item) => String(item.id) === String(listingId));
+  let activeListing = listing || null;
 
   function renderMissingListing() {
     listingDetail.innerHTML = `
@@ -2421,6 +2457,7 @@ if (listingDetail) {
   }
 
   function renderListingDetail(listing) {
+    activeListing = listing;
     const imageSrc = getListingImage(listing);
     const inactive = isExpiredListing(listing);
     const owner = listing.owner || { name: "İş veren", rating: 10, reviewCount: 0 };
@@ -2530,86 +2567,106 @@ if (listingDetail) {
       </section>
     `;
 
-    const detailOfferForm = document.querySelector("#detailOfferForm");
-    detailOfferForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const formData = new FormData(detailOfferForm);
-      const user = getCurrentUser();
-      const offerId = Date.now();
-      const createdAt = new Date().toISOString();
-      const amount = Number(formData.get("amount"));
-      const message = formData.get("message").trim();
-      const requesterName = user.fullName || user.profession || "Bir usta";
-      const requesterKey = getAccountKey(user);
-      const ownerKey = resolveListingOwnerKey(listing);
-      const requesterProfession = user.profession || `${listing.category || "Genel"} ustası`;
-      const requesterRating = Number(user.rating || 9.1);
-      const requesterReviewCount = Number(user.reviewCount || 12);
-      const sentOffer = {
-        id: `${offerId}-sent`,
-        listingId: listing.id,
-        listingTitle: listing.title,
-        amount,
-        message,
-        type: "sent",
-        status: "Gönderildi",
-        requesterKey,
-        requesterUid: user.uid || "",
-        requesterEmail: user.email || "",
-        ownerKey,
-        ownerUid: listing.ownerUid || "",
-        ownerEmail: listing.ownerEmail || "",
-        requesterName,
-        requesterProfession,
-        requesterPhone: user.phone || "",
-        requesterCity: user.city || listing.city || "",
-        requesterDistrict: user.district || listing.district || "",
-        requesterRating,
-        requesterReviewCount,
-        createdAt,
-      };
-      const ownerOffer = {
-        ...sentOffer,
-        id: offerId,
-        type: "incoming",
-        status: "Yeni",
-        notificationTarget: "owner",
-      };
+  }
 
-      saveOffer(sentOffer);
-      saveOffer(ownerOffer);
+  if (!listingDetail.dataset.formsBound) {
+    listingDetail.dataset.formsBound = "true";
 
-      const ownerNotification = buildOfferOwnerNotification(
-        ownerOffer,
-        requesterName,
-        listing.title,
-        amount,
-      );
+    listingDetail.addEventListener("submit", async (event) => {
+      const offerForm = event.target.closest("#detailOfferForm");
+      if (offerForm && activeListing) {
+        event.preventDefault();
 
-      if (ownerKey && ownerKey !== requesterKey) {
-        publishOwnerNotification(ownerNotification, ownerKey, listing.ownerUid || "");
+        const submitButton = offerForm.querySelector('button[type="submit"]');
+        const formData = new FormData(offerForm);
+        const user = getCurrentUser();
+        const offerId = Date.now();
+        const createdAt = new Date().toISOString();
+        const amount = Number(formData.get("amount"));
+        const message = formData.get("message").trim();
+        const requesterName = user.fullName || user.profession || "Bir usta";
+        const requesterKey = getAccountKey(user);
+        const ownerKey = resolveListingOwnerKey(activeListing);
+        const recipientKeys = getOwnerRecipientKeys(activeListing);
+        const isOwnListing =
+          recipientKeys.includes(requesterKey) ||
+          (user.uid && recipientKeys.includes(user.uid));
+
+        if (isOwnListing) {
+          showToast("Kendi ilanına teklif gönderemezsin.");
+          return;
+        }
+
+        const sentOffer = {
+          id: `${offerId}-sent`,
+          listingId: activeListing.id,
+          listingTitle: activeListing.title,
+          amount,
+          message,
+          type: "sent",
+          status: "Gönderildi",
+          requesterKey,
+          requesterUid: user.uid || "",
+          requesterEmail: user.email || "",
+          ownerKey,
+          ownerUid: activeListing.ownerUid || "",
+          ownerEmail: activeListing.ownerEmail || "",
+          requesterName,
+          requesterProfession: user.profession || `${activeListing.category || "Genel"} ustası`,
+          requesterPhone: user.phone || "",
+          requesterCity: user.city || activeListing.city || "",
+          requesterDistrict: user.district || activeListing.district || "",
+          requesterRating: Number(user.rating || 9.1),
+          requesterReviewCount: Number(user.reviewCount || 12),
+          createdAt,
+        };
+        const ownerOffer = {
+          ...sentOffer,
+          id: offerId,
+          type: "incoming",
+          status: "Yeni",
+        };
+
+        try {
+          if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = "Gönderiliyor...";
+          }
+
+          await publishOffersToFirestore(sentOffer, ownerOffer);
+          saveOffer(sentOffer);
+          saveOffer(ownerOffer);
+
+          await publishOwnerNotification(
+            buildOfferOwnerNotification(ownerOffer, requesterName, activeListing.title, amount),
+            activeListing,
+          );
+
+          offerForm.reset();
+          showToast("Teklif gönderildi. İlan sahibine bildirim düştü.");
+        } catch (error) {
+          console.warn("Teklif gönderilemedi:", error);
+          showToast(`Teklif gönderilemedi. ${getFirestoreErrorMessage(error)}`);
+        } finally {
+          if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = "Talebi gönder";
+          }
+        }
+        return;
       }
 
-      publishOffersToFirestore(sentOffer, ownerOffer);
-
-      detailOfferForm.reset();
-      showToast(
-        ownerKey && ownerKey !== requesterKey
-          ? "Teklif gönderildi. İlan sahibine bildirim düştü."
-          : "Teklif gönderildi.",
-      );
-    });
-
-    const ratingForm = document.querySelector("#ratingForm");
-    ratingForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const formData = new FormData(ratingForm);
-      saveRating(listing.id, {
-        score: Number(formData.get("rating")),
-        note: formData.get("note").trim(),
-        completedAt: new Date().toISOString(),
-      });
-      showToast("İş tamamlandı olarak onaylandı ve puan kaydedildi.");
+      const ratingForm = event.target.closest("#ratingForm");
+      if (ratingForm && activeListing) {
+        event.preventDefault();
+        const formData = new FormData(ratingForm);
+        saveRating(activeListing.id, {
+          score: Number(formData.get("rating")),
+          note: formData.get("note").trim(),
+          completedAt: new Date().toISOString(),
+        });
+        showToast("İş tamamlandı olarak onaylandı ve puan kaydedildi.");
+      }
     });
   }
 
@@ -2720,7 +2777,9 @@ if (offersList) {
   const currentOfferAccountKey = getAccountKey(currentUser);
   const currentOfferUid = currentUser.uid || "";
   let offers = [
-    ...getStoredOffers().filter((offer) => isOfferVisibleForAccount(offer, currentOfferAccountKey)),
+    ...getStoredOffers().filter((offer) =>
+      isOfferVisibleForAccount(offer, currentOfferAccountKey, currentUser),
+    ),
     ...sampleOffers,
   ];
   const initialOfferFilter = new URLSearchParams(window.location.search).get("filter") || "all";
@@ -2728,9 +2787,13 @@ if (offersList) {
   function mergeVisibleOffers() {
     const offerMap = new Map();
     [
-      ...getStoredOffers().filter((offer) => isOfferVisibleForAccount(offer, currentOfferAccountKey)),
+      ...getStoredOffers().filter((offer) =>
+        isOfferVisibleForAccount(offer, currentOfferAccountKey, currentUser),
+      ),
       ...sampleOffers,
-      ...remoteOffers.filter((offer) => isOfferVisibleForAccount(offer, currentOfferAccountKey)),
+      ...remoteOffers.filter((offer) =>
+        isOfferVisibleForAccount(offer, currentOfferAccountKey, currentUser),
+      ),
     ].forEach((offer) => {
       offerMap.set(String(offer.id), offer);
     });
@@ -2896,17 +2959,9 @@ if (offersList) {
   initialOfferFilterButton?.classList.add("active");
   renderOffers(initialOfferFilterButton?.dataset.offerFilter || "all");
 
-  ensureFirestoreAuth()
-    .catch((error) => {
-      console.warn("Teklif akışı için oturum açılamadı:", error);
-    })
-    .finally(() => {
-      startSharedOffersFeed(currentOfferAccountKey, currentOfferUid, () => {
-        renderOffers(
-          document.querySelector("[data-offer-filter].active")?.dataset.offerFilter || "all",
-        );
-      });
-    });
+  subscribeOfferFeed(() => {
+    renderOffers(document.querySelector("[data-offer-filter].active")?.dataset.offerFilter || "all");
+  });
 }
 
 function setupInviteButtons() {
