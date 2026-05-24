@@ -1867,6 +1867,31 @@ function isListingOwnedByCurrentUser(listing) {
   return isListingOwnedByUser(listing, getCurrentUser());
 }
 
+function isListingAssignedToUser(listing, user = getCurrentUser()) {
+  if (!isAssignedListing(listing)) return false;
+
+  const aliases = new Set(getAccountAliases(user));
+  return [
+    listing.assignedMasterEmail,
+    listing.assignedMasterKey,
+    listing.assignedMasterUid,
+    listing.assignedMaster?.email,
+    listing.assignedMaster?.key,
+    listing.assignedMaster?.uid,
+    listing.master?.email,
+    listing.master?.key,
+    listing.master?.uid,
+    listing.master?.name,
+  ]
+    .map(normalizeAccountValue)
+    .filter(Boolean)
+    .some((key) => aliases.has(key));
+}
+
+function isListingAssignedToCurrentUser(listing) {
+  return isListingAssignedToUser(listing, getCurrentUser());
+}
+
 function getMyListings() {
   return getAllListings().filter(isListingOwnedByCurrentUser);
 }
@@ -3300,9 +3325,7 @@ if (listingDetail) {
     const master = listing.assignedMaster || listing.master || { name: "Usta atanmadı", rating: 0, reviewCount: 0 };
     const savedRating = getStoredRatings()[listing.id];
     const canRevealListingPhone = assigned && Boolean(listing.phone);
-    const canRateListing = assigned && isListingOwnedByCurrentUser(listing);
-    const ratingLocked = !canRateListing;
-    const ratingStatus = savedRating ? "Puan verildi" : canRateListing ? "Puanlama açık" : assigned ? "İlan sahibi onayı bekleniyor" : "Usta atanınca açılır";
+    const canRateListing = isListingAssignedToCurrentUser(listing);
 
     listingDetail.innerHTML = `
       <div class="detail-toolbar">
@@ -3388,28 +3411,25 @@ if (listingDetail) {
           </form>
         </article>
 
-        <article class="detail-panel rating-panel ${ratingLocked ? "rating-locked" : ""}">
+        ${canRateListing ? `
+        <article class="detail-panel rating-panel">
           <div class="rating-panel-head">
             <div>
               <h2>İş sonu puanlama</h2>
-              <p>${canRateListing ? "İşi tamamlandı olarak onaylayıp ustayı puanlayabilirsin." : "Puanlama, ilan sahibi işi tamamlandı olarak onayladığında açılır."}</p>
             </div>
-            <span class="rating-status-pill">${ratingStatus}</span>
+            ${savedRating ? `<span class="rating-status-pill">Puan verildi</span>` : ""}
           </div>
           <form class="offer-form rating-form" id="ratingForm">
             <label class="score-control">
               <span>Puan</span>
-              <input name="rating" type="number" min="1" max="10" step="1" value="${savedRating?.score || 10}" ${ratingLocked ? "disabled" : ""} />
+              <input name="rating" type="number" min="1" max="10" step="1" value="${savedRating?.score || 10}" required />
               <small>/10</small>
             </label>
-            <label>
-              Değerlendirme notu
-              <textarea name="note" rows="4" placeholder="İş zamanında tamamlandı mı, iletişim nasıldı?" ${ratingLocked ? "disabled" : ""}>${savedRating?.note || ""}</textarea>
-            </label>
-            <button class="primary-action" type="submit" ${ratingLocked ? "disabled" : ""}>İşi tamamlandı onayla ve puan ver</button>
+            <button class="primary-action" type="submit">Puanı kaydet</button>
           </form>
-          ${savedRating ? `<div class="saved-rating"><strong>Verilen puan: ${savedRating.score}/10</strong><span>${savedRating.note || "Not eklenmedi."}</span></div>` : ""}
+          ${savedRating ? `<div class="saved-rating"><strong>Verilen puan: ${savedRating.score}/10</strong></div>` : ""}
         </article>
+        ` : ""}
       </section>
     `;
 
@@ -3526,18 +3546,17 @@ if (listingDetail) {
       const ratingForm = event.target.closest("#ratingForm");
       if (ratingForm && activeListing) {
         event.preventDefault();
-        if (!isAssignedListing(activeListing) || !isListingOwnedByCurrentUser(activeListing)) {
-          showToast("Puanlama ilan sahibi işi tamamlandı olarak onaylayınca açılır.");
+        if (!isListingAssignedToCurrentUser(activeListing)) {
+          showToast("Puanlamayı sadece atanan usta yapabilir.");
           return;
         }
 
         const formData = new FormData(ratingForm);
         saveRating(activeListing.id, {
           score: Number(formData.get("rating")),
-          note: formData.get("note").trim(),
           completedAt: new Date().toISOString(),
         });
-        showToast("İş tamamlandı olarak onaylandı ve puan kaydedildi.");
+        showToast("Puan kaydedildi.");
       }
     });
   }
