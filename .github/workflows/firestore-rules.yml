@@ -1,0 +1,24 @@
+name: Deploy Firestore rules
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - firestore.rules
+      - firebase.json
+  workflow_dispatch:
+
+jobs:
+  deploy-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy rules
+        uses: w9jds/firebase-action@v14.10.1
+        with:
+          args: deploy --only firestore:rules --project ustabi
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

@@ -112,14 +112,37 @@ async function ensureFirestoreAuth() {
   return credential.user;
 }
 
-function buildSharedListingPayload(listingData, image) {
-  const { id, createdAt, ...listingWithoutLocalMeta } = listingData;
+function buildSharedListingPayload(listingData, image = "") {
+  const { id, createdAt, image: storedImage, ...listingWithoutLocalMeta } = listingData;
+  const safeImage = image || storedImage || "";
 
   return sanitizeFirestoreData({
     ...listingWithoutLocalMeta,
-    image: image && image.length < 250000 ? image : "",
-    createdAt: serverTimestamp(),
+    image: safeImage && safeImage.length < 180000 ? safeImage : "",
+    createdAt: Date.now(),
   });
+}
+
+async function publishSharedListing(listingData, image) {
+  const payloads = [
+    buildSharedListingPayload(listingData, image),
+    buildSharedListingPayload({ ...listingData, image: "" }, ""),
+  ];
+
+  let lastError = null;
+
+  for (const payload of payloads) {
+    try {
+      return await withTimeout(addDoc(collection(db, "listings"), payload), 15000);
+    } catch (error) {
+      lastError = error;
+      if (error?.code === "permission-denied") {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error("İlan paylaşılamadı.");
 }
 
 function withTimeout(promise, milliseconds, code = "auth/timeout") {
@@ -1110,6 +1133,38 @@ function readImageAsDataUrl(file) {
   });
 }
 
+async function compressImageAsDataUrl(file, maxWidth = 960, quality = 0.75) {
+  if (!file || !file.size) return "";
+
+  const originalDataUrl = await readImageAsDataUrl(file);
+  if (!originalDataUrl.startsWith("data:image/")) {
+    return originalDataUrl;
+  }
+
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.addEventListener("load", () => {
+      const scale = Math.min(1, maxWidth / image.width);
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        resolve(originalDataUrl);
+        return;
+      }
+
+      context.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    });
+    image.addEventListener("error", () => resolve(originalDataUrl));
+    image.src = originalDataUrl;
+  });
+}
+
 function getStoredListings() {
   try {
     return JSON.parse(localStorage.getItem("ustaListings")) || [];
@@ -1524,7 +1579,7 @@ if (listingCreateForm) {
     event.preventDefault();
     const formData = new FormData(listingCreateForm);
     const submitButton = listingCreateForm.querySelector('button[type="submit"]');
-    const image = await readImageAsDataUrl(formData.get("image"));
+    const image = await compressImageAsDataUrl(formData.get("image"));
     const workDate = formData.get("workDate");
     const listings = getStoredListings();
     let currentUser = {};
@@ -1575,39 +1630,55 @@ if (listingCreateForm) {
       createdAt: Date.now(),
     };
 
+    let sharedSuccessfully = false;
+
     try {
       if (submitButton) {
         submitButton.disabled = true;
         submitButton.textContent = "İlan paylaşılıyor...";
       }
 
-      const authUser = await ensureFirestoreAuth();
-      if (!listingData.ownerUid) {
-        listingData.ownerUid = authUser.uid;
+      try {
+        const authUser = await ensureFirestoreAuth();
+        if (!listingData.ownerUid) {
+          listingData.ownerUid = authUser.uid;
+        }
+      } catch (authError) {
+        console.warn("Firebase oturumu açılamadı, ilan yine de deneniyor:", authError);
       }
 
+      const listingRef = await publishSharedListing(listingData, image);
       const sharedListing = buildSharedListingPayload(listingData, image);
-      const listingRef = await withTimeout(addDoc(collection(db, "listings"), sharedListing), 12000);
       listingData.id = listingRef.id;
-      listingData.createdAt = Date.now();
+      listingData.createdAt = sharedListing.createdAt;
       listingData.image = sharedListing.image || "";
       remoteListings = [
         listingData,
         ...remoteListings.filter((item) => String(item.id) !== String(listingData.id)),
       ];
       notifySharedListingListeners();
+      sharedSuccessfully = true;
       showToast("İlan paylaşıldı. Tüm kullanıcıların ana akışında görünecek.");
     } catch (error) {
       console.warn("Firestore ilan kaydı yazılamadı:", error);
-      listings.unshift(listingData);
-      localStorage.setItem("ustaListings", JSON.stringify(listings));
-      showToast(`İlan yerel olarak kaydedildi. ${getFirestoreErrorMessage(error)}`);
+
+      if (error?.code === "permission-denied") {
+        showToast(
+          "Firestore izni kapalı. Firebase Console > Firestore > Rules bölümüne firestore.rules dosyasını yapıştırıp Publish et.",
+        );
+      } else {
+        listings.unshift(listingData);
+        localStorage.setItem("ustaListings", JSON.stringify(listings));
+        showToast(`İlan şimdilik yerelde kaldı. ${getFirestoreErrorMessage(error)}`);
+      }
     } finally {
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.textContent = "İlanı paylaş";
       }
     }
+
+    if (!sharedSuccessfully) return;
 
     window.setTimeout(() => {
       window.location.href = "pazar.html";
