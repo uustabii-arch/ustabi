@@ -731,11 +731,16 @@ function isAssignedListing(listing) {
   return listing?.status === "assigned" || Boolean(listing?.assignedOfferId);
 }
 
+function isCompletedListing(listing) {
+  return listing?.status === "completed" || Boolean(listing?.completedAt);
+}
+
 function isUnavailableListing(listing) {
-  return isExpiredListing(listing) || isAssignedListing(listing);
+  return isExpiredListing(listing) || isAssignedListing(listing) || isCompletedListing(listing);
 }
 
 function getListingStatusLabel(listing) {
+  if (isCompletedListing(listing)) return "Tamamlandı";
   if (isAssignedListing(listing)) return "Usta atandı";
   if (isExpiredListing(listing)) return "Pasif ilan";
   return "Aktif ilan";
@@ -1363,6 +1368,27 @@ function applyListingAssignmentLocally(offer) {
   notifySharedListingListeners();
 }
 
+function applyListingCompletionLocally(listingId) {
+  const completedAt = new Date().toISOString();
+  const patch = {
+    status: "completed",
+    completedAt,
+    updatedAt: Date.now(),
+  };
+  const updateListing = (listing) =>
+    String(listing.id) === String(listingId)
+      ? {
+          ...listing,
+          ...patch,
+        }
+      : listing;
+
+  const storedListings = getStoredListings();
+  localStorage.setItem("ustaListings", JSON.stringify(storedListings.map(updateListing)));
+  remoteListings = remoteListings.map(updateListing);
+  notifySharedListingListeners();
+}
+
 async function publishListingAssignmentToFirestore(offer) {
   if (!offer?.listingId) return;
 
@@ -1370,6 +1396,19 @@ async function publishListingAssignmentToFirestore(offer) {
   await setDoc(
     doc(db, "listings", String(offer.listingId)),
     sanitizeFirestoreData(buildListingAssignmentPatch(offer)),
+    { merge: true },
+  );
+}
+
+async function publishListingCompletionToFirestore(listingId) {
+  await ensureFirestoreAuth();
+  await setDoc(
+    doc(db, "listings", String(listingId)),
+    sanitizeFirestoreData({
+      status: "completed",
+      completedAt: new Date().toISOString(),
+      updatedAt: Date.now(),
+    }),
     { merge: true },
   );
 }
@@ -2079,6 +2118,7 @@ function normalizeRemoteListing(snapshot) {
     status: data.status || (data.assignedOfferId ? "assigned" : "active"),
     assignedOfferId: data.assignedOfferId || "",
     assignedMaster: data.assignedMaster || data.master || null,
+    completedAt: data.completedAt || "",
     highlighted: Boolean(data.highlighted),
     carouselPriority: Number(data.carouselPriority || 0),
     carouselPriorityLabel: data.carouselPriorityLabel || "",
@@ -3236,13 +3276,15 @@ if (listingGrid) {
 function accountListingCard(listing, passive = false) {
   const imageSrc = getListingImage(listing);
   const assigned = isAssignedListing(listing);
-  const status = assigned ? "Usta atandı" : passive ? "Pasif" : "Aktif";
+  const completed = isCompletedListing(listing);
+  const status = completed ? "Tamamlandı" : assigned ? "Usta atandı" : passive ? "Pasif" : "Aktif";
   const assignedMaster = listing.assignedMaster || listing.master || {};
+  const canComplete = assigned && !completed;
 
   return `
-    <article class="listing-card ${passive ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}">
+    <article class="listing-card ${passive || completed ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}">
       <div class="listing-top">
-        <span class="badge ${passive || assigned ? "" : "hot"}">${status}</span>
+        <span class="badge ${passive || assigned || completed ? "" : "hot"}">${status}</span>
         <strong class="budget">${Number(listing.budget || 0).toLocaleString("tr-TR", {
           style: "currency",
           currency: "TRY",
@@ -3266,6 +3308,7 @@ function accountListingCard(listing, passive = false) {
         <div class="listing-bottom">
           <span class="badge">${listing.offers || 0} teklif</span>
           ${assigned ? `<span class="badge assigned-badge">${assignedMaster.name || "Usta atandı"}</span>` : ""}
+          ${canComplete ? `<button class="finish-job-action" type="button" data-complete-listing="${listing.id}">İşi bitir</button>` : ""}
         </div>
       </div>
     </article>
@@ -3281,6 +3324,24 @@ if (myListingsGrid) {
       : `<article class="listing-card"><h3>${myListingsGrid.dataset.empty}</h3><p>İlan koyduğunda tüm kullanıcıların gördüğü ortak akışta yayınlanır.</p></article>`;
   }
 
+  myListingsGrid.addEventListener("click", async (event) => {
+    const completeButton = event.target.closest("[data-complete-listing]");
+    if (!completeButton) return;
+
+    const listingId = completeButton.dataset.completeListing;
+    completeButton.disabled = true;
+    completeButton.textContent = "Bitiriliyor...";
+    applyListingCompletionLocally(listingId);
+
+    try {
+      await publishListingCompletionToFirestore(listingId);
+      showToast("İş tamamlandı olarak işaretlendi.");
+    } catch (error) {
+      console.warn("İş tamamlama Firestore'a yazılamadı:", error);
+      showToast(`İş yerelde tamamlandı. ${getFirestoreErrorMessage(error)}`);
+    }
+  });
+
   renderMyListings();
   subscribeSharedListings(renderMyListings);
 }
@@ -3288,7 +3349,7 @@ if (myListingsGrid) {
 const pastJobsGrid = document.querySelector("#pastJobsGrid");
 if (pastJobsGrid) {
   function renderPastJobs() {
-    const expiredListings = getMyListings().filter(isExpiredListing);
+    const expiredListings = getMyListings().filter((listing) => isExpiredListing(listing) || isCompletedListing(listing));
     pastJobsGrid.innerHTML = expiredListings.length
       ? expiredListings.map((listing) => accountListingCard(listing, true)).join("")
       : `<article class="listing-card"><h3>${pastJobsGrid.dataset.empty}</h3><p>Süresi biten veya tamamlanan işler burada pasif olarak listelenecek.</p></article>`;

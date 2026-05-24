@@ -2188,6 +2188,30 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
+.finish-job-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(47, 143, 107, 0.26);
+  border-radius: 8px;
+  background: #eaf5ef;
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.finish-job-action:hover {
+  background: #dff0e7;
+  transform: translateY(-1px);
+}
+
+.finish-job-action:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .signal-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
