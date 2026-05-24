@@ -661,6 +661,20 @@ function isExpiredListing(listing) {
   return Boolean(listing.workDate && listing.workDate < todayValue());
 }
 
+function isAssignedListing(listing) {
+  return listing?.status === "assigned" || Boolean(listing?.assignedOfferId);
+}
+
+function isUnavailableListing(listing) {
+  return isExpiredListing(listing) || isAssignedListing(listing);
+}
+
+function getListingStatusLabel(listing) {
+  if (isAssignedListing(listing)) return "Usta atandı";
+  if (isExpiredListing(listing)) return "Pasif ilan";
+  return "Aktif ilan";
+}
+
 function isAllowedWorkDate(workDate) {
   if (!workDate) return false;
   const year = workDate.slice(0, 4);
@@ -1130,6 +1144,67 @@ async function publishOfferStatusToFirestore(sourceOffer, status) {
         { merge: true },
       ),
     ),
+  );
+}
+
+function buildAssignedMasterFromOffer(offer) {
+  return {
+    name: offer.requesterName || "Usta atandı",
+    profession: offer.requesterProfession || "Usta",
+    phone: offer.requesterPhone || "",
+    city: offer.requesterCity || "",
+    district: offer.requesterDistrict || "",
+    rating: Number(offer.requesterRating || 0),
+    reviewCount: Number(offer.requesterReviewCount || 0),
+    completedJobs: Number(offer.requesterCompletedJobs || 0),
+    verified: offer.requesterVerified !== false,
+  };
+}
+
+function buildListingAssignmentPatch(offer) {
+  const assignedAt = new Date().toISOString();
+  return {
+    status: "assigned",
+    assignedAt,
+    assignedOfferId: String(offer.id).replace(/-sent$/, ""),
+    assignedMasterKey: offer.requesterKey || "",
+    assignedMasterUid: offer.requesterUid || "",
+    assignedMasterEmail: offer.requesterEmail || "",
+    assignedMaster: buildAssignedMasterFromOffer(offer),
+    master: buildAssignedMasterFromOffer(offer),
+    updatedAt: Date.now(),
+  };
+}
+
+function applyListingAssignmentLocally(offer) {
+  const patch = buildListingAssignmentPatch(offer);
+  const listingId = String(offer.listingId);
+  const updateListing = (listing) =>
+    String(listing.id) === listingId
+      ? {
+          ...listing,
+          ...patch,
+          master: {
+            ...(listing.master || {}),
+            ...patch.master,
+          },
+        }
+      : listing;
+
+  const storedListings = getStoredListings();
+  localStorage.setItem("ustaListings", JSON.stringify(storedListings.map(updateListing)));
+  remoteListings = remoteListings.map(updateListing);
+  notifySharedListingListeners();
+}
+
+async function publishListingAssignmentToFirestore(offer) {
+  if (!offer?.listingId) return;
+
+  await ensureFirestoreAuth();
+  await setDoc(
+    doc(db, "listings", String(offer.listingId)),
+    sanitizeFirestoreData(buildListingAssignmentPatch(offer)),
+    { merge: true },
   );
 }
 
@@ -1691,6 +1766,9 @@ function normalizeRemoteListing(snapshot) {
     ownerKey: normalizeAccountValue(data.ownerEmail || owner.email || data.ownerKey || owner.key || data.ownerUid || ""),
     ownerUid: data.ownerUid || "",
     ownerEmail: normalizeAccountValue(data.ownerEmail || owner.email || ""),
+    status: data.status || (data.assignedOfferId ? "assigned" : "active"),
+    assignedOfferId: data.assignedOfferId || "",
+    assignedMaster: data.assignedMaster || data.master || null,
     budget: Number(data.budget || 0),
     offers: Number(data.offers || 0),
     featured: data.featured !== false,
@@ -2206,6 +2284,7 @@ if (listingCreateForm) {
       expectations: formData.get("expectations").trim(),
       details: formData.get("details").trim(),
       offers: 0,
+      status: "active",
       featured: true,
       image,
       owner: {
@@ -2590,7 +2669,7 @@ if (listingGrid) {
     const category = categoryFilter.value;
 
     return listings.filter((listing) => {
-      if (isExpiredListing(listing)) return false;
+      if (isUnavailableListing(listing)) return false;
 
       const matchesQuery = [
         listing.title,
@@ -2787,12 +2866,14 @@ if (listingGrid) {
 
 function accountListingCard(listing, passive = false) {
   const imageSrc = getListingImage(listing);
-  const status = passive ? "Pasif" : "Aktif";
+  const assigned = isAssignedListing(listing);
+  const status = assigned ? "Usta atandı" : passive ? "Pasif" : "Aktif";
+  const assignedMaster = listing.assignedMaster || listing.master || {};
 
   return `
-    <article class="listing-card ${passive ? "passive-listing" : ""}">
+    <article class="listing-card ${passive ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}">
       <div class="listing-top">
-        <span class="badge ${passive ? "" : "hot"}">${status}</span>
+        <span class="badge ${passive || assigned ? "" : "hot"}">${status}</span>
         <strong class="budget">${Number(listing.budget || 0).toLocaleString("tr-TR", {
           style: "currency",
           currency: "TRY",
@@ -2816,6 +2897,7 @@ function accountListingCard(listing, passive = false) {
         <div class="listing-bottom">
           <span class="badge">${listing.phone ? `Tel: ${listing.phone}` : "Telefon yok"}</span>
           <span class="badge">${listing.offers || 0} teklif</span>
+          ${assigned ? `<span class="badge assigned-badge">${assignedMaster.name || "Usta atandı"}</span>` : ""}
         </div>
       </div>
     </article>
@@ -2868,9 +2950,11 @@ if (listingDetail) {
   function renderListingDetail(listing) {
     activeListing = listing;
     const imageSrc = getListingImage(listing);
-    const inactive = isExpiredListing(listing);
+    const inactive = isUnavailableListing(listing);
+    const assigned = isAssignedListing(listing);
+    const statusLabel = getListingStatusLabel(listing);
     const owner = listing.owner || { name: "İş veren", rating: 10, reviewCount: 0 };
-    const master = listing.master || { name: "Usta atanmadı", rating: 0, reviewCount: 0 };
+    const master = listing.assignedMaster || listing.master || { name: "Usta atanmadı", rating: 0, reviewCount: 0 };
     const savedRating = getStoredRatings()[listing.id];
 
     listingDetail.innerHTML = `
@@ -2879,7 +2963,7 @@ if (listingDetail) {
           <span aria-hidden="true">‹</span>
           İlanlara dön
         </a>
-        <span class="detail-status ${inactive ? "passive" : ""}">${inactive ? "Pasif ilan" : "Aktif ilan"}</span>
+        <span class="detail-status ${inactive ? "passive" : ""} ${assigned ? "assigned" : ""}">${statusLabel}</span>
       </div>
 
       <section class="detail-hero">
@@ -2908,7 +2992,7 @@ if (listingDetail) {
               <span>Usta puanı</span>
               <strong>${master.name}</strong>
               <div class="stars">${getRatingStars(master.rating)}</div>
-              <small>${master.rating ? `${master.rating}/10 · ${master.reviewCount} değerlendirme` : "Henüz atanmadı"}</small>
+              <small>${assigned ? "Usta atandı" : master.rating ? `${master.rating}/10 · ${master.reviewCount} değerlendirme` : "Henüz atanmadı"}</small>
             </div>
           </div>
           <strong class="detail-budget">${Number(listing.budget || 0).toLocaleString("tr-TR", {
@@ -2938,7 +3022,7 @@ if (listingDetail) {
             <div><dt>Konum</dt><dd>${[listing.city, listing.district].filter(Boolean).join(" / ")}</dd></div>
             <div><dt>Adres notu</dt><dd>${listing.addressNote || "Paylaşılmadı"}</dd></div>
             <div><dt>Beklentiler</dt><dd>${listing.expectations || "Paylaşılmadı"}</dd></div>
-            <div><dt>Durum</dt><dd>${inactive ? "Pasif" : "Aktif"}</dd></div>
+            <div><dt>Durum</dt><dd>${statusLabel}</dd></div>
           </dl>
         </article>
 
@@ -3001,6 +3085,11 @@ if (listingDetail) {
 
         if (isOwnListing) {
           showToast("Kendi ilanına teklif gönderemezsin.");
+          return;
+        }
+
+        if (isAssignedListing(activeListing)) {
+          showToast("Bu ilana usta atandı, yeni teklif alınmıyor.");
           return;
         }
 
@@ -3139,6 +3228,7 @@ function getOfferMasterProfile(offer) {
 
 function offerCard(offer) {
   const isIncoming = offer.type === "incoming";
+  const isAcceptedIncoming = isIncoming && offer.status === "Kabul edildi";
   return `
     <article class="offer-card" data-offer-type="${offer.type || "sent"}">
       <div class="offer-card-head">
@@ -3161,7 +3251,7 @@ function offerCard(offer) {
         <a class="ghost-link" href="ilan-detay.html?id=${offer.listingId}">İlana git</a>
         ${
           isIncoming
-            ? `<button class="job-action" type="button" data-master-review="${offer.id}">Ustayı incele</button>`
+            ? `<button class="job-action ${isAcceptedIncoming ? "assigned-master-button" : ""}" type="button" data-master-review="${offer.id}">${isAcceptedIncoming ? "Usta atandı" : "Ustayı incele"}</button>`
             : `<button class="job-action" type="button" data-offer-status="${offer.id}">Durumu güncelle</button>`
         }
       </div>
@@ -3238,6 +3328,7 @@ if (offersList) {
 
   function openMasterReview(offer) {
     const master = getOfferMasterProfile(offer);
+    const isAccepted = offer.status === "Kabul edildi";
     const amount = Number(offer.amount || 0).toLocaleString("tr-TR", {
       style: "currency",
       currency: "TRY",
@@ -3284,8 +3375,12 @@ if (offersList) {
 
       <div class="master-review-actions">
         <a class="ghost-link" href="ilan-detay.html?id=${offer.listingId}">İlana git</a>
-        <button class="danger-action" type="button" data-reject-offer="${offer.id}">Reddet</button>
-        <button class="primary-action" type="button" data-accept-offer="${offer.id}">Uygun gör ve kabul et</button>
+        ${
+          isAccepted
+            ? `<span class="assigned-master-pill">Usta atandı</span>`
+            : `<button class="danger-action" type="button" data-reject-offer="${offer.id}">Reddet</button>
+        <button class="primary-action" type="button" data-accept-offer="${offer.id}">Uygun gör ve kabul et</button>`
+        }
       </div>
     `;
 
@@ -3355,8 +3450,14 @@ if (offersList) {
     if (selectedOffer) {
       const notificationOffer = enrichRequesterOffer(selectedOffer);
       syncRelatedOfferStatus(notificationOffer, nextStatus);
+      if (nextStatus === "Kabul edildi") {
+        applyListingAssignmentLocally(notificationOffer);
+      }
       try {
         await publishOfferStatusToFirestore(notificationOffer, nextStatus);
+        if (nextStatus === "Kabul edildi") {
+          await publishListingAssignmentToFirestore(notificationOffer);
+        }
       } catch (error) {
         console.warn("Teklif durumu Firestore'a yaz\u0131lamad\u0131:", error);
       }
@@ -3367,7 +3468,7 @@ if (offersList) {
     }
     renderOffers(document.querySelector("[data-offer-filter].active").dataset.offerFilter);
     closeMasterReview();
-    showToast(rejectButton ? "Teklif reddedildi. Ustaya bildirim gönderildi." : "Usta teklifi kabul edildi.");
+    showToast(rejectButton ? "Teklif reddedildi. Ustaya bildirim gönderildi." : "Usta atandı. İlan akıştan kaldırıldı.");
   });
 
   window.addEventListener("keydown", (event) => {

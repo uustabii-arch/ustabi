@@ -991,6 +991,29 @@ button:disabled,
   opacity: 0.72;
 }
 
+.assigned-listing {
+  border-color: rgba(47, 143, 107, 0.38);
+  background: #f8fcfa;
+}
+
+.assigned-badge,
+.assigned-master-button,
+.assigned-master-pill,
+.detail-status.assigned {
+  background: #eaf5ef;
+  color: var(--green);
+}
+
+.assigned-master-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid rgba(47, 143, 107, 0.26);
+  border-radius: 8px;
+  font-weight: 950;
+}
+
 .ghost-link {
   display: inline-flex;
   align-items: center;
@@ -2141,6 +2164,11 @@ textarea:focus {
 .detail-status.passive {
   background: #f1ece3;
   color: #7d7467;
+}
+
+.detail-status.assigned {
+  background: #eaf5ef;
+  color: var(--green);
 }
 
 .detail-hero {
