@@ -116,6 +116,27 @@
             <input name="phone" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" required />
           </label>
 
+          <fieldset class="profile-fieldset listing-promotion-fieldset">
+            <legend>Görünürlük hakları</legend>
+            <div class="promotion-rights-grid">
+              <label class="promotion-right-card" id="featuredPromotionCard">
+                <input name="useFeaturedPromotion" id="useFeaturedPromotion" type="checkbox" value="1" />
+                <span>
+                  <strong>Öne çıkan / kaydırmalı alan</strong>
+                  <small id="featuredPromotionMeta">Hak bilgisi yükleniyor</small>
+                </span>
+              </label>
+
+              <label class="promotion-right-card" id="colorPromotionCard">
+                <input name="useColorPromotion" id="useColorPromotion" type="checkbox" value="1" />
+                <span>
+                  <strong>Renkli arka plan</strong>
+                  <small id="colorPromotionMeta">Hak bilgisi yükleniyor</small>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
           <label>
             Adres / ulaşım notu
             <textarea name="addressNote" rows="3" placeholder="Mahalle, site/apartman bilgisi, asansör, park yeri veya ulaşım notu yaz."></textarea>

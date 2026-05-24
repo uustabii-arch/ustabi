@@ -1587,6 +1587,64 @@ body:not(.auth-active) .auth-shell {
   font-weight: 900;
 }
 
+.listing-promotion-fieldset {
+  gap: 14px;
+}
+
+.promotion-rights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.promotion-right-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  min-height: 116px;
+  padding: 14px;
+  border: 1px solid #e8dfd1;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(246, 189, 47, 0.12), rgba(47, 143, 107, 0.06)),
+    #fffdfa;
+}
+
+.promotion-right-card input {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin-top: 2px;
+  accent-color: var(--green);
+}
+
+.promotion-right-card strong,
+.promotion-right-card small {
+  display: block;
+}
+
+.promotion-right-card strong {
+  line-height: 1.25;
+}
+
+.promotion-right-card small {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.promotion-right-card.disabled {
+  background: #f4efe7;
+  color: #8a8174;
+}
+
+.promotion-right-card.disabled small {
+  color: #9b9286;
+}
+
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2919,6 +2977,7 @@ textarea:focus {
   .form-grid,
   .role-grid,
   .checkbox-grid,
+  .promotion-rights-grid,
   .search-panel,
   .signal-row {
     grid-template-columns: 1fr;

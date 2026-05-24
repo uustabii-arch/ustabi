@@ -459,6 +459,12 @@ document.querySelectorAll("[data-password-reset]").forEach((form) => {
 const listingCreateForm = document.querySelector("#listingCreateForm");
 const listingImageInput = document.querySelector("#listingImageInput");
 const listingImagePreview = document.querySelector("#listingImagePreview");
+const useFeaturedPromotionInput = document.querySelector("#useFeaturedPromotion");
+const useColorPromotionInput = document.querySelector("#useColorPromotion");
+const featuredPromotionMeta = document.querySelector("#featuredPromotionMeta");
+const colorPromotionMeta = document.querySelector("#colorPromotionMeta");
+const featuredPromotionCard = document.querySelector("#featuredPromotionCard");
+const colorPromotionCard = document.querySelector("#colorPromotionCard");
 const citySelect = document.querySelector("#citySelect");
 const districtSelect = document.querySelector("#districtSelect");
 const workDateInput = document.querySelector("#workDateInput");
@@ -848,13 +854,34 @@ function formatPlanLimit(limit) {
   return Number.isFinite(limit) ? String(limit) : "Sınırsız";
 }
 
-function getListingPromotionForPlan(plan = getSubscriptionPlan()) {
+function getRemainingPlanRight(limit, used) {
+  return Number.isFinite(limit) ? Math.max(0, limit - used) : Infinity;
+}
+
+function formatRemainingPlanRight(limit, used) {
+  return Number.isFinite(limit) ? `${getRemainingPlanRight(limit, used)} / ${limit} hak kaldı` : "Sınırsız hak";
+}
+
+function getPromotionUsage(user = getCurrentUser()) {
+  const listings = getAllListings().filter((listing) => isListingOwnedByUser(listing, user) && isListingCountedForQuota(listing));
+
   return {
-    featured: plan.featuredPlacementLimit !== 0,
-    highlighted: plan.coloredListingLimit !== 0,
-    carouselPriority:
-      plan.id === "premium" ? 3 : plan.id === "pro" ? 2 : plan.id === "free" ? 1 : 0,
-    carouselPriorityLabel: plan.carouselPriority,
+    featured: listings.filter((listing) => listing.featured).length,
+    colored: listings.filter((listing) => listing.highlighted).length,
+  };
+}
+
+function getListingPromotionForPlan(plan = getSubscriptionPlan(), usage = getPromotionUsage(), requested = {}) {
+  const canUseFeatured = requested.featured && getRemainingPlanRight(plan.featuredPlacementLimit, usage.featured) > 0;
+  const canUseColored = requested.highlighted && getRemainingPlanRight(plan.coloredListingLimit, usage.colored) > 0;
+
+  return {
+    featured: Boolean(canUseFeatured),
+    highlighted: Boolean(canUseColored),
+    carouselPriority: canUseFeatured
+      ? plan.id === "premium" ? 3 : plan.id === "pro" ? 2 : plan.id === "free" ? 1 : 0
+      : 0,
+    carouselPriorityLabel: canUseFeatured ? plan.carouselPriority : "",
     planId: plan.id,
   };
 }
@@ -2507,6 +2534,38 @@ if (paymentForm) {
 }
 
 if (listingCreateForm) {
+  function renderListingPromotionRights() {
+    const currentUser = getCurrentUser();
+    const plan = getSubscriptionPlan(currentUser);
+    const usage = getPromotionUsage(currentUser);
+    const featuredLeft = getRemainingPlanRight(plan.featuredPlacementLimit, usage.featured);
+    const coloredLeft = getRemainingPlanRight(plan.coloredListingLimit, usage.colored);
+    const hasFeaturedRight = featuredLeft > 0;
+    const hasColoredRight = coloredLeft > 0;
+
+    if (featuredPromotionMeta) {
+      featuredPromotionMeta.textContent = `${plan.name} plan · ${formatRemainingPlanRight(plan.featuredPlacementLimit, usage.featured)} · ${plan.carouselPriority}`;
+    }
+    if (colorPromotionMeta) {
+      colorPromotionMeta.textContent = `${plan.name} plan · ${formatRemainingPlanRight(plan.coloredListingLimit, usage.colored)}`;
+    }
+
+    if (useFeaturedPromotionInput) {
+      useFeaturedPromotionInput.disabled = !hasFeaturedRight;
+      useFeaturedPromotionInput.checked = hasFeaturedRight;
+    }
+    if (useColorPromotionInput) {
+      useColorPromotionInput.disabled = !hasColoredRight;
+      useColorPromotionInput.checked = hasColoredRight;
+    }
+
+    featuredPromotionCard?.classList.toggle("disabled", !hasFeaturedRight);
+    colorPromotionCard?.classList.toggle("disabled", !hasColoredRight);
+  }
+
+  renderListingPromotionRights();
+  subscribeSharedListings(renderListingPromotionRights);
+
   listingCreateForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(listingCreateForm);
@@ -2534,7 +2593,11 @@ if (listingCreateForm) {
       );
       return;
     }
-    const listingPromotion = getListingPromotionForPlan(listingQuota.plan);
+    const promotionUsage = getPromotionUsage(currentUser);
+    const listingPromotion = getListingPromotionForPlan(listingQuota.plan, promotionUsage, {
+      featured: formData.get("useFeaturedPromotion") === "1",
+      highlighted: formData.get("useColorPromotion") === "1",
+    });
 
     const listingData = {
       id: Date.now(),
