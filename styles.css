@@ -765,7 +765,7 @@ button:disabled,
   display: grid;
   align-content: space-between;
   gap: 16px;
-  min-height: 260px;
+  min-height: 430px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -824,6 +824,33 @@ button:disabled,
 
 .plan-limits dd {
   margin-top: 4px;
+  font-weight: 950;
+}
+
+.plan-features {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  list-style: none;
+}
+
+.plan-features li {
+  position: relative;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.plan-features li::before {
+  position: absolute;
+  top: 0.2em;
+  left: 0;
+  color: var(--green);
+  content: "✓";
   font-weight: 950;
 }
 
@@ -1060,6 +1087,20 @@ button:disabled,
   box-shadow: 0 12px 28px rgba(62, 52, 33, 0.08);
 }
 
+.featured-card.colored-listing,
+.listing-card.colored-listing {
+  border-color: rgba(246, 189, 47, 0.58);
+  background:
+    linear-gradient(135deg, rgba(246, 189, 47, 0.14), rgba(47, 143, 107, 0.08)),
+    var(--surface);
+}
+
+.featured-card.premium-listing,
+.listing-card.premium-listing {
+  border-color: rgba(49, 94, 159, 0.42);
+  box-shadow: 0 18px 36px rgba(49, 94, 159, 0.14);
+}
+
 .featured-card {
   display: grid;
   align-content: space-between;
@@ -1228,6 +1269,11 @@ button:disabled,
   min-height: 24px;
   padding: 0 8px;
   font-size: 0.72rem;
+}
+
+.promo-badge {
+  background: #fff1bf;
+  color: #8a5e00;
 }
 
 .featured-card .job-action {

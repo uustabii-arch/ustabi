@@ -330,7 +330,7 @@ function handleRegister(form, role) {
           : "Hesap açıldı, profil verisi Firestore izni bekliyor.",
       );
       window.setTimeout(() => {
-        window.location.href = `pazar.html?role=${role}`;
+        window.location.href = `hesap-yukselt.html?role=${role}&new=1`;
       }, 700);
     } catch (error) {
       showToast(getFirebaseAuthMessage(error));
@@ -491,9 +491,19 @@ const planDefinitions = {
     id: "free",
     name: "Ücretsiz",
     price: 0,
-    listingLimit: 1,
+    listingLimit: 2,
     offerLimit: 1,
-    description: "1 aktif ilan ve 1 aktif teklif",
+    featuredPlacementLimit: 1,
+    coloredListingLimit: 1,
+    carouselPriority: "Standart sıra",
+    description: "Başlamak için temel ilan ve teklif hakları",
+    features: [
+      "2 aktif ilan açma",
+      "1 aktif teklif hakkı",
+      "1 öne çıkan deneme yerleşimi",
+      "1 renkli ilan denemesi",
+      "Kaydırmalı ekranda standart sıra",
+    ],
   },
   pro: {
     id: "pro",
@@ -501,7 +511,17 @@ const planDefinitions = {
     price: 50,
     listingLimit: 10,
     offerLimit: 10,
-    description: "10 aktif ilan ve 10 aktif teklif",
+    featuredPlacementLimit: 10,
+    coloredListingLimit: 10,
+    carouselPriority: "Öncelikli sıra",
+    description: "Daha fazla görünürlük ve düzenli iş akışı",
+    features: [
+      "10 aktif ilan açma",
+      "10 aktif teklif hakkı",
+      "10 öne çıkan yerleşim hakkı",
+      "10 renkli ilan hakkı",
+      "Kaydırmalı ekranda öncelikli görünüm",
+    ],
   },
   premium: {
     id: "premium",
@@ -509,7 +529,17 @@ const planDefinitions = {
     price: 100,
     listingLimit: Infinity,
     offerLimit: Infinity,
-    description: "Sınırsız ilan ve sınırsız teklif",
+    featuredPlacementLimit: Infinity,
+    coloredListingLimit: Infinity,
+    carouselPriority: "En önde sıra",
+    description: "Sınırsız kullanım ve maksimum görünürlük",
+    features: [
+      "Sınırsız ilan açma",
+      "Sınırsız teklif gönderme",
+      "Sınırsız öne çıkan yerleşim",
+      "Sınırsız renkli ilan",
+      "Kaydırmalı ekranda en önde görünüm",
+    ],
   },
 };
 
@@ -816,6 +846,17 @@ function getSubscriptionPlan(user = getCurrentUser()) {
 
 function formatPlanLimit(limit) {
   return Number.isFinite(limit) ? String(limit) : "Sınırsız";
+}
+
+function getListingPromotionForPlan(plan = getSubscriptionPlan()) {
+  return {
+    featured: plan.featuredPlacementLimit !== 0,
+    highlighted: plan.coloredListingLimit !== 0,
+    carouselPriority:
+      plan.id === "premium" ? 3 : plan.id === "pro" ? 2 : plan.id === "free" ? 1 : 0,
+    carouselPriorityLabel: plan.carouselPriority,
+    planId: plan.id,
+  };
 }
 
 function saveSubscriptionPlan(planId) {
@@ -1867,7 +1908,12 @@ function getPlanCardsMarkup(activePlanId) {
           <dl class="plan-limits">
             <div><dt>İlan</dt><dd>${formatPlanLimit(plan.listingLimit)}</dd></div>
             <div><dt>Teklif</dt><dd>${formatPlanLimit(plan.offerLimit)}</dd></div>
+            <div><dt>Öne çıkan</dt><dd>${formatPlanLimit(plan.featuredPlacementLimit)}</dd></div>
+            <div><dt>Renkli ilan</dt><dd>${formatPlanLimit(plan.coloredListingLimit)}</dd></div>
           </dl>
+          <ul class="plan-features">
+            ${plan.features.map((feature) => `<li>${feature}</li>`).join("")}
+          </ul>
           ${
             isActive
               ? `<button class="primary-action" type="button" disabled>Mevcut plan</button>`
@@ -1889,7 +1935,10 @@ function renderAccountUpgradePage() {
   const offerUsage = getAccountOfferUsage(user);
 
   if (accountPlanSummary) {
-    accountPlanSummary.textContent = `${activePlan.name} hesap · ${listingUsage} aktif ilan · ${offerUsage} aktif teklif`;
+    const introMode = new URLSearchParams(window.location.search).get("new");
+    accountPlanSummary.textContent = introMode
+      ? "Hesabın hazır, şimdi planını seç"
+      : `${activePlan.name} hesap · ${listingUsage} aktif ilan · ${offerUsage} aktif teklif`;
   }
 
   accountUpgradeGrid.innerHTML = `
@@ -1978,6 +2027,10 @@ function normalizeRemoteListing(snapshot) {
     status: data.status || (data.assignedOfferId ? "assigned" : "active"),
     assignedOfferId: data.assignedOfferId || "",
     assignedMaster: data.assignedMaster || data.master || null,
+    highlighted: Boolean(data.highlighted),
+    carouselPriority: Number(data.carouselPriority || 0),
+    carouselPriorityLabel: data.carouselPriorityLabel || "",
+    promotionPlan: data.promotionPlan || "",
     budget: Number(data.budget || 0),
     offers: Number(data.offers || 0),
     featured: data.featured !== false,
@@ -2481,6 +2534,7 @@ if (listingCreateForm) {
       );
       return;
     }
+    const listingPromotion = getListingPromotionForPlan(listingQuota.plan);
 
     const listingData = {
       id: Date.now(),
@@ -2502,7 +2556,11 @@ if (listingCreateForm) {
       details: formData.get("details").trim(),
       offers: 0,
       status: "active",
-      featured: true,
+      featured: listingPromotion.featured,
+      highlighted: listingPromotion.highlighted,
+      carouselPriority: listingPromotion.carouselPriority,
+      carouselPriorityLabel: listingPromotion.carouselPriorityLabel,
+      promotionPlan: listingPromotion.planId,
       image,
       owner: {
         name: currentUser.fullName || "İş veren",
@@ -2910,16 +2968,18 @@ if (listingGrid) {
     const categoryMark =
       categoryMarks[listing.category] || listing.category.slice(0, 2).toLocaleUpperCase("tr-TR");
     const timeLabel = getTimeLabel(listing.workDate) || listing.time;
+    const promoted = Boolean(listing.highlighted);
+    const priorityLabel = listing.carouselPriorityLabel || (listing.carouselPriority ? "Öne çıkan sıra" : "");
 
     return `
-      <article class="${featured ? "featured-card" : "listing-card"}">
+      <article class="${featured ? "featured-card" : "listing-card"} ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}">
         <div class="${featured ? "featured-top" : "listing-top"}">
           <span class="category-icon">${categoryMark}</span>
           <strong class="budget">${currency.format(listing.budget)}</strong>
         </div>
         <div class="listing-photo">
           <img src="${imageSrc}" alt="${listing.title} ilan fotoğrafı" loading="lazy" onerror="this.onerror=null;this.src='assets/listing-placeholder.svg';" />
-          ${featured ? `<span class="featured-photo-label">Öne çıkan</span>` : ""}
+          ${featured ? `<span class="featured-photo-label">${priorityLabel || "Öne çıkan"}</span>` : ""}
         </div>
         <div>
           <h3>${listing.title}</h3>
@@ -2932,6 +2992,7 @@ if (listingGrid) {
           ${listing.city ? `<span class="badge">${listing.city}</span>` : ""}
           <span class="badge">${listing.district}</span>
           <span class="badge">${listing.offers} teklif</span>
+          ${promoted ? `<span class="badge promo-badge">Renkli ilan</span>` : ""}
         </div>
         <div class="listing-bottom">
             <a class="job-action" href="ilan-detay.html?id=${listing.id}">Teklif ver</a>
@@ -2988,7 +3049,11 @@ if (listingGrid) {
 
   function renderListings() {
     const filteredListings = getFilteredListings();
-    const featured = filteredListings.filter((listing) => listing.featured);
+    const sortByPromotion = (left, right) =>
+      Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
+      getRecordTimestamp(right) - getRecordTimestamp(left);
+    const featured = filteredListings.filter((listing) => listing.featured).sort(sortByPromotion);
+    const orderedListings = [...filteredListings].sort(sortByPromotion);
 
     currentFeatured = featured;
     featuredIndex = 0;
@@ -3001,8 +3066,8 @@ if (listingGrid) {
       restartCarousel();
     }
 
-    listingGrid.innerHTML = filteredListings.length
-      ? filteredListings.map((listing) => listingCard(listing)).join("")
+    listingGrid.innerHTML = orderedListings.length
+      ? orderedListings.map((listing) => listingCard(listing)).join("")
       : `<article class="listing-card"><h3>Sonuç bulunamadı</h3><p>Arama veya filtreyi genişletmeyi dene.</p></article>`;
   }
 
