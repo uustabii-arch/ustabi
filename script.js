@@ -38,6 +38,8 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
+const DATA_RESET_AT = Date.parse("2026-05-24T15:11:45+03:00");
+const DATA_RESET_STORAGE_KEY = "ustaDataResetAt";
 
 isAnalyticsSupported().then((supported) => {
   if (supported) getAnalytics(firebaseApp);
@@ -104,6 +106,41 @@ function sanitizeFirestoreData(value) {
 
   return value;
 }
+
+function getRecordTimestamp(record) {
+  const value = record?.createdAt || record?.respondedAt || record?.updatedAt || record?.time;
+  if (!value) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  return 0;
+}
+
+function isAfterDataReset(record) {
+  return getRecordTimestamp(record) >= DATA_RESET_AT;
+}
+
+function resetLegacyWorkspaceData() {
+  const appliedAt = Number(localStorage.getItem(DATA_RESET_STORAGE_KEY) || 0);
+  if (appliedAt >= DATA_RESET_AT) return;
+
+  ["ustaOffers", "ustaListings", "ustaRatings"].forEach((key) => localStorage.removeItem(key));
+  Object.keys(localStorage)
+    .filter(
+      (key) =>
+        key.startsWith("ustaNotificationInbox:") ||
+        key.startsWith("ustaReadNotifications:"),
+    )
+    .forEach((key) => localStorage.removeItem(key));
+
+  localStorage.setItem(DATA_RESET_STORAGE_KEY, String(DATA_RESET_AT));
+}
+
+resetLegacyWorkspaceData();
 
 async function ensureFirestoreAuth() {
   if (auth.currentUser) return auth.currentUser;
@@ -680,7 +717,7 @@ function saveSecurityState(state) {
 
 function getStoredOffers() {
   try {
-    return JSON.parse(localStorage.getItem("ustaOffers")) || [];
+    return (JSON.parse(localStorage.getItem("ustaOffers")) || []).filter(isAfterDataReset);
   } catch {
     return [];
   }
@@ -723,8 +760,29 @@ function getCurrentUser() {
   }
 }
 
+function normalizeAccountValue(value) {
+  return value ? String(value).trim().toLowerCase() : "";
+}
+
+function getAccountEmail(user = getCurrentUser()) {
+  return normalizeAccountValue(user.email);
+}
+
 function getAccountKey(user = getCurrentUser()) {
-  return user.uid || user.email || user.fullName || "guest";
+  return getAccountEmail(user) || normalizeAccountValue(user.uid) || normalizeAccountValue(user.fullName) || "guest";
+}
+
+function getAccountAliases(user = getCurrentUser()) {
+  return [
+    user.email,
+    user.uid,
+    user.fullName,
+    user.profession,
+    user.phone,
+    getAccountKey(user),
+  ]
+    .filter(Boolean)
+    .map(normalizeAccountValue);
 }
 
 function getNotificationStorageKey(accountKey = getAccountKey()) {
@@ -751,6 +809,60 @@ function saveNotificationInbox(items, accountKey = getAccountKey()) {
   localStorage.setItem(getNotificationStorageKey(accountKey), JSON.stringify(items));
 }
 
+function getStoredNotificationsForAccount(user = getCurrentUser()) {
+  const aliases = getAccountAliases(user);
+  const notificationMap = new Map();
+
+  aliases.forEach((alias) => {
+    getNotificationInbox(alias).forEach((notification) => {
+      const id = String(notification.id);
+      if (!id) return;
+      notificationMap.set(id, {
+        ...notificationMap.get(id),
+        ...notification,
+      });
+    });
+  });
+
+  return [...notificationMap.values()]
+    .filter(isAfterDataReset)
+    .sort((left, right) => new Date(right.time) - new Date(left.time));
+}
+
+function getReadNotificationStorageKey(accountKey = getAccountKey()) {
+  return `ustaReadNotifications:${accountKey}`;
+}
+
+function getReadNotificationIds(accountKey = getAccountKey()) {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(getReadNotificationStorageKey(accountKey))) || []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveReadNotificationIds(ids, accountKey = getAccountKey()) {
+  localStorage.setItem(getReadNotificationStorageKey(accountKey), JSON.stringify([...ids]));
+}
+
+function rememberReadNotification(notificationId, accountKey = getAccountKey()) {
+  const readIds = getReadNotificationIds(accountKey);
+  readIds.add(String(notificationId));
+  saveReadNotificationIds(readIds, accountKey);
+}
+
+function getReadNotificationIdsForAccount(user = getCurrentUser()) {
+  const readIds = new Set();
+  getAccountAliases(user).forEach((alias) => {
+    getReadNotificationIds(alias).forEach((id) => readIds.add(String(id)));
+  });
+  return readIds;
+}
+
+function rememberReadNotificationForAccount(notificationId, user = getCurrentUser()) {
+  getAccountAliases(user).forEach((alias) => rememberReadNotification(notificationId, alias));
+}
+
 function pushNotification(notification, recipientKey = getAccountKey()) {
   if (!recipientKey) return;
   const inbox = getNotificationInbox(recipientKey);
@@ -761,28 +873,85 @@ function pushNotification(notification, recipientKey = getAccountKey()) {
   saveNotificationInbox(nextInbox, recipientKey);
 }
 
+async function publishNotificationToRecipients(notification, recipientKeys) {
+  const cleanRecipientKeys = [...new Set((recipientKeys || []).filter(Boolean).map((key) => String(key)))];
+  if (!cleanRecipientKeys.length) return;
+
+  const payload = sanitizeFirestoreData({
+    ...notification,
+    recipientKey: notification.recipientKey || cleanRecipientKeys[0] || "",
+    recipientKeys: cleanRecipientKeys,
+    read: false,
+    createdAt: Date.now(),
+  });
+
+  cleanRecipientKeys.forEach((recipientKey) => {
+    pushNotification(payload, recipientKey);
+  });
+
+  try {
+    await ensureFirestoreAuth();
+    await setDoc(doc(db, "notifications", String(payload.id)), payload, { merge: true });
+  } catch (error) {
+    console.warn("Bildirim Firestore kaydı yazılamadı:", error);
+  }
+}
+
 function resolveListingOwnerKey(listing) {
   return (
-    listing.ownerUid ||
-    listing.ownerKey ||
-    listing.owner?.key ||
-    listing.ownerEmail ||
+    normalizeAccountValue(listing.ownerEmail) ||
+    normalizeAccountValue(listing.owner?.email) ||
+    normalizeAccountValue(listing.ownerKey) ||
+    normalizeAccountValue(listing.owner?.key) ||
+    normalizeAccountValue(listing.ownerUid) ||
+    normalizeAccountValue(listing.owner?.uid) ||
     ""
   );
 }
 
+function getListingOwnerEmail(listing) {
+  return normalizeAccountValue(listing.ownerEmail || listing.owner?.email);
+}
+
+function isListingOwnedByUser(listing, user = getCurrentUser()) {
+  const ownerEmail = getListingOwnerEmail(listing);
+  const accountEmail = getAccountEmail(user);
+
+  if (ownerEmail && accountEmail) return ownerEmail === accountEmail;
+  if (ownerEmail || accountEmail) return false;
+
+  const aliases = new Set(getAccountAliases(user));
+  return [
+    listing.ownerUid ||
+    listing.ownerKey ||
+    listing.owner?.uid ||
+    listing.owner?.key ||
+    listing.owner?.email,
+  ]
+    .map(normalizeAccountValue)
+    .filter(Boolean)
+    .some((key) => aliases.has(key));
+}
+
 function getOwnerRecipientKeys(listing) {
   const keys = new Set();
-  if (listing.ownerUid) keys.add(listing.ownerUid);
-  if (listing.ownerKey) keys.add(listing.ownerKey);
-  if (listing.ownerEmail) keys.add(listing.ownerEmail);
-  if (listing.owner?.key) keys.add(listing.owner.key);
+  [
+    listing.ownerEmail,
+    listing.owner?.email,
+    resolveListingOwnerKey(listing),
+    listing.ownerKey,
+    listing.owner?.key,
+    listing.ownerUid,
+    listing.owner?.uid,
+  ]
+    .filter(Boolean)
+    .forEach((key) => keys.add(normalizeAccountValue(key)));
   return [...keys];
 }
 
 function getAllOffers() {
   const offerMap = new Map();
-  [...getStoredOffers(), ...remoteOffers].forEach((offer) => {
+  [...getStoredOffers(), ...remoteOffers.filter(isAfterDataReset)].forEach((offer) => {
     offerMap.set(String(offer.id), offer);
   });
   return [...offerMap.values()];
@@ -791,17 +960,17 @@ function getAllOffers() {
 function isIncomingOfferForAccount(offer, accountKey = getAccountKey(), user = getCurrentUser()) {
   if (offer.type !== "incoming") return false;
 
-  const uid = user.uid || "";
-  const email = user.email || "";
+  const aliases = new Set([accountKey, ...getAccountAliases(user)]);
 
-  return (
-    offer.ownerKey === accountKey ||
-    (uid && offer.ownerUid === uid) ||
-    (email && offer.ownerEmail === email)
-  );
+  return [offer.ownerEmail, offer.ownerKey, offer.ownerUid]
+    .map(normalizeAccountValue)
+    .filter(Boolean)
+    .some((key) => aliases.has(key));
 }
 
-function buildOfferOwnerNotification(ownerOffer, requesterName, listingTitle, amount) {
+function buildOfferOwnerNotification(ownerOffer, requesterName, listingTitle, amount, listing) {
+  const recipientKeys = getOwnerRecipientKeys(listing);
+
   return {
     id: `offer-${ownerOffer.id}`,
     type: "offer",
@@ -816,40 +985,152 @@ function buildOfferOwnerNotification(ownerOffer, requesterName, listingTitle, am
     href: "teklifler.html?filter=incoming",
     offerId: ownerOffer.id,
     listingId: ownerOffer.listingId,
+    recipientKey: recipientKeys[0] || "",
+    recipientUid: listing.ownerUid || listing.owner?.uid || "",
+    recipientEmail: listing.ownerEmail || listing.owner?.email || "",
+    recipientKeys,
   };
 }
 
 async function publishOwnerNotification(notification, listing) {
-  const recipientKeys = getOwnerRecipientKeys(listing);
-  if (!recipientKeys.length) return;
+  const recipientKeys = notification.recipientKeys?.length
+    ? notification.recipientKeys
+    : getOwnerRecipientKeys(listing);
 
-  recipientKeys.forEach((recipientKey) => {
-    pushNotification(notification, recipientKey);
-  });
-
-  try {
-    await ensureFirestoreAuth();
-    await setDoc(
-      doc(db, "notifications", String(notification.id)),
-      sanitizeFirestoreData({
-        ...notification,
-        recipientKey: listing.ownerUid || listing.ownerKey || listing.ownerEmail || "",
-        recipientUid: listing.ownerUid || "",
-        recipientEmail: listing.ownerEmail || "",
-        recipientKeys,
-        read: false,
-        createdAt: Date.now(),
-      }),
-    );
-  } catch (error) {
-    console.warn("Bildirim Firestore kaydı yazılamadı:", error);
-  }
+  await publishNotificationToRecipients(
+    {
+      ...notification,
+      recipientUid: notification.recipientUid || listing.ownerUid || listing.owner?.uid || "",
+      recipientEmail: notification.recipientEmail || listing.ownerEmail || listing.owner?.email || "",
+    },
+    recipientKeys,
+  );
 }
 
 async function publishOffersToFirestore(sentOffer, ownerOffer) {
   await ensureFirestoreAuth();
   await setDoc(doc(db, "offers", String(sentOffer.id)), sanitizeFirestoreData(sentOffer));
   await setDoc(doc(db, "offers", String(ownerOffer.id)), sanitizeFirestoreData(ownerOffer));
+}
+
+function getRequesterRecipientKeys(offer) {
+  const keys = new Set();
+  [
+    ...(Array.isArray(offer.requesterKeys) ? offer.requesterKeys : []),
+    offer.requesterUid,
+    offer.requesterKey,
+    offer.requesterEmail,
+    offer.requesterName,
+  ]
+    .filter(Boolean)
+    .forEach((key) => keys.add(String(key)));
+  return [...keys];
+}
+
+function hasSharedKey(leftKeys, rightKeys) {
+  const rightSet = new Set(rightKeys.filter(Boolean).map((key) => String(key)));
+  return leftKeys.filter(Boolean).some((key) => rightSet.has(String(key)));
+}
+
+function isOfferRequestedByAccount(offer, accountKey = getAccountKey(), user = getCurrentUser()) {
+  return hasSharedKey(getRequesterRecipientKeys(offer), [accountKey, ...getAccountAliases(user)]);
+}
+
+function findRelatedRequesterOffer(sourceOffer) {
+  return getAllOffers().find((offer) => {
+    if (offer.type !== "sent") return false;
+    const sameListing = String(offer.listingId) === String(sourceOffer.listingId);
+    const pairedId =
+      String(offer.id) === `${sourceOffer.id}-sent` ||
+      String(sourceOffer.id) === String(offer.id).replace(/-sent$/, "");
+    const sameRequester =
+      offer.requesterKey && sourceOffer.requesterKey && offer.requesterKey === sourceOffer.requesterKey;
+    const sameRequesterName =
+      offer.requesterName && sourceOffer.requesterName && offer.requesterName === sourceOffer.requesterName;
+
+    return sameListing && (pairedId || sameRequester || sameRequesterName);
+  });
+}
+
+function enrichRequesterOffer(sourceOffer) {
+  const relatedOffer = findRelatedRequesterOffer(sourceOffer) || {};
+  const requesterKeys = new Set([
+    ...getRequesterRecipientKeys(relatedOffer),
+    ...getRequesterRecipientKeys(sourceOffer),
+  ]);
+
+  return {
+    ...relatedOffer,
+    ...sourceOffer,
+    requesterUid: sourceOffer.requesterUid || relatedOffer.requesterUid || "",
+    requesterEmail: sourceOffer.requesterEmail || relatedOffer.requesterEmail || "",
+    requesterKey: sourceOffer.requesterKey || relatedOffer.requesterKey || "",
+    requesterName: sourceOffer.requesterName || relatedOffer.requesterName || "",
+    requesterKeys: [...requesterKeys],
+  };
+}
+
+function buildOfferRequesterNotification(offer, status) {
+  const recipientKeys = getRequesterRecipientKeys(offer);
+  const isRejected = status === "Reddedildi";
+
+  return {
+    id: `offer-response-${offer.id}-${status}`,
+    type: isRejected ? "rejected" : "offer",
+    title: isRejected ? "Teklifin reddedildi" : "Teklifin kabul edildi",
+    body: `"${offer.listingTitle}" ilan\u0131 i\u00e7in g\u00f6nderdi\u011fin teklif ${status.toLocaleLowerCase("tr-TR")}.`,
+    time: new Date().toISOString(),
+    read: false,
+    href: "teklifler.html?filter=sent",
+    offerId: offer.id,
+    listingId: offer.listingId,
+    recipientKey: recipientKeys[0] || "",
+    recipientUid: offer.requesterUid || "",
+    recipientEmail: offer.requesterEmail || "",
+    recipientKeys,
+  };
+}
+
+async function publishRequesterNotification(notification, offer) {
+  const recipientKeys = notification.recipientKeys?.length
+    ? notification.recipientKeys
+    : getRequesterRecipientKeys(offer);
+
+  await publishNotificationToRecipients(
+    {
+      ...notification,
+      recipientUid: notification.recipientUid || offer.requesterUid || "",
+      recipientEmail: notification.recipientEmail || offer.requesterEmail || "",
+    },
+    recipientKeys,
+  );
+}
+
+async function publishOfferStatusToFirestore(sourceOffer, status) {
+  const offerIds = new Set([String(sourceOffer.id)]);
+  if (String(sourceOffer.id).endsWith("-sent")) {
+    offerIds.add(String(sourceOffer.id).replace(/-sent$/, ""));
+  } else {
+    offerIds.add(`${sourceOffer.id}-sent`);
+  }
+
+  await ensureFirestoreAuth();
+  await Promise.all(
+    [...offerIds].map((offerId) =>
+      setDoc(
+        doc(db, "offers", offerId),
+        sanitizeFirestoreData({
+          ...sourceOffer,
+          id: offerId,
+          type: offerId.endsWith("-sent") ? "sent" : "incoming",
+          status,
+          respondedAt: new Date().toISOString(),
+          updatedAt: Date.now(),
+        }),
+        { merge: true },
+      ),
+    ),
+  );
 }
 
 let remoteOffers = [];
@@ -881,7 +1162,7 @@ function startGlobalOffersFeed() {
   sharedOffersUnsubscribe = onSnapshot(
     collection(db, "offers"),
     (snapshot) => {
-      remoteOffers = snapshot.docs.map((docSnapshot) => normalizeRemoteOffer(docSnapshot));
+      remoteOffers = snapshot.docs.map((docSnapshot) => normalizeRemoteOffer(docSnapshot)).filter(isAfterDataReset);
       notifyOfferFeedListeners();
       notifyNotificationFeedListeners();
     },
@@ -920,42 +1201,73 @@ function subscribeNotificationFeed(listener) {
   return () => sharedNotificationListeners.delete(listener);
 }
 
+function shouldKeepNotificationForAccount(notification, accountKey, user = getCurrentUser()) {
+  const remoteNotification = remoteNotifications.find(
+    (item) => String(item.id) === String(notification.id),
+  );
+
+  if (remoteNotification) {
+    return notificationMatchesAccount(remoteNotification, accountKey, user);
+  }
+
+  const hasRecipientData =
+    notification.recipientKey ||
+    notification.recipientUid ||
+    notification.recipientEmail ||
+    (Array.isArray(notification.recipientKeys) && notification.recipientKeys.length);
+
+  return hasRecipientData ? notificationMatchesAccount(notification, accountKey, user) : true;
+}
+
 function mergeRemoteNotifications(inbox, accountKey = getAccountKey(), user = getCurrentUser()) {
-  const existingIds = new Set(inbox.map((item) => item.id));
-  const merged = [...inbox];
+  const readIds = getReadNotificationIdsForAccount(user);
+  const mergedMap = new Map(
+    inbox.map((item) => [
+      String(item.id),
+      {
+        ...item,
+        read: item.read || readIds.has(String(item.id)),
+      },
+    ]),
+  );
 
   remoteNotifications
     .filter((notification) => notificationMatchesAccount(notification, accountKey, user))
     .forEach((notification) => {
-      if (existingIds.has(notification.id)) return;
-      merged.unshift({
+      const id = String(notification.id);
+      const existing = mergedMap.get(id);
+      mergedMap.set(id, {
+        ...existing,
         id: notification.id,
         type: notification.type || "offer",
         title: notification.title,
         body: notification.body,
         time: notification.time,
-        read: notification.read,
+        read: Boolean(existing?.read || notification.read || readIds.has(id)),
         href: notification.href || "teklifler.html?filter=incoming",
+        recipientKey: notification.recipientKey || "",
+        recipientUid: notification.recipientUid || "",
+        recipientEmail: notification.recipientEmail || "",
+        recipientKeys: notification.recipientKeys || [],
       });
-      existingIds.add(notification.id);
     });
 
-  return merged.sort((left, right) => new Date(right.time) - new Date(left.time));
+  return [...mergedMap.values()].sort((left, right) => new Date(right.time) - new Date(left.time));
 }
 
 function notificationMatchesAccount(notification, accountKey, user = getCurrentUser()) {
-  const uid = user.uid || "";
-  const email = user.email || "";
+  const aliases = new Set([accountKey, ...getAccountAliases(user)].filter(Boolean).map((key) => String(key)));
   const recipientKeys = Array.isArray(notification.recipientKeys) ? notification.recipientKeys : [];
+  const notificationKeys = [
+    notification.recipientKey,
+    notification.recipientUid,
+    notification.recipientEmail,
+    ...recipientKeys,
+  ]
+    .filter(Boolean)
+    .map((key) => String(key));
 
-  return (
-    notification.recipientKey === accountKey ||
-    (uid && notification.recipientUid === uid) ||
-    (email && notification.recipientEmail === email) ||
-    recipientKeys.includes(accountKey) ||
-    (uid && recipientKeys.includes(uid)) ||
-    (email && recipientKeys.includes(email))
-  );
+  return notificationKeys.some((key) => aliases.has(key));
 }
 
 function startGlobalNotificationsFeed() {
@@ -964,13 +1276,29 @@ function startGlobalNotificationsFeed() {
   sharedNotificationsUnsubscribe = onSnapshot(
     collection(db, "notifications"),
     (snapshot) => {
-      remoteNotifications = snapshot.docs.map((docSnapshot) => normalizeRemoteNotification(docSnapshot));
+      remoteNotifications = snapshot.docs.map((docSnapshot) => normalizeRemoteNotification(docSnapshot)).filter(isAfterDataReset);
       notifyNotificationFeedListeners();
     },
     (error) => {
       console.warn("Bildirim akışı dinlenemedi:", error);
     },
   );
+}
+
+async function markRemoteNotificationRead(notificationId) {
+  try {
+    await ensureFirestoreAuth();
+    await setDoc(
+      doc(db, "notifications", String(notificationId)),
+      sanitizeFirestoreData({
+        read: true,
+        readAt: Date.now(),
+      }),
+      { merge: true },
+    );
+  } catch (error) {
+    console.warn("Bildirim okundu durumu Firestore'a yazÄ±lamadÄ±:", error);
+  }
 }
 
 function restartSharedFeeds() {
@@ -989,6 +1317,8 @@ function restartSharedFeeds() {
 
 function syncRelatedOfferStatus(sourceOffer, status) {
   const offers = getStoredOffers();
+  const respondedAt = new Date().toISOString();
+  const updatedAt = Date.now();
   const nextOffers = offers.map((offer) => {
     const sameListing = String(offer.listingId) === String(sourceOffer.listingId);
     const sameRequester =
@@ -996,7 +1326,7 @@ function syncRelatedOfferStatus(sourceOffer, status) {
       String(offer.id) === `${sourceOffer.id}-sent` ||
       String(sourceOffer.id) === `${offer.id}-sent`;
 
-    return sameListing && sameRequester ? { ...offer, status } : offer;
+    return sameListing && sameRequester ? { ...offer, status, respondedAt, updatedAt } : offer;
   });
 
   localStorage.setItem("ustaOffers", JSON.stringify(nextOffers));
@@ -1008,22 +1338,24 @@ function isOfferVisibleForAccount(offer, accountKey = getAccountKey(), user = ge
 
   if (!offer.requesterKey && !offer.ownerKey && !offer.ownerUid) return true;
   if (offer.type === "sent") {
-    return offer.requesterKey === accountKey || (uid && offer.requesterUid === uid);
+    return isOfferRequestedByAccount(offer, accountKey, user);
   }
   if (offer.type === "incoming") {
     return isIncomingOfferForAccount(offer, accountKey, user);
   }
   return (
-    offer.requesterKey === accountKey ||
-    offer.ownerKey === accountKey ||
-    (uid && (offer.requesterUid === uid || offer.ownerUid === uid)) ||
-    (email && offer.ownerEmail === email)
+    normalizeAccountValue(offer.requesterKey) === accountKey ||
+    normalizeAccountValue(offer.ownerKey) === accountKey ||
+    (uid && (normalizeAccountValue(offer.requesterUid) === normalizeAccountValue(uid) || normalizeAccountValue(offer.ownerUid) === normalizeAccountValue(uid))) ||
+    (email && normalizeAccountValue(offer.ownerEmail) === normalizeAccountValue(email))
   );
 }
 
 function saveVisibleOffersForAccount(updatedOffers, accountKey = getAccountKey()) {
   const untouchedOffers = getStoredOffers().filter((offer) => !isOfferVisibleForAccount(offer, accountKey));
-  const visibleStoredOffers = updatedOffers.filter((offer) => !String(offer.id).startsWith("sample"));
+  const visibleStoredOffers = updatedOffers.filter(
+    (offer) => !String(offer.id).startsWith("sample") && !(offer.type === "incoming" && offer.status === "Reddedildi"),
+  );
   localStorage.setItem("ustaOffers", JSON.stringify([...visibleStoredOffers, ...untouchedOffers]));
 }
 
@@ -1062,8 +1394,12 @@ function getDefaultNotificationInbox(role) {
 }
 
 function mergeOfferNotifications(inbox, accountKey = getAccountKey(), user = getCurrentUser()) {
+  const readIds = getReadNotificationIdsForAccount(user);
   const existingIds = new Set(inbox.map((item) => item.id));
-  const merged = [...inbox];
+  const merged = inbox.map((item) => ({
+    ...item,
+    read: item.read || readIds.has(String(item.id)),
+  }));
 
   getAllOffers()
     .filter(
@@ -1087,8 +1423,32 @@ function mergeOfferNotifications(inbox, accountKey = getAccountKey(), user = get
         title: "İlanına yeni teklif",
         body: `${offer.requesterName || "Bir usta"} "${offer.listingTitle}" ilanına ${amount} teklif gönderdi.`,
         time: offer.createdAt || new Date().toISOString(),
-        read: false,
+        read: readIds.has(id),
         href: "teklifler.html?filter=incoming",
+      });
+      existingIds.add(id);
+    });
+
+  getAllOffers()
+    .filter(
+      (offer) =>
+        offer.type === "sent" &&
+        isOfferRequestedByAccount(offer, accountKey, user) &&
+        (offer.status === "Kabul edildi" || offer.status === "Reddedildi"),
+    )
+    .forEach((offer) => {
+      const id = `offer-response-${String(offer.id).replace(/-sent$/, "")}-${offer.status}`;
+      if (existingIds.has(id)) return;
+
+      const isRejected = offer.status === "Reddedildi";
+      merged.unshift({
+        id,
+        type: isRejected ? "rejected" : "offer",
+        title: isRejected ? "Teklifin reddedildi" : "Teklifin kabul edildi",
+        body: `"${offer.listingTitle}" ilan\u0131 i\u00e7in g\u00f6nderdi\u011fin teklif ${offer.status.toLocaleLowerCase("tr-TR")}.`,
+        time: offer.respondedAt || offer.updatedAt || new Date().toISOString(),
+        read: readIds.has(id),
+        href: "teklifler.html?filter=sent",
       });
       existingIds.add(id);
     });
@@ -1241,9 +1601,11 @@ const defaultListings = [
   },
 ];
 
+defaultListings.length = 0;
+
 function getAllListings() {
   const listingMap = new Map();
-  [...defaultListings, ...getStoredListings(), ...remoteListings].forEach((listing) => {
+  [...getStoredListings(), ...remoteListings.filter(isAfterDataReset)].forEach((listing) => {
     listingMap.set(String(listing.id), listing);
   });
   return [...listingMap.values()];
@@ -1261,15 +1623,7 @@ function subscribeSharedListings(listener) {
 }
 
 function isListingOwnedByCurrentUser(listing) {
-  const user = getCurrentUser();
-  const accountKey = getAccountKey(user);
-
-  return (
-    listing.ownerKey === accountKey ||
-    listing.ownerUid === user.uid ||
-    listing.owner?.key === accountKey ||
-    (user.email && listing.ownerEmail === user.email)
-  );
+  return isListingOwnedByUser(listing, getCurrentUser());
 }
 
 function getMyListings() {
@@ -1280,7 +1634,7 @@ function startSharedListingsFeed() {
   if (sharedListingsUnsubscribe) return;
 
   const applySnapshot = (snapshot) => {
-    remoteListings = snapshot.docs.map(normalizeRemoteListing);
+    remoteListings = snapshot.docs.map(normalizeRemoteListing).filter(isAfterDataReset);
     notifySharedListingListeners();
   };
 
@@ -1334,9 +1688,9 @@ function normalizeRemoteListing(snapshot) {
   return {
     ...data,
     id: snapshot.id,
-    ownerKey: data.ownerKey || owner.key || data.ownerUid || data.ownerEmail || "",
+    ownerKey: normalizeAccountValue(data.ownerEmail || owner.email || data.ownerKey || owner.key || data.ownerUid || ""),
     ownerUid: data.ownerUid || "",
-    ownerEmail: data.ownerEmail || "",
+    ownerEmail: normalizeAccountValue(data.ownerEmail || owner.email || ""),
     budget: Number(data.budget || 0),
     offers: Number(data.offers || 0),
     featured: data.featured !== false,
@@ -1348,7 +1702,9 @@ function normalizeRemoteListing(snapshot) {
 async function getRemoteListing(listingId) {
   try {
     const snapshot = await withTimeout(getDoc(doc(db, "listings", listingId)), 8000);
-    return snapshot.exists() ? normalizeRemoteListing(snapshot) : null;
+    if (!snapshot.exists()) return null;
+    const listing = normalizeRemoteListing(snapshot);
+    return isAfterDataReset(listing) ? listing : null;
   } catch (error) {
     console.warn("Firestore ilanı okunamadı:", error);
     return null;
@@ -1403,7 +1759,7 @@ async function compressImageAsDataUrl(file, maxWidth = 960, quality = 0.75) {
 
 function getStoredListings() {
   try {
-    return JSON.parse(localStorage.getItem("ustaListings")) || [];
+    return (JSON.parse(localStorage.getItem("ustaListings")) || []).filter(isAfterDataReset);
   } catch {
     return [];
   }
@@ -1835,7 +2191,7 @@ if (listingCreateForm) {
       id: Date.now(),
       ownerKey: getAccountKey(currentUser),
       ownerUid: currentUser.uid || "",
-      ownerEmail: currentUser.email || "",
+      ownerEmail: getAccountEmail(currentUser),
       title: formData.get("title").trim(),
       category: formData.get("category"),
       city: formData.get("city"),
@@ -1855,6 +2211,7 @@ if (listingCreateForm) {
       owner: {
         name: currentUser.fullName || "İş veren",
         key: getAccountKey(currentUser),
+        email: getAccountEmail(currentUser),
         rating: 10,
         reviewCount: 0,
       },
@@ -1982,8 +2339,10 @@ if (listingGrid) {
   const notificationBadge = document.querySelector("#notificationBadge");
   const notificationCountText = document.querySelector("#notificationCountText");
   const markAllNotificationsRead = document.querySelector("#markAllNotificationsRead");
+  const notificationViewButtons = document.querySelectorAll("[data-notification-view]");
 
   let notificationInbox = [];
+  let activeNotificationView = "unread";
 
   const currency = new Intl.NumberFormat("tr-TR", {
     style: "currency",
@@ -2061,6 +2420,7 @@ if (listingGrid) {
   function updateNotificationBadge() {
     if (!notificationBadge) return;
     const unreadCount = notificationInbox.filter((item) => !item.read).length;
+    const readCount = notificationInbox.length - unreadCount;
     notificationBadge.hidden = unreadCount === 0;
     notificationBadge.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
 
@@ -2070,16 +2430,41 @@ if (listingGrid) {
         : "Yeni bildirim yok";
     }
 
+    if (notificationCountText && activeNotificationView === "history") {
+      notificationCountText.textContent = readCount
+        ? `${readCount} eski bildirim`
+        : "Eski bildirim yok";
+    }
+
     if (markAllNotificationsRead) {
       markAllNotificationsRead.disabled = unreadCount === 0;
     }
   }
 
+  function updateNotificationTabs() {
+    const unreadCount = notificationInbox.filter((item) => !item.read).length;
+    const readCount = notificationInbox.length - unreadCount;
+
+    notificationViewButtons.forEach((button) => {
+      const isActive = button.dataset.notificationView === activeNotificationView;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-selected", String(isActive));
+      button.textContent =
+        button.dataset.notificationView === "history"
+          ? `Ge\u00e7mi\u015f${readCount ? ` (${readCount})` : ""}`
+          : `Yeni${unreadCount ? ` (${unreadCount})` : ""}`;
+    });
+  }
+
   function renderNotificationInbox() {
     if (!notificationList) return;
 
-    notificationList.innerHTML = notificationInbox.length
-      ? notificationInbox
+    const visibleNotifications = notificationInbox.filter((item) =>
+      activeNotificationView === "history" ? item.read : !item.read,
+    );
+
+    notificationList.innerHTML = visibleNotifications.length
+      ? visibleNotifications
           .map(
             (item) => `
               <li>
@@ -2102,6 +2487,14 @@ if (listingGrid) {
           .join("")
       : `<li class="notification-empty">Henüz bildirim yok. Yeni teklif veya mesaj gelince burada görünür.</li>`;
 
+    if (!visibleNotifications.length) {
+      notificationList.innerHTML =
+        activeNotificationView === "history"
+          ? `<li class="notification-empty">Okudu\u011fun bildirimler burada saklan\u0131r.</li>`
+          : `<li class="notification-empty">Yeni bildirim yok. Okuduklar\u0131n\u0131 Ge\u00e7mi\u015f sekmesinden tekrar g\u00f6rebilirsin.</li>`;
+    }
+
+    updateNotificationTabs();
     updateNotificationBadge();
   }
 
@@ -2110,7 +2503,9 @@ if (listingGrid) {
     const user = getUser();
     const accountKey = getAccountKey(user);
     const role = params.get("role") || user.role || "master";
-    let inbox = getNotificationInbox(accountKey);
+    let inbox = getStoredNotificationsForAccount(user).filter((item) =>
+      shouldKeepNotificationForAccount(item, accountKey, user),
+    );
 
     if (!inbox.length) {
       inbox = getDefaultNotificationInbox(role);
@@ -2123,20 +2518,26 @@ if (listingGrid) {
     renderNotificationInbox();
   }
 
-  function markNotificationRead(notificationId) {
-    const accountKey = getAccountKey(getUser());
+  async function markNotificationRead(notificationId) {
+    const user = getUser();
+    const accountKey = getAccountKey(user);
+    rememberReadNotificationForAccount(notificationId, user);
     notificationInbox = notificationInbox.map((item) =>
       item.id === notificationId ? { ...item, read: true } : item,
     );
     saveNotificationInbox(notificationInbox, accountKey);
     renderNotificationInbox();
+    await markRemoteNotificationRead(notificationId);
   }
 
-  function markAllNotificationsReadHandler() {
-    const accountKey = getAccountKey(getUser());
+  async function markAllNotificationsReadHandler() {
+    const user = getUser();
+    const accountKey = getAccountKey(user);
+    notificationInbox.forEach((item) => rememberReadNotificationForAccount(item.id, user));
     notificationInbox = notificationInbox.map((item) => ({ ...item, read: true }));
     saveNotificationInbox(notificationInbox, accountKey);
     renderNotificationInbox();
+    await Promise.all(notificationInbox.map((item) => markRemoteNotificationRead(item.id)));
     showToast("Tüm bildirimler okundu olarak işaretlendi.");
   }
 
@@ -2153,17 +2554,25 @@ if (listingGrid) {
       toggleNotificationPanel();
     });
 
-    markAllNotificationsRead?.addEventListener("click", (event) => {
+    markAllNotificationsRead?.addEventListener("click", async (event) => {
       event.stopPropagation();
-      markAllNotificationsReadHandler();
+      await markAllNotificationsReadHandler();
     });
 
-    notificationList.addEventListener("click", (event) => {
+    notificationViewButtons.forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        activeNotificationView = button.dataset.notificationView || "unread";
+        renderNotificationInbox();
+      });
+    });
+
+    notificationList.addEventListener("click", async (event) => {
       const item = event.target.closest("[data-notification-id]");
       if (!item) return;
 
       const notificationId = item.dataset.notificationId;
-      markNotificationRead(notificationId);
+      await markNotificationRead(notificationId);
       closeNotificationPanel();
 
       const href = item.dataset.notificationHref;
@@ -2586,11 +2995,9 @@ if (listingDetail) {
         const message = formData.get("message").trim();
         const requesterName = user.fullName || user.profession || "Bir usta";
         const requesterKey = getAccountKey(user);
+        const requesterKeys = new Set(getAccountAliases(user));
         const ownerKey = resolveListingOwnerKey(activeListing);
-        const recipientKeys = getOwnerRecipientKeys(activeListing);
-        const isOwnListing =
-          recipientKeys.includes(requesterKey) ||
-          (user.uid && recipientKeys.includes(user.uid));
+        const isOwnListing = isListingOwnedByUser(activeListing, user);
 
         if (isOwnListing) {
           showToast("Kendi ilanına teklif gönderemezsin.");
@@ -2608,9 +3015,10 @@ if (listingDetail) {
           requesterKey,
           requesterUid: user.uid || "",
           requesterEmail: user.email || "",
+          requesterKeys: [...requesterKeys],
           ownerKey,
-          ownerUid: activeListing.ownerUid || "",
-          ownerEmail: activeListing.ownerEmail || "",
+          ownerUid: activeListing.ownerUid || activeListing.owner?.uid || "",
+          ownerEmail: getListingOwnerEmail(activeListing),
           requesterName,
           requesterProfession: user.profession || `${activeListing.category || "Genel"} ustası`,
           requesterPhone: user.phone || "",
@@ -2633,12 +3041,21 @@ if (listingDetail) {
             submitButton.textContent = "Gönderiliyor...";
           }
 
+          if (!sentOffer.requesterUid) {
+            const authUser = await ensureFirestoreAuth();
+            requesterKeys.add(authUser.uid);
+            sentOffer.requesterUid = authUser.uid;
+            sentOffer.requesterKeys = [...requesterKeys];
+            ownerOffer.requesterUid = authUser.uid;
+            ownerOffer.requesterKeys = [...requesterKeys];
+          }
+
           await publishOffersToFirestore(sentOffer, ownerOffer);
           saveOffer(sentOffer);
           saveOffer(ownerOffer);
 
           await publishOwnerNotification(
-            buildOfferOwnerNotification(ownerOffer, requesterName, activeListing.title, amount),
+            buildOfferOwnerNotification(ownerOffer, requesterName, activeListing.title, amount, activeListing),
             activeListing,
           );
 
@@ -2773,6 +3190,7 @@ if (offersList) {
       createdAt: new Date().toISOString(),
     },
   ];
+  sampleOffers.length = 0;
   const currentUser = getCurrentUser();
   const currentOfferAccountKey = getAccountKey(currentUser);
   const currentOfferUid = currentUser.uid || "";
@@ -2791,8 +3209,8 @@ if (offersList) {
         isOfferVisibleForAccount(offer, currentOfferAccountKey, currentUser),
       ),
       ...sampleOffers,
-      ...remoteOffers.filter((offer) =>
-        isOfferVisibleForAccount(offer, currentOfferAccountKey, currentUser),
+      ...remoteOffers.filter(
+        (offer) => isAfterDataReset(offer) && isOfferVisibleForAccount(offer, currentOfferAccountKey, currentUser),
       ),
     ].forEach((offer) => {
       offerMap.set(String(offer.id), offer);
@@ -2877,7 +3295,8 @@ if (offersList) {
 
   function renderOffers(filter = "all") {
     mergeVisibleOffers();
-    const filtered = filter === "all" ? offers : offers.filter((offer) => offer.type === filter);
+    const activeOffers = offers.filter((offer) => !(offer.type === "incoming" && offer.status === "Reddedildi"));
+    const filtered = filter === "all" ? activeOffers : activeOffers.filter((offer) => offer.type === filter);
     offersList.innerHTML = filtered.length
       ? filtered.map(offerCard).join("")
       : `<article class="offer-card"><h3>Teklif yok</h3><p>Gönderilen veya gelen teklifler burada görünecek.</p></article>`;
@@ -2912,7 +3331,7 @@ if (offersList) {
     showToast("Teklif durumu güncellendi.");
   });
 
-  masterReviewBackdrop.addEventListener("click", (event) => {
+  masterReviewBackdrop.addEventListener("click", async (event) => {
     if (event.target === masterReviewBackdrop || event.target.closest("[data-close-master-review]")) {
       closeMasterReview();
       return;
@@ -2925,23 +3344,26 @@ if (offersList) {
     const nextStatus = rejectButton ? "Reddedildi" : "Kabul edildi";
     const selectedOffer = offers.find((offer) => String(offer.id) === String(targetOfferId));
 
-    offers = offers.map((offer) =>
-      String(offer.id) === String(targetOfferId)
-        ? { ...offer, status: nextStatus }
-        : offer,
-    );
+    offers = rejectButton
+      ? offers.filter((offer) => String(offer.id) !== String(targetOfferId))
+      : offers.map((offer) =>
+          String(offer.id) === String(targetOfferId)
+            ? { ...offer, status: nextStatus }
+            : offer,
+        );
     saveVisibleOffersForAccount(offers, currentOfferAccountKey);
     if (selectedOffer) {
-      syncRelatedOfferStatus(selectedOffer, nextStatus);
-      pushNotification({
-        id: `offer-response-${selectedOffer.id}-${nextStatus}`,
-        type: rejectButton ? "rejected" : "offer",
-        title: rejectButton ? "Teklifin reddedildi" : "Teklifin kabul edildi",
-        body: `"${selectedOffer.listingTitle}" ilanı için gönderdiğin teklif ${nextStatus.toLocaleLowerCase("tr-TR")}.`,
-        time: new Date().toISOString(),
-        read: false,
-        href: "teklifler.html?filter=sent",
-      }, selectedOffer.requesterKey);
+      const notificationOffer = enrichRequesterOffer(selectedOffer);
+      syncRelatedOfferStatus(notificationOffer, nextStatus);
+      try {
+        await publishOfferStatusToFirestore(notificationOffer, nextStatus);
+      } catch (error) {
+        console.warn("Teklif durumu Firestore'a yaz\u0131lamad\u0131:", error);
+      }
+      await publishRequesterNotification(
+        buildOfferRequesterNotification(notificationOffer, nextStatus),
+        notificationOffer,
+      );
     }
     renderOffers(document.querySelector("[data-offer-filter].active").dataset.offerFilter);
     closeMasterReview();

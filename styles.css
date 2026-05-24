@@ -360,6 +360,33 @@ button:disabled,
   color: #9a948a;
 }
 
+.notification-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: #faf8f4;
+}
+
+.notification-tabs button {
+  min-height: auto;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.notification-tabs button.active {
+  border-color: rgba(49, 94, 159, 0.14);
+  background: var(--surface);
+  color: var(--blue);
+  box-shadow: 0 8px 18px rgba(28, 36, 32, 0.06);
+}
+
 .notification-list {
   max-height: min(390px, 52vh);
   margin: 0;
