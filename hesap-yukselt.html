@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | Hesap yükselt</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell upgrade-page-shell">
+      <section class="auth-intro" aria-labelledby="upgrade-page-title">
+        <p class="eyebrow">Hesap yükselt</p>
+        <h1 id="upgrade-page-title">İlan ve teklif limitini büyüt.</h1>
+        <p class="lead">
+          Ücretsiz hesapla başlayabilir, Pro veya Premium abonelikle daha fazla işe ulaşabilirsin.
+        </p>
+      </section>
+
+      <section class="auth-card upgrade-page-card" aria-label="Hesap planları">
+        <div class="auth-card-head">
+          <a class="back-button" href="pazar.html">← Panele dön</a>
+          <p class="eyebrow" id="accountPlanSummary">Plan seç</p>
+          <h2>Hesap türleri</h2>
+        </div>
+
+        <div class="plan-grid" id="accountUpgradeGrid"></div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="script.js"></script>
+  </body>
+</html>

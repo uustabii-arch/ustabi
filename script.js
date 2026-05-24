@@ -476,12 +476,42 @@ const identityPreview = document.querySelector("#identityPreview");
 const notificationForm = document.querySelector("#notificationForm");
 const offersList = document.querySelector("#offersList");
 const paymentForm = document.querySelector("#paymentForm");
+const accountUpgradeGrid = document.querySelector("#accountUpgradeGrid");
+const accountPlanSummary = document.querySelector("#accountPlanSummary");
 let remoteListings = [];
 let remoteNotifications = [];
 let sharedListingsUnsubscribe = null;
 let sharedNotificationsUnsubscribe = null;
 const sharedListingListeners = new Set();
 const sharedNotificationListeners = new Set();
+
+const SUBSCRIPTION_STORAGE_KEY = "ustaSubscriptionPlan";
+const planDefinitions = {
+  free: {
+    id: "free",
+    name: "Ücretsiz",
+    price: 0,
+    listingLimit: 1,
+    offerLimit: 1,
+    description: "1 aktif ilan ve 1 aktif teklif",
+  },
+  pro: {
+    id: "pro",
+    name: "Pro",
+    price: 50,
+    listingLimit: 10,
+    offerLimit: 10,
+    description: "10 aktif ilan ve 10 aktif teklif",
+  },
+  premium: {
+    id: "premium",
+    name: "Premium",
+    price: 100,
+    listingLimit: Infinity,
+    offerLimit: Infinity,
+    description: "Sınırsız ilan ve sınırsız teklif",
+  },
+};
 
 const professionCategories = [
   "Boya",
@@ -772,6 +802,35 @@ function getCurrentUser() {
   } catch {
     return {};
   }
+}
+
+function getSubscriptionPlanId(user = getCurrentUser()) {
+  const storedPlan = localStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
+  const planId = storedPlan || user.subscriptionPlan || "free";
+  return planDefinitions[planId] ? planId : "free";
+}
+
+function getSubscriptionPlan(user = getCurrentUser()) {
+  return planDefinitions[getSubscriptionPlanId(user)];
+}
+
+function formatPlanLimit(limit) {
+  return Number.isFinite(limit) ? String(limit) : "Sınırsız";
+}
+
+function saveSubscriptionPlan(planId) {
+  if (!planDefinitions[planId]) return;
+  localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, planId);
+
+  const user = getCurrentUser();
+  localStorage.setItem(
+    "ustaUser",
+    JSON.stringify({
+      ...user,
+      subscriptionPlan: planId,
+      subscriptionUpdatedAt: new Date().toISOString(),
+    }),
+  );
 }
 
 function normalizeAccountValue(value) {
@@ -1140,6 +1199,45 @@ async function publishOfferStatusToFirestore(sourceOffer, status) {
           status,
           respondedAt: new Date().toISOString(),
           updatedAt: Date.now(),
+        }),
+        { merge: true },
+      ),
+    ),
+  );
+}
+
+async function cancelOfferForAccount(sourceOffer) {
+  const canceledAt = new Date().toISOString();
+  const updatedAt = Date.now();
+  const nextStatus = "İptal edildi";
+  const offerIds = new Set([String(sourceOffer.id)]);
+  if (String(sourceOffer.id).endsWith("-sent")) {
+    offerIds.add(String(sourceOffer.id).replace(/-sent$/, ""));
+  } else {
+    offerIds.add(`${sourceOffer.id}-sent`);
+  }
+
+  const offers = getStoredOffers().map((offer) =>
+    offerIds.has(String(offer.id)) ? { ...offer, status: nextStatus, canceledAt, updatedAt } : offer,
+  );
+  localStorage.setItem("ustaOffers", JSON.stringify(offers));
+
+  remoteOffers = remoteOffers.map((offer) =>
+    offerIds.has(String(offer.id)) ? { ...offer, status: nextStatus, canceledAt, updatedAt } : offer,
+  );
+  notifyOfferFeedListeners();
+  notifyNotificationFeedListeners();
+
+  await ensureFirestoreAuth();
+  await Promise.all(
+    [...offerIds].map((offerId) =>
+      setDoc(
+        doc(db, "offers", offerId),
+        sanitizeFirestoreData({
+          id: offerId,
+          status: nextStatus,
+          canceledAt,
+          updatedAt,
         }),
         { merge: true },
       ),
@@ -1705,6 +1803,117 @@ function getMyListings() {
   return getAllListings().filter(isListingOwnedByCurrentUser);
 }
 
+function isListingCountedForQuota(listing) {
+  return !isExpiredListing(listing);
+}
+
+function isOfferCountedForQuota(offer) {
+  return offer.type === "sent" && !["Reddedildi", "İptal edildi"].includes(offer.status);
+}
+
+function getAccountListingUsage(user = getCurrentUser()) {
+  return getAllListings().filter((listing) => isListingOwnedByUser(listing, user) && isListingCountedForQuota(listing)).length;
+}
+
+function getAccountOfferUsage(user = getCurrentUser()) {
+  const accountKey = getAccountKey(user);
+  const offerMap = new Map();
+
+  getAllOffers()
+    .filter((offer) => isOfferRequestedByAccount(offer, accountKey, user) && isOfferCountedForQuota(offer))
+    .forEach((offer) => {
+      const id = String(offer.id).replace(/-sent$/, "");
+      offerMap.set(`${offer.listingId}:${id}`, offer);
+    });
+
+  return offerMap.size;
+}
+
+function canCreateListingForPlan(user = getCurrentUser()) {
+  const plan = getSubscriptionPlan(user);
+  const used = getAccountListingUsage(user);
+  return {
+    allowed: !Number.isFinite(plan.listingLimit) || used < plan.listingLimit,
+    plan,
+    used,
+    limit: plan.listingLimit,
+  };
+}
+
+function canSendOfferForPlan(user = getCurrentUser()) {
+  const plan = getSubscriptionPlan(user);
+  const used = getAccountOfferUsage(user);
+  return {
+    allowed: !Number.isFinite(plan.offerLimit) || used < plan.offerLimit,
+    plan,
+    used,
+    limit: plan.offerLimit,
+  };
+}
+
+function getPlanCardsMarkup(activePlanId) {
+  return Object.values(planDefinitions)
+    .map((plan) => {
+      const isActive = plan.id === activePlanId;
+      const price = plan.price ? `${plan.price} TL / ay` : "Ücretsiz";
+
+      return `
+        <article class="plan-card ${isActive ? "active" : ""}">
+          <div>
+            <span class="plan-price">${price}</span>
+            <h3>${plan.name}</h3>
+            <p>${plan.description}</p>
+          </div>
+          <dl class="plan-limits">
+            <div><dt>İlan</dt><dd>${formatPlanLimit(plan.listingLimit)}</dd></div>
+            <div><dt>Teklif</dt><dd>${formatPlanLimit(plan.offerLimit)}</dd></div>
+          </dl>
+          ${
+            isActive
+              ? `<button class="primary-action" type="button" disabled>Mevcut plan</button>`
+              : `<button class="primary-action" type="button" data-select-plan="${plan.id}">${plan.price ? "Aboneliği başlat" : "Ücretsiz plana geç"}</button>`
+          }
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderAccountUpgradePage() {
+  if (!accountUpgradeGrid) return;
+
+  const user = getCurrentUser();
+  const activePlanId = getSubscriptionPlanId(user);
+  const activePlan = planDefinitions[activePlanId];
+  const listingUsage = getAccountListingUsage(user);
+  const offerUsage = getAccountOfferUsage(user);
+
+  if (accountPlanSummary) {
+    accountPlanSummary.textContent = `${activePlan.name} hesap · ${listingUsage} aktif ilan · ${offerUsage} aktif teklif`;
+  }
+
+  accountUpgradeGrid.innerHTML = `
+    <div class="plan-usage">
+      <strong>Kullanımın</strong>
+      <span>${listingUsage} aktif ilan · ${offerUsage} aktif teklif</span>
+    </div>
+    ${getPlanCardsMarkup(activePlanId)}
+  `;
+}
+
+if (accountUpgradeGrid) {
+  renderAccountUpgradePage();
+  accountUpgradeGrid.addEventListener("click", (event) => {
+    const planButton = event.target.closest("[data-select-plan]");
+    if (!planButton) return;
+
+    const planId = planButton.dataset.selectPlan;
+    saveSubscriptionPlan(planId);
+    renderAccountUpgradePage();
+    showToast(`${planDefinitions[planId].name} hesap aktif edildi.`);
+  });
+}
+
 function startSharedListingsFeed() {
   if (sharedListingsUnsubscribe) return;
 
@@ -2265,6 +2474,14 @@ if (listingCreateForm) {
       return;
     }
 
+    const listingQuota = canCreateListingForPlan(currentUser);
+    if (!listingQuota.allowed) {
+      showToast(
+        `${listingQuota.plan.name} hesapta ${formatPlanLimit(listingQuota.limit)} aktif ilan hakkın var. Hesabı yükseltip devam edebilirsin.`,
+      );
+      return;
+    }
+
     const listingData = {
       id: Date.now(),
       ownerKey: getAccountKey(currentUser),
@@ -2717,7 +2934,6 @@ if (listingGrid) {
           <span class="badge">${listing.offers} teklif</span>
         </div>
         <div class="listing-bottom">
-            <span class="badge">${listing.phone ? `Tel: ${listing.phone}` : "Telefon doğrulandı"}</span>
             <a class="job-action" href="ilan-detay.html?id=${listing.id}">Teklif ver</a>
           </div>
         </div>
@@ -2895,7 +3111,6 @@ function accountListingCard(listing, passive = false) {
           <span class="badge">${getTimeLabel(listing.workDate)}</span>
         </div>
         <div class="listing-bottom">
-          <span class="badge">${listing.phone ? `Tel: ${listing.phone}` : "Telefon yok"}</span>
           <span class="badge">${listing.offers || 0} teklif</span>
           ${assigned ? `<span class="badge assigned-badge">${assignedMaster.name || "Usta atandı"}</span>` : ""}
         </div>
@@ -2956,6 +3171,10 @@ if (listingDetail) {
     const owner = listing.owner || { name: "İş veren", rating: 10, reviewCount: 0 };
     const master = listing.assignedMaster || listing.master || { name: "Usta atanmadı", rating: 0, reviewCount: 0 };
     const savedRating = getStoredRatings()[listing.id];
+    const canRevealListingPhone = assigned && Boolean(listing.phone);
+    const canRateListing = assigned && isListingOwnedByCurrentUser(listing);
+    const ratingLocked = !canRateListing;
+    const ratingStatus = savedRating ? "Puan verildi" : canRateListing ? "Puanlama açık" : assigned ? "İlan sahibi onayı bekleniyor" : "Usta atanınca açılır";
 
     listingDetail.innerHTML = `
       <div class="detail-toolbar">
@@ -3001,8 +3220,8 @@ if (listingDetail) {
             maximumFractionDigits: 0,
           })}</strong>
           <div class="detail-primary-actions">
-            <a class="ghost-link" href="#detailOfferForm">Talep alanına git</a>
-            <a class="ghost-link" href="tel:${listing.phone || ""}">Ara</a>
+            ${!inactive ? `<a class="ghost-link" href="#detailOfferForm">Talep alanına git</a>` : ""}
+            ${canRevealListingPhone ? `<a class="ghost-link phone-action" href="tel:${listing.phone}">Ara</a>` : `<span class="ghost-link disabled-link">Telefon gizli</span>`}
           </div>
         </div>
       </section>
@@ -3011,7 +3230,7 @@ if (listingDetail) {
         <article class="detail-panel">
           <h2>İlan bilgileri</h2>
           <dl class="detail-list">
-            <div><dt>Telefon</dt><dd>${listing.phone || "Paylaşılmadı"}</dd></div>
+            <div><dt>Telefon</dt><dd>${canRevealListingPhone ? listing.phone : "Usta atanınca paylaşılır"}</dd></div>
             <div><dt>İş tarihi</dt><dd>${listing.workDate ? new Date(`${listing.workDate}T00:00:00`).toLocaleDateString("tr-TR", {
               day: "numeric",
               month: "long",
@@ -3041,19 +3260,25 @@ if (listingDetail) {
           </form>
         </article>
 
-        <article class="detail-panel rating-panel">
-          <h2>İş sonu puanlama</h2>
-          <p>İş veren işi tamamlandı olarak onayladıktan sonra ustayı 10 üzerinden puanlayabilir. Usta da iş vereni değerlendirebilir.</p>
-          <form class="offer-form" id="ratingForm">
-            <label>
-              Puan
-              <input name="rating" type="number" min="1" max="10" step="1" value="${savedRating?.score || 10}" />
+        <article class="detail-panel rating-panel ${ratingLocked ? "rating-locked" : ""}">
+          <div class="rating-panel-head">
+            <div>
+              <h2>İş sonu puanlama</h2>
+              <p>${canRateListing ? "İşi tamamlandı olarak onaylayıp ustayı puanlayabilirsin." : "Puanlama, ilan sahibi işi tamamlandı olarak onayladığında açılır."}</p>
+            </div>
+            <span class="rating-status-pill">${ratingStatus}</span>
+          </div>
+          <form class="offer-form rating-form" id="ratingForm">
+            <label class="score-control">
+              <span>Puan</span>
+              <input name="rating" type="number" min="1" max="10" step="1" value="${savedRating?.score || 10}" ${ratingLocked ? "disabled" : ""} />
+              <small>/10</small>
             </label>
             <label>
               Değerlendirme notu
-              <textarea name="note" rows="4" placeholder="İş zamanında tamamlandı mı, iletişim nasıldı?">${savedRating?.note || ""}</textarea>
+              <textarea name="note" rows="4" placeholder="İş zamanında tamamlandı mı, iletişim nasıldı?" ${ratingLocked ? "disabled" : ""}>${savedRating?.note || ""}</textarea>
             </label>
-            <button class="primary-action" type="submit">İşi tamamlandı onayla ve puan ver</button>
+            <button class="primary-action" type="submit" ${ratingLocked ? "disabled" : ""}>İşi tamamlandı onayla ve puan ver</button>
           </form>
           ${savedRating ? `<div class="saved-rating"><strong>Verilen puan: ${savedRating.score}/10</strong><span>${savedRating.note || "Not eklenmedi."}</span></div>` : ""}
         </article>
@@ -3090,6 +3315,14 @@ if (listingDetail) {
 
         if (isAssignedListing(activeListing)) {
           showToast("Bu ilana usta atandı, yeni teklif alınmıyor.");
+          return;
+        }
+
+        const offerQuota = canSendOfferForPlan(user);
+        if (!offerQuota.allowed) {
+          showToast(
+            `${offerQuota.plan.name} hesapta ${formatPlanLimit(offerQuota.limit)} aktif teklif hakkın var. Reddedilen veya iptal edilen teklif kotadan düşmez.`,
+          );
           return;
         }
 
@@ -3165,6 +3398,11 @@ if (listingDetail) {
       const ratingForm = event.target.closest("#ratingForm");
       if (ratingForm && activeListing) {
         event.preventDefault();
+        if (!isAssignedListing(activeListing) || !isListingOwnedByCurrentUser(activeListing)) {
+          showToast("Puanlama ilan sahibi işi tamamlandı olarak onaylayınca açılır.");
+          return;
+        }
+
         const formData = new FormData(ratingForm);
         saveRating(activeListing.id, {
           score: Number(formData.get("rating")),
@@ -3229,6 +3467,7 @@ function getOfferMasterProfile(offer) {
 function offerCard(offer) {
   const isIncoming = offer.type === "incoming";
   const isAcceptedIncoming = isIncoming && offer.status === "Kabul edildi";
+  const canCancelSentOffer = offer.type === "sent" && !["Kabul edildi", "Reddedildi", "İptal edildi"].includes(offer.status);
   return `
     <article class="offer-card" data-offer-type="${offer.type || "sent"}">
       <div class="offer-card-head">
@@ -3252,7 +3491,7 @@ function offerCard(offer) {
         ${
           isIncoming
             ? `<button class="job-action ${isAcceptedIncoming ? "assigned-master-button" : ""}" type="button" data-master-review="${offer.id}">${isAcceptedIncoming ? "Usta atandı" : "Ustayı incele"}</button>`
-            : `<button class="job-action" type="button" data-offer-status="${offer.id}">Durumu güncelle</button>`
+            : `${canCancelSentOffer ? `<button class="danger-action" type="button" data-cancel-offer="${offer.id}">Teklifi iptal et</button>` : ""}`
         }
       </div>
     </article>
@@ -3329,6 +3568,7 @@ if (offersList) {
   function openMasterReview(offer) {
     const master = getOfferMasterProfile(offer);
     const isAccepted = offer.status === "Kabul edildi";
+    const visibleMasterPhone = isAccepted && master.phone ? master.phone : "";
     const amount = Number(offer.amount || 0).toLocaleString("tr-TR", {
       style: "currency",
       currency: "TRY",
@@ -3363,7 +3603,7 @@ if (offersList) {
 
       <dl class="master-review-list">
         <div><dt>Konum</dt><dd>${master.location}</dd></div>
-        <div><dt>Telefon</dt><dd>${master.phone || "Teklif kabul edilince paylaşılır"}</dd></div>
+        <div><dt>Telefon</dt><dd>${visibleMasterPhone || "Kabulden sonra paylaşılır"}</dd></div>
         <div><dt>Teklif</dt><dd>${amount}</dd></div>
         <div><dt>İlan</dt><dd>${offer.listingTitle}</dd></div>
       </dl>
@@ -3405,7 +3645,7 @@ if (offersList) {
     });
   });
 
-  offersList.addEventListener("click", (event) => {
+  offersList.addEventListener("click", async (event) => {
     const reviewButton = event.target.closest("[data-master-review]");
     if (reviewButton) {
       const offer = offers.find((item) => String(item.id) === reviewButton.dataset.masterReview);
@@ -3413,17 +3653,25 @@ if (offersList) {
       return;
     }
 
-    const button = event.target.closest("[data-offer-status]");
-    if (!button) return;
+    const cancelButton = event.target.closest("[data-cancel-offer]");
+    if (!cancelButton) return;
 
-    offers = offers.map((offer) =>
-      String(offer.id) === button.dataset.offerStatus
-        ? { ...offer, status: offer.status === "Kabul edildi" ? "Gönderildi" : "Kabul edildi" }
-        : offer,
+    const offer = offers.find((item) => String(item.id) === String(cancelButton.dataset.cancelOffer));
+    if (!offer) return;
+
+    offers = offers.map((item) =>
+      String(item.id) === String(offer.id)
+        ? { ...item, status: "İptal edildi", canceledAt: new Date().toISOString(), updatedAt: Date.now() }
+        : item,
     );
     saveVisibleOffersForAccount(offers, currentOfferAccountKey);
+    try {
+      await cancelOfferForAccount(offer);
+    } catch (error) {
+      console.warn("Teklif iptali Firestore'a yazılamadı:", error);
+    }
     renderOffers(document.querySelector("[data-offer-filter].active").dataset.offerFilter);
-    showToast("Teklif durumu güncellendi.");
+    showToast("Teklif iptal edildi. Teklif hakkın tekrar açıldı.");
   });
 
   masterReviewBackdrop.addEventListener("click", async (event) => {
