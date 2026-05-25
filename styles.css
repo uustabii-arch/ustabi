@@ -668,6 +668,20 @@ button:disabled,
   font-weight: 900;
 }
 
+.credit-balance-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin-top: 8px;
+  padding: 0 10px;
+  border: 1px solid rgba(252, 231, 243, 0.36);
+  border-radius: 999px;
+  background: rgba(252, 231, 243, 0.14);
+  color: #fbcfe8;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
 .upgrade-link {
   display: inline-flex;
   align-items: center;

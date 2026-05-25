@@ -2728,6 +2728,7 @@ if (listingGrid) {
   const drawerName = document.querySelector("#drawerName");
   const drawerRole = document.querySelector("#drawerRole");
   const drawerAvatar = document.querySelector("#drawerAvatar");
+  const drawerCreditBalance = document.querySelector("#drawerCreditBalance");
   const notificationButton = document.querySelector("#notificationButton");
   const notificationPanel = document.querySelector("#notificationPanel");
   const notificationList = document.querySelector("#notificationList");
@@ -2751,6 +2752,12 @@ if (listingGrid) {
     }
   }
 
+  function updateDrawerCreditBalance() {
+    if (drawerCreditBalance) {
+      drawerCreditBalance.textContent = `Bakiyen: ${formatCredits(getCreditBalance())}`;
+    }
+  }
+
   function setupProfile() {
     const params = new URLSearchParams(window.location.search);
     const user = getUser();
@@ -2765,6 +2772,7 @@ if (listingGrid) {
     drawerRole.textContent =
       role === "master" ? user.profession || "Usta hesabı" : "İş veren hesabı";
     setAvatarElement(drawerAvatar, user);
+    updateDrawerCreditBalance();
     marketSearch.placeholder =
       role === "master" ? "İlan, meslek veya ilçe ara" : "İlan, usta veya ilçe ara";
     restartSharedFeeds();
@@ -2772,6 +2780,7 @@ if (listingGrid) {
 
   function openProfileDrawer() {
     closeNotificationPanel();
+    updateDrawerCreditBalance();
     drawerBackdrop.hidden = false;
     profileDrawer.setAttribute("aria-hidden", "false");
     window.requestAnimationFrame(() => {
