@@ -3591,3 +3591,378 @@ textarea:focus {
     max-height: 58vh;
   }
 }
+
+/* Mobile-first usage layer */
+@media (max-width: 760px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 12px;
+  }
+
+  body {
+    min-width: 320px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: calc(8px + env(safe-area-inset-top)) 10px 10px;
+  }
+
+  .market-topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .market-topbar .brand {
+    min-width: 0;
+  }
+
+  .notification-wrap,
+  .profile-button {
+    justify-self: end;
+  }
+
+  .profile-button {
+    width: 44px;
+    min-height: 44px;
+    padding: 4px;
+    justify-content: center;
+  }
+
+  .profile-button span:last-child {
+    display: none;
+  }
+
+  .market-toolbar {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .market-search {
+    width: 100%;
+  }
+
+  .market-search input,
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+
+  .notification-panel {
+    position: fixed;
+    top: calc(74px + env(safe-area-inset-top));
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-height: min(68vh, 560px);
+    border-radius: 10px;
+  }
+
+  .profile-drawer {
+    inset: auto 0 0 0;
+    width: 100%;
+    height: auto;
+    max-height: min(88vh, 760px);
+    padding: 14px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    border-left: 0;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -22px 55px rgba(37, 31, 22, 0.2);
+    transform: translateY(100%);
+  }
+
+  .profile-drawer.open {
+    transform: translateY(0);
+  }
+
+  .drawer-actions {
+    gap: 8px;
+  }
+
+  .drawer-actions button {
+    min-height: 58px;
+    padding: 10px;
+  }
+
+  .listings-shell,
+  .detail-shell,
+  .auth-shell,
+  .auth-shell.form-page,
+  .profile-edit-shell,
+  .security-shell {
+    width: min(100% - 16px, 680px);
+    margin-top: 10px;
+    margin-bottom: 24px;
+  }
+
+  .featured-section,
+  .all-listings-section {
+    gap: 10px;
+  }
+
+  .list-section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .list-section-head h1,
+  h1 {
+    max-width: 100%;
+    font-size: clamp(1.9rem, 10vw, 2.35rem);
+    line-height: 1.04;
+  }
+
+  .list-section-head h2,
+  h2 {
+    font-size: 1.18rem;
+  }
+
+  .featured-section {
+    padding: 8px;
+  }
+
+  .featured-controls {
+    margin-top: 4px;
+  }
+
+  .featured-carousel {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding: 8px;
+  }
+
+  .featured-viewport {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .featured-strip {
+    grid-auto-columns: minmax(260px, 88vw);
+    transform: none !important;
+  }
+
+  .featured-card {
+    min-height: 330px;
+    scroll-snap-align: start;
+  }
+
+  .carousel-button {
+    display: none;
+  }
+
+  .listing-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .listing-card,
+  .featured-card,
+  .offer-card {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .listing-photo {
+    aspect-ratio: 4 / 3;
+  }
+
+  .listing-top,
+  .listing-bottom,
+  .featured-top,
+  .job-top,
+  .job-bottom,
+  .offer-card-head,
+  .card-action-area .listing-bottom {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .budget,
+  .offer-card-head strong {
+    align-self: flex-start;
+  }
+
+  .job-meta {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    flex-wrap: nowrap;
+  }
+
+  .job-meta .badge {
+    flex: 0 0 auto;
+  }
+
+  .job-action,
+  .ghost-link,
+  .ghost-action,
+  .finish-job-action,
+  .primary-action,
+  .secondary-action,
+  .danger-action {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .auth-shell,
+  .auth-shell.form-page,
+  .profile-edit-shell,
+  .security-shell {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .auth-intro {
+    padding: 4px 2px 0;
+  }
+
+  .auth-intro h1,
+  .auth-shell.form-page .auth-intro h1 {
+    max-width: 100%;
+    font-size: clamp(2rem, 10vw, 2.45rem);
+  }
+
+  .auth-card {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .auth-card-head {
+    gap: 8px;
+  }
+
+  .form-grid,
+  .checkbox-grid,
+  .promotion-rights-grid,
+  .plan-grid,
+  .plan-limits,
+  .pro-grid,
+  .detail-grid,
+  .detail-primary-actions,
+  .phone-verification-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .promotion-color-card {
+    grid-template-columns: 1fr;
+  }
+
+  .promotion-color-picker {
+    justify-items: start;
+  }
+
+  .promotion-color-picker input {
+    width: 100%;
+  }
+
+  .profile-fieldset {
+    padding: 12px;
+  }
+
+  .detail-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-photo img {
+    min-height: 220px;
+    max-height: 320px;
+  }
+
+  .detail-copy,
+  .detail-panel {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .detail-meta {
+    gap: 6px;
+  }
+
+  .detail-list div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .detail-list dd {
+    text-align: left;
+  }
+
+  .offer-tabs {
+    padding-bottom: 4px;
+  }
+
+  .chip {
+    flex: 0 0 auto;
+    min-height: 40px;
+  }
+
+  .offer-dialog {
+    width: min(100% - 16px, 520px);
+  }
+
+  .offer-dialog form {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 420px) {
+  .brand span:last-child {
+    font-size: 0.98rem;
+  }
+
+  .brand-mark,
+  .notification-button,
+  .profile-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .featured-strip {
+    grid-auto-columns: minmax(250px, 86vw);
+  }
+
+  .featured-card {
+    min-height: 315px;
+  }
+
+  .drawer-profile {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .drawer-avatar {
+    flex-basis: 48px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .verification-card {
+    grid-template-columns: 38px 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .verification-mark {
+    width: 38px;
+    height: 38px;
+  }
+
+  .page-switcher {
+    display: none;
+  }
+}
