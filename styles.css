@@ -945,6 +945,11 @@ button:disabled,
   color: #1f7b5a;
 }
 
+.action-credit {
+  background: #fce7f3;
+  color: #be185d;
+}
+
 .action-notify {
   background: #eef3f7;
   color: var(--blue);

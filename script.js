@@ -330,7 +330,7 @@ function handleRegister(form, role) {
           : "Hesap açıldı, profil verisi Firestore izni bekliyor.",
       );
       window.setTimeout(() => {
-        window.location.href = `hesap-yukselt.html?role=${role}&new=1`;
+        window.location.href = `pazar.html?role=${role}`;
       }, 700);
     } catch (error) {
       showToast(getFirebaseAuthMessage(error));
@@ -483,8 +483,8 @@ const notificationForm = document.querySelector("#notificationForm");
 const notificationHistoryList = document.querySelector("#notificationHistoryList");
 const offersList = document.querySelector("#offersList");
 const paymentForm = document.querySelector("#paymentForm");
-const accountUpgradeGrid = document.querySelector("#accountUpgradeGrid");
-const accountPlanSummary = document.querySelector("#accountPlanSummary");
+const creditTopupGrid = document.querySelector("#creditTopupGrid");
+const creditBalanceText = document.querySelector("#creditBalanceText");
 let remoteListings = [];
 let remoteNotifications = [];
 let sharedListingsUnsubscribe = null;
@@ -492,63 +492,17 @@ let sharedNotificationsUnsubscribe = null;
 const sharedListingListeners = new Set();
 const sharedNotificationListeners = new Set();
 
-const SUBSCRIPTION_STORAGE_KEY = "ustaSubscriptionPlan";
-const planDefinitions = {
-  free: {
-    id: "free",
-    name: "Ücretsiz",
-    price: 0,
-    listingLimit: 2,
-    offerLimit: 1,
-    featuredPlacementLimit: 1,
-    coloredListingLimit: 1,
-    carouselPriority: "Standart sıra",
-    description: "Başlamak için temel ilan ve teklif hakları",
-    features: [
-      "2 aktif ilan açma",
-      "1 aktif teklif hakkı",
-      "1 öne çıkan deneme yerleşimi",
-      "1 renkli ilan denemesi",
-      "Kaydırmalı ekranda standart sıra",
-    ],
-  },
-  pro: {
-    id: "pro",
-    name: "Pro",
-    price: 50,
-    listingLimit: 10,
-    offerLimit: 10,
-    featuredPlacementLimit: 10,
-    coloredListingLimit: 10,
-    carouselPriority: "Öncelikli sıra",
-    description: "Daha fazla görünürlük ve düzenli iş akışı",
-    features: [
-      "10 aktif ilan açma",
-      "10 aktif teklif hakkı",
-      "10 öne çıkan yerleşim hakkı",
-      "10 renkli ilan hakkı",
-      "Kaydırmalı ekranda öncelikli görünüm",
-    ],
-  },
-  premium: {
-    id: "premium",
-    name: "Premium",
-    price: 100,
-    listingLimit: Infinity,
-    offerLimit: Infinity,
-    featuredPlacementLimit: Infinity,
-    coloredListingLimit: Infinity,
-    carouselPriority: "En önde sıra",
-    description: "Sınırsız kullanım ve maksimum görünürlük",
-    features: [
-      "Sınırsız ilan açma",
-      "Sınırsız teklif gönderme",
-      "Sınırsız öne çıkan yerleşim",
-      "Sınırsız renkli ilan",
-      "Kaydırmalı ekranda en önde görünüm",
-    ],
-  },
+const CREDIT_STORAGE_KEY = "ustaCreditBalance";
+const CREDIT_UNIT = "UB";
+const promotionCreditCosts = {
+  featured: 20,
+  colored: 10,
 };
+const creditPackages = [
+  { id: "starter", title: "Başlangıç", credits: 50, price: 50, description: "Birkaç ilanı öne çıkarmak için" },
+  { id: "growth", title: "Büyüme", credits: 120, price: 100, description: "Renkli ilan ve öne çıkan görünüm için" },
+  { id: "boost", title: "Görünürlük", credits: 300, price: 200, description: "Yoğun kullanım ve reklam denemeleri için" },
+];
 
 const professionCategories = [
   "Boya",
@@ -846,65 +800,51 @@ function getCurrentUser() {
   }
 }
 
-function getSubscriptionPlanId(user = getCurrentUser()) {
-  const storedPlan = localStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-  const planId = storedPlan || user.subscriptionPlan || "free";
-  return planDefinitions[planId] ? planId : "free";
+function getCreditBalance() {
+  const value = Number(localStorage.getItem(CREDIT_STORAGE_KEY) || 0);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
-function getSubscriptionPlan(user = getCurrentUser()) {
-  return planDefinitions[getSubscriptionPlanId(user)];
+function saveCreditBalance(value) {
+  localStorage.setItem(CREDIT_STORAGE_KEY, String(Math.max(0, Number(value) || 0)));
 }
 
-function formatPlanLimit(limit) {
-  return Number.isFinite(limit) ? String(limit) : "Sınırsız";
+function addCredits(amount) {
+  saveCreditBalance(getCreditBalance() + Number(amount || 0));
 }
 
-function getRemainingPlanRight(limit, used) {
-  return Number.isFinite(limit) ? Math.max(0, limit - used) : Infinity;
+function spendCredits(amount) {
+  const cost = Number(amount || 0);
+  if (cost <= 0) return true;
+  const balance = getCreditBalance();
+  if (balance < cost) return false;
+  saveCreditBalance(balance - cost);
+  return true;
 }
 
-function formatRemainingPlanRight(limit, used) {
-  return Number.isFinite(limit) ? `${getRemainingPlanRight(limit, used)} / ${limit} hak kaldı` : "Sınırsız hak";
+function formatCredits(amount) {
+  return `${Number(amount || 0).toLocaleString("tr-TR")} ${CREDIT_UNIT}`;
 }
 
-function getPromotionUsage(user = getCurrentUser()) {
-  const listings = getAllListings().filter((listing) => isListingOwnedByUser(listing, user) && isListingCountedForQuota(listing));
-
-  return {
-    featured: listings.filter((listing) => listing.featured).length,
-    colored: listings.filter((listing) => listing.highlighted).length,
-  };
-}
-
-function getListingPromotionForPlan(plan = getSubscriptionPlan(), usage = getPromotionUsage(), requested = {}) {
-  const canUseFeatured = requested.featured && getRemainingPlanRight(plan.featuredPlacementLimit, usage.featured) > 0;
-  const canUseColored = requested.highlighted && getRemainingPlanRight(plan.coloredListingLimit, usage.colored) > 0;
-
-  return {
-    featured: Boolean(canUseFeatured),
-    highlighted: Boolean(canUseColored),
-    carouselPriority: canUseFeatured
-      ? plan.id === "premium" ? 3 : plan.id === "pro" ? 2 : plan.id === "free" ? 1 : 0
-      : 0,
-    carouselPriorityLabel: canUseFeatured ? plan.carouselPriority : "",
-    planId: plan.id,
-  };
-}
-
-function saveSubscriptionPlan(planId) {
-  if (!planDefinitions[planId]) return;
-  localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, planId);
-
-  const user = getCurrentUser();
-  localStorage.setItem(
-    "ustaUser",
-    JSON.stringify({
-      ...user,
-      subscriptionPlan: planId,
-      subscriptionUpdatedAt: new Date().toISOString(),
-    }),
+function getPromotionCost(requested = {}) {
+  return (
+    (requested.featured ? promotionCreditCosts.featured : 0) +
+    (requested.highlighted ? promotionCreditCosts.colored : 0)
   );
+}
+
+function getListingPromotionFromCredits(requested = {}) {
+  const featured = Boolean(requested.featured);
+  const highlighted = Boolean(requested.highlighted);
+
+  return {
+    featured,
+    highlighted,
+    carouselPriority: featured ? 2 : 0,
+    carouselPriorityLabel: featured ? "Krediyle öne çıkan" : "",
+    promotionSource: featured || highlighted ? "credits" : "",
+    creditCost: getPromotionCost({ featured, highlighted }),
+  };
 }
 
 function normalizeAccountValue(value) {
@@ -1936,125 +1876,6 @@ function getMyListings() {
   return getAllListings().filter(isListingOwnedByCurrentUser);
 }
 
-function isListingCountedForQuota(listing) {
-  return !isExpiredListing(listing);
-}
-
-function isOfferCountedForQuota(offer) {
-  return offer.type === "sent" && !["Reddedildi", "İptal edildi"].includes(offer.status);
-}
-
-function getAccountListingUsage(user = getCurrentUser()) {
-  return getAllListings().filter((listing) => isListingOwnedByUser(listing, user) && isListingCountedForQuota(listing)).length;
-}
-
-function getAccountOfferUsage(user = getCurrentUser()) {
-  const accountKey = getAccountKey(user);
-  const offerMap = new Map();
-
-  getAllOffers()
-    .filter((offer) => isOfferRequestedByAccount(offer, accountKey, user) && isOfferCountedForQuota(offer))
-    .forEach((offer) => {
-      const id = String(offer.id).replace(/-sent$/, "");
-      offerMap.set(`${offer.listingId}:${id}`, offer);
-    });
-
-  return offerMap.size;
-}
-
-function canCreateListingForPlan(user = getCurrentUser()) {
-  const plan = getSubscriptionPlan(user);
-  const used = getAccountListingUsage(user);
-  return {
-    allowed: !Number.isFinite(plan.listingLimit) || used < plan.listingLimit,
-    plan,
-    used,
-    limit: plan.listingLimit,
-  };
-}
-
-function canSendOfferForPlan(user = getCurrentUser()) {
-  const plan = getSubscriptionPlan(user);
-  const used = getAccountOfferUsage(user);
-  return {
-    allowed: !Number.isFinite(plan.offerLimit) || used < plan.offerLimit,
-    plan,
-    used,
-    limit: plan.offerLimit,
-  };
-}
-
-function getPlanCardsMarkup(activePlanId) {
-  return Object.values(planDefinitions)
-    .map((plan) => {
-      const isActive = plan.id === activePlanId;
-      const price = plan.price ? `${plan.price} TL / ay` : "Ücretsiz";
-
-      return `
-        <article class="plan-card ${isActive ? "active" : ""}">
-          <div>
-            <span class="plan-price">${price}</span>
-            <h3>${plan.name}</h3>
-            <p>${plan.description}</p>
-          </div>
-          <dl class="plan-limits">
-            <div><dt>İlan</dt><dd>${formatPlanLimit(plan.listingLimit)}</dd></div>
-            <div><dt>Teklif</dt><dd>${formatPlanLimit(plan.offerLimit)}</dd></div>
-            <div><dt>Öne çıkan</dt><dd>${formatPlanLimit(plan.featuredPlacementLimit)}</dd></div>
-            <div><dt>Renkli ilan</dt><dd>${formatPlanLimit(plan.coloredListingLimit)}</dd></div>
-          </dl>
-          <ul class="plan-features">
-            ${plan.features.map((feature) => `<li>${feature}</li>`).join("")}
-          </ul>
-          ${
-            isActive
-              ? `<button class="primary-action" type="button" disabled>Mevcut plan</button>`
-              : `<button class="primary-action" type="button" data-select-plan="${plan.id}">${plan.price ? "Aboneliği başlat" : "Ücretsiz plana geç"}</button>`
-          }
-        </article>
-      `;
-    })
-    .join("");
-}
-
-function renderAccountUpgradePage() {
-  if (!accountUpgradeGrid) return;
-
-  const user = getCurrentUser();
-  const activePlanId = getSubscriptionPlanId(user);
-  const activePlan = planDefinitions[activePlanId];
-  const listingUsage = getAccountListingUsage(user);
-  const offerUsage = getAccountOfferUsage(user);
-
-  if (accountPlanSummary) {
-    const introMode = new URLSearchParams(window.location.search).get("new");
-    accountPlanSummary.textContent = introMode
-      ? "Hesabın hazır, şimdi planını seç"
-      : `${activePlan.name} hesap · ${listingUsage} aktif ilan · ${offerUsage} aktif teklif`;
-  }
-
-  accountUpgradeGrid.innerHTML = `
-    <div class="plan-usage">
-      <strong>Kullanımın</strong>
-      <span>${listingUsage} aktif ilan · ${offerUsage} aktif teklif</span>
-    </div>
-    ${getPlanCardsMarkup(activePlanId)}
-  `;
-}
-
-if (accountUpgradeGrid) {
-  renderAccountUpgradePage();
-  accountUpgradeGrid.addEventListener("click", (event) => {
-    const planButton = event.target.closest("[data-select-plan]");
-    if (!planButton) return;
-
-    const planId = planButton.dataset.selectPlan;
-    saveSubscriptionPlan(planId);
-    renderAccountUpgradePage();
-    showToast(`${planDefinitions[planId].name} hesap aktif edildi.`);
-  });
-}
-
 function startSharedListingsFeed() {
   if (sharedListingsUnsubscribe) return;
 
@@ -2123,7 +1944,7 @@ function normalizeRemoteListing(snapshot) {
     highlighted: Boolean(data.highlighted),
     carouselPriority: Number(data.carouselPriority || 0),
     carouselPriorityLabel: data.carouselPriorityLabel || "",
-    promotionPlan: data.promotionPlan || "",
+    promotionSource: data.promotionSource || data.promotionPlan || "",
     budget: Number(data.budget || 0),
     offers: Number(data.offers || 0),
     featured: data.featured !== false,
@@ -2605,6 +2426,60 @@ if (notificationHistoryList) {
   subscribeNotificationFeed(renderNotificationHistoryPage);
 }
 
+function renderCreditTopupPage() {
+  if (!creditTopupGrid) return;
+
+  const balance = getCreditBalance();
+  if (creditBalanceText) {
+    creditBalanceText.textContent = `Bakiyen: ${formatCredits(balance)}`;
+  }
+
+  creditTopupGrid.innerHTML = `
+    <div class="plan-usage">
+      <strong>Kredi kullanımı</strong>
+      <span>Renkli ilan ${formatCredits(promotionCreditCosts.colored)} · Öne çıkan ${formatCredits(promotionCreditCosts.featured)}</span>
+    </div>
+    ${creditPackages
+      .map(
+        (pack) => `
+          <article class="plan-card credit-card">
+            <div>
+              <span class="plan-price">${pack.price} TL</span>
+              <h3>${pack.title}</h3>
+              <p>${pack.description}</p>
+            </div>
+            <dl class="plan-limits">
+              <div><dt>Kredi</dt><dd>${formatCredits(pack.credits)}</dd></div>
+              <div><dt>Kullanım</dt><dd>Reklam</dd></div>
+            </dl>
+            <ul class="plan-features">
+              <li>Renkli ilan arka planı alabilirsin</li>
+              <li>Öne çıkan kaydırmalı alanda yer alabilirsin</li>
+              <li>İlan ve teklif hakların krediye bağlı değildir</li>
+            </ul>
+            <button class="primary-action" type="button" data-credit-pack="${pack.id}">Kredi yükle</button>
+          </article>
+        `,
+      )
+      .join("")}
+  `;
+}
+
+if (creditTopupGrid) {
+  renderCreditTopupPage();
+  creditTopupGrid.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-credit-pack]");
+    if (!button) return;
+
+    const pack = creditPackages.find((item) => item.id === button.dataset.creditPack);
+    if (!pack) return;
+
+    addCredits(pack.credits);
+    renderCreditTopupPage();
+    showToast(`${formatCredits(pack.credits)} kredi yüklendi.`);
+  });
+}
+
 if (paymentForm) {
   const settings = getPaymentSettings();
 
@@ -2639,28 +2514,24 @@ if (paymentForm) {
 
 if (listingCreateForm) {
   function renderListingPromotionRights() {
-    const currentUser = getCurrentUser();
-    const plan = getSubscriptionPlan(currentUser);
-    const usage = getPromotionUsage(currentUser);
-    const featuredLeft = getRemainingPlanRight(plan.featuredPlacementLimit, usage.featured);
-    const coloredLeft = getRemainingPlanRight(plan.coloredListingLimit, usage.colored);
-    const hasFeaturedRight = featuredLeft > 0;
-    const hasColoredRight = coloredLeft > 0;
+    const balance = getCreditBalance();
+    const hasFeaturedRight = balance >= promotionCreditCosts.featured;
+    const hasColoredRight = balance >= promotionCreditCosts.colored;
 
     if (featuredPromotionMeta) {
-      featuredPromotionMeta.textContent = `${plan.name} plan · ${formatRemainingPlanRight(plan.featuredPlacementLimit, usage.featured)} · ${plan.carouselPriority}`;
+      featuredPromotionMeta.textContent = `${formatCredits(promotionCreditCosts.featured)} · Bakiyen ${formatCredits(balance)}`;
     }
     if (colorPromotionMeta) {
-      colorPromotionMeta.textContent = `${plan.name} plan · ${formatRemainingPlanRight(plan.coloredListingLimit, usage.colored)}`;
+      colorPromotionMeta.textContent = `${formatCredits(promotionCreditCosts.colored)} · Bakiyen ${formatCredits(balance)}`;
     }
 
     if (useFeaturedPromotionInput) {
       useFeaturedPromotionInput.disabled = !hasFeaturedRight;
-      useFeaturedPromotionInput.checked = hasFeaturedRight;
+      useFeaturedPromotionInput.checked = false;
     }
     if (useColorPromotionInput) {
       useColorPromotionInput.disabled = !hasColoredRight;
-      useColorPromotionInput.checked = hasColoredRight;
+      useColorPromotionInput.checked = false;
     }
 
     featuredPromotionCard?.classList.toggle("disabled", !hasFeaturedRight);
@@ -2690,18 +2561,18 @@ if (listingCreateForm) {
       return;
     }
 
-    const listingQuota = canCreateListingForPlan(currentUser);
-    if (!listingQuota.allowed) {
-      showToast(
-        `${listingQuota.plan.name} hesapta ${formatPlanLimit(listingQuota.limit)} aktif ilan hakkın var. Hesabı yükseltip devam edebilirsin.`,
-      );
-      return;
-    }
-    const promotionUsage = getPromotionUsage(currentUser);
-    const listingPromotion = getListingPromotionForPlan(listingQuota.plan, promotionUsage, {
+    const requestedPromotion = {
       featured: formData.get("useFeaturedPromotion") === "1",
       highlighted: formData.get("useColorPromotion") === "1",
-    });
+    };
+    const promotionCost = getPromotionCost(requestedPromotion);
+
+    if (promotionCost > getCreditBalance()) {
+      showToast(`Bu görünürlük için ${formatCredits(promotionCost)} gerekiyor. Kredi yükleyip tekrar dene.`);
+      return;
+    }
+
+    const listingPromotion = getListingPromotionFromCredits(requestedPromotion);
 
     const listingData = {
       id: Date.now(),
@@ -2727,7 +2598,8 @@ if (listingCreateForm) {
       highlighted: listingPromotion.highlighted,
       carouselPriority: listingPromotion.carouselPriority,
       carouselPriorityLabel: listingPromotion.carouselPriorityLabel,
-      promotionPlan: listingPromotion.planId,
+      promotionSource: listingPromotion.promotionSource,
+      promotionCreditCost: listingPromotion.creditCost,
       image,
       owner: {
         name: currentUser.fullName || "İş veren",
@@ -2772,6 +2644,8 @@ if (listingCreateForm) {
       ];
       notifySharedListingListeners();
       sharedSuccessfully = true;
+      spendCredits(promotionCost);
+      renderListingPromotionRights();
       showToast("İlan paylaşıldı. Tüm kullanıcıların ana akışında görünecek.");
     } catch (error) {
       console.warn("Firestore ilan kaydı yazılamadı:", error);
@@ -3230,6 +3104,7 @@ if (listingGrid) {
     Teklifler: "teklifler.html",
     "Favori ustalar": "favori-ustalar.html",
     "Ödeme ve güvence": "odeme-guvence.html",
+    "Kredi yükle": "kredi-yukle.html",
     "Bildirim ayarları": "bildirim-ayarlari.html",
     "Bildirim geçmişi": "bildirim-gecmisi.html",
     Güvenlik: "guvenlik.html",
@@ -3527,14 +3402,6 @@ if (listingDetail) {
 
         if (isAssignedListing(activeListing)) {
           showToast("Bu ilana usta atandı, yeni teklif alınmıyor.");
-          return;
-        }
-
-        const offerQuota = canSendOfferForPlan(user);
-        if (!offerQuota.allowed) {
-          showToast(
-            `${offerQuota.plan.name} hesapta ${formatPlanLimit(offerQuota.limit)} aktif teklif hakkın var. Reddedilen veya iptal edilen teklif kotadan düşmez.`,
-          );
           return;
         }
 
