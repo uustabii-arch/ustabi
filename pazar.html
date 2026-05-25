@@ -42,10 +42,6 @@
                 Tümünü okundu yap
               </button>
             </div>
-            <div class="notification-tabs" aria-label="Bildirim görünümü">
-              <button class="active" type="button" data-notification-view="unread">Yeni</button>
-              <button type="button" data-notification-view="history">Geçmiş</button>
-            </div>
             <ul class="notification-list" id="notificationList" aria-live="polite"></ul>
             <div class="notification-panel-actions">
               <a href="teklifler.html">Teklifler</a>
@@ -146,6 +142,14 @@
           <span>
             <strong>Bildirim ayarları</strong>
             <small>İş, mesaj ve teklif bildirimlerini yönet</small>
+          </span>
+        </button>
+
+        <button type="button" data-panel-action="Bildirim geçmişi">
+          <span class="drawer-action-mark action-notify-history">↧</span>
+          <span>
+            <strong>Bildirim geçmişi</strong>
+            <small>Okuduğun bildirimleri tekrar gör</small>
           </span>
         </button>
 

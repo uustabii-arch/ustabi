@@ -480,6 +480,7 @@ const verificationGrid = document.querySelector("#verificationGrid");
 const identityFileInput = document.querySelector("#identityFileInput");
 const identityPreview = document.querySelector("#identityPreview");
 const notificationForm = document.querySelector("#notificationForm");
+const notificationHistoryList = document.querySelector("#notificationHistoryList");
 const offersList = document.querySelector("#offersList");
 const paymentForm = document.querySelector("#paymentForm");
 const accountUpgradeGrid = document.querySelector("#accountUpgradeGrid");
@@ -2566,6 +2567,44 @@ if (notificationForm) {
   });
 }
 
+if (notificationHistoryList) {
+  function renderNotificationHistoryPage() {
+    const user = getCurrentUser();
+    const accountKey = getAccountKey(user);
+    const readIds = getReadNotificationIdsForAccount(user);
+    let historyItems = getStoredNotificationsForAccount(user).filter((item) =>
+      shouldKeepNotificationForAccount(item, accountKey, user),
+    );
+
+    historyItems = mergeOfferNotifications(historyItems, accountKey, user);
+    historyItems = mergeRemoteNotifications(historyItems, accountKey, user)
+      .filter((item) => item.read || readIds.has(String(item.id)))
+      .sort((left, right) => new Date(right.time) - new Date(left.time));
+
+    notificationHistoryList.innerHTML = historyItems.length
+      ? historyItems
+          .map(
+            (item) => `
+              <li>
+                <a class="notification-item" href="${item.href || "pazar.html"}">
+                  <span class="notification-type-mark">${getNotificationTypeMark(item.type)}</span>
+                  <span class="notification-copy">
+                    <strong>${item.title}</strong>
+                    <p>${item.body}</p>
+                  </span>
+                  <time datetime="${item.time}">${formatNotificationTime(item.time)}</time>
+                </a>
+              </li>
+            `,
+          )
+          .join("")
+      : `<li class="notification-empty">Okunmuş bildirim yok.</li>`;
+  }
+
+  renderNotificationHistoryPage();
+  subscribeNotificationFeed(renderNotificationHistoryPage);
+}
+
 if (paymentForm) {
   const settings = getPaymentSettings();
 
@@ -2821,10 +2860,8 @@ if (listingGrid) {
   const notificationBadge = document.querySelector("#notificationBadge");
   const notificationCountText = document.querySelector("#notificationCountText");
   const markAllNotificationsRead = document.querySelector("#markAllNotificationsRead");
-  const notificationViewButtons = document.querySelectorAll("[data-notification-view]");
 
   let notificationInbox = [];
-  let activeNotificationView = "unread";
 
   const currency = new Intl.NumberFormat("tr-TR", {
     style: "currency",
@@ -2902,7 +2939,6 @@ if (listingGrid) {
   function updateNotificationBadge() {
     if (!notificationBadge) return;
     const unreadCount = notificationInbox.filter((item) => !item.read).length;
-    const readCount = notificationInbox.length - unreadCount;
     notificationBadge.hidden = unreadCount === 0;
     notificationBadge.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
 
@@ -2912,38 +2948,15 @@ if (listingGrid) {
         : "Yeni bildirim yok";
     }
 
-    if (notificationCountText && activeNotificationView === "history") {
-      notificationCountText.textContent = readCount
-        ? `${readCount} eski bildirim`
-        : "Eski bildirim yok";
-    }
-
     if (markAllNotificationsRead) {
       markAllNotificationsRead.disabled = unreadCount === 0;
     }
   }
 
-  function updateNotificationTabs() {
-    const unreadCount = notificationInbox.filter((item) => !item.read).length;
-    const readCount = notificationInbox.length - unreadCount;
-
-    notificationViewButtons.forEach((button) => {
-      const isActive = button.dataset.notificationView === activeNotificationView;
-      button.classList.toggle("active", isActive);
-      button.setAttribute("aria-selected", String(isActive));
-      button.textContent =
-        button.dataset.notificationView === "history"
-          ? `Ge\u00e7mi\u015f${readCount ? ` (${readCount})` : ""}`
-          : `Yeni${unreadCount ? ` (${unreadCount})` : ""}`;
-    });
-  }
-
   function renderNotificationInbox() {
     if (!notificationList) return;
 
-    const visibleNotifications = notificationInbox.filter((item) =>
-      activeNotificationView === "history" ? item.read : !item.read,
-    );
+    const visibleNotifications = notificationInbox.filter((item) => !item.read);
 
     notificationList.innerHTML = visibleNotifications.length
       ? visibleNotifications
@@ -2971,12 +2984,9 @@ if (listingGrid) {
 
     if (!visibleNotifications.length) {
       notificationList.innerHTML =
-        activeNotificationView === "history"
-          ? `<li class="notification-empty">Okudu\u011fun bildirimler burada saklan\u0131r.</li>`
-          : `<li class="notification-empty">Yeni bildirim yok. Okuduklar\u0131n\u0131 Ge\u00e7mi\u015f sekmesinden tekrar g\u00f6rebilirsin.</li>`;
+        `<li class="notification-empty">Yeni bildirim yok. Okuduklarını side paneldeki Bildirim geçmişi alanından görebilirsin.</li>`;
     }
 
-    updateNotificationTabs();
     updateNotificationBadge();
   }
 
@@ -3039,14 +3049,6 @@ if (listingGrid) {
     markAllNotificationsRead?.addEventListener("click", async (event) => {
       event.stopPropagation();
       await markAllNotificationsReadHandler();
-    });
-
-    notificationViewButtons.forEach((button) => {
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        activeNotificationView = button.dataset.notificationView || "unread";
-        renderNotificationInbox();
-      });
     });
 
     notificationList.addEventListener("click", async (event) => {
@@ -3229,6 +3231,7 @@ if (listingGrid) {
     "Favori ustalar": "favori-ustalar.html",
     "Ödeme ve güvence": "odeme-guvence.html",
     "Bildirim ayarları": "bildirim-ayarlari.html",
+    "Bildirim geçmişi": "bildirim-gecmisi.html",
     Güvenlik: "guvenlik.html",
   };
   profileDrawer.addEventListener("click", (event) => {

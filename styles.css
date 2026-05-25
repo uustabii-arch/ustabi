@@ -395,6 +395,15 @@ button:disabled,
   list-style: none;
 }
 
+.notification-history-list {
+  max-height: none;
+  padding: 0;
+}
+
+.notification-history-list li {
+  margin-bottom: 8px;
+}
+
 .notification-item {
   display: grid;
   grid-template-columns: 38px 1fr auto;
@@ -407,6 +416,7 @@ button:disabled,
   background: transparent;
   color: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -938,6 +948,11 @@ button:disabled,
 .action-notify {
   background: #eef3f7;
   color: var(--blue);
+}
+
+.action-notify-history {
+  background: #f1ece3;
+  color: #776b5b;
 }
 
 .action-security {
