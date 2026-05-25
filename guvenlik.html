@@ -64,13 +64,23 @@
           <div class="form-grid">
             <label>
               Telefon numarası
-              <input name="phone" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" />
+              <input name="phone" id="securityPhoneInput" type="tel" placeholder="05xx xxx xx xx" autocomplete="tel" />
             </label>
 
             <label>
               E-posta
               <input name="email" type="email" placeholder="ornek@mail.com" autocomplete="email" />
             </label>
+          </div>
+
+          <div class="phone-verification-panel">
+            <button type="button" class="secondary-action" id="sendPhoneCodeButton">SMS kodu gönder</button>
+            <label>
+              SMS kodu
+              <input name="phoneCode" id="phoneCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="6 haneli kod" disabled />
+            </label>
+            <button type="button" class="secondary-action" id="confirmPhoneCodeButton" disabled>Telefonu doğrula</button>
+            <div id="phoneRecaptchaContainer"></div>
           </div>
 
           <label>

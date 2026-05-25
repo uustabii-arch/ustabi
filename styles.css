@@ -668,6 +668,12 @@ button:disabled,
   font-weight: 900;
 }
 
+.verify-pill.verified {
+  background: rgba(47, 143, 107, 0.18);
+  border-color: rgba(47, 143, 107, 0.44);
+  color: #b7f7d2;
+}
+
 .credit-balance-pill {
   display: inline-flex;
   align-items: center;
@@ -1123,9 +1129,9 @@ button:disabled,
 
 .featured-card.colored-listing,
 .listing-card.colored-listing {
-  border-color: rgba(219, 39, 119, 0.42);
+  border-color: var(--listing-highlight-border, rgba(219, 39, 119, 0.42));
   background:
-    linear-gradient(135deg, rgba(252, 231, 243, 0.92), rgba(244, 114, 182, 0.16)),
+    linear-gradient(135deg, var(--listing-highlight-soft, rgba(252, 231, 243, 0.92)), rgba(255, 255, 255, 0.72)),
     var(--surface);
 }
 
@@ -1645,12 +1651,48 @@ body:not(.auth-active) .auth-shell {
     #fffdfa;
 }
 
+.promotion-color-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-color: var(--selected-promotion-color, #e8dfd1);
+}
+
+.promotion-option-label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  cursor: pointer;
+}
+
 .promotion-right-card input {
   width: 20px;
   height: 20px;
   min-height: 20px;
   margin-top: 2px;
   accent-color: var(--green);
+}
+
+.promotion-color-picker {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.promotion-color-picker input {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid #e8dfd1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.promotion-color-picker input:disabled {
+  opacity: 0.46;
 }
 
 .promotion-right-card strong,
@@ -1676,6 +1718,10 @@ body:not(.auth-active) .auth-shell {
 }
 
 .promotion-right-card.disabled small {
+  color: #9b9286;
+}
+
+.promotion-right-card.disabled .promotion-color-picker {
   color: #9b9286;
 }
 
@@ -1784,6 +1830,37 @@ body:not(.auth-active) .auth-shell {
   background: var(--green);
   border-color: var(--green);
   color: #fff;
+}
+
+.phone-verification-panel {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #e8dfd1;
+  border-radius: 8px;
+  background: #fbfaf7;
+}
+
+.secondary-action {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 950;
+}
+
+.secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+#phoneRecaptchaContainer {
+  grid-column: 1 / -1;
+  min-height: 1px;
 }
 
 .document-preview {
@@ -3052,6 +3129,10 @@ textarea:focus {
 
   .verification-card button {
     grid-column: 1 / -1;
+  }
+
+  .phone-verification-panel {
+    grid-template-columns: 1fr;
   }
 
   .listings-shell {

@@ -2,9 +2,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/fireba
 import {
   createUserWithEmailAndPassword,
   getAuth,
+  onAuthStateChanged,
+  PhoneAuthProvider,
+  RecaptchaVerifier,
   sendPasswordResetEmail,
   signInAnonymously,
   signInWithEmailAndPassword,
+  updatePhoneNumber,
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 import {
@@ -37,6 +41,7 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
+auth.languageCode = "tr";
 const db = getFirestore(firebaseApp);
 const DATA_RESET_AT = Date.parse("2026-05-24T15:11:45+03:00");
 const DATA_RESET_STORAGE_KEY = "ustaDataResetAt";
@@ -68,9 +73,18 @@ function getFirebaseAuthMessage(error) {
     "auth/wrong-password": "Şifre hatalı. Şifreni hatırlamıyorsan sıfırlama maili gönderebilirsin.",
     "auth/weak-password": "Şifre en az 6 karakter olmalı.",
     "auth/network-request-failed": "Bağlantı hatası oldu. İnternetini kontrol et.",
+    "auth/app-not-authorized":
+      "Firebase telefon doğrulama için bu alan adına izin vermiyor. Authentication > Settings > Authorized domains kısmına site alan adını ekle.",
+    "auth/captcha-check-failed": "reCAPTCHA doğrulaması geçilemedi. Sayfayı yenileyip tekrar dene.",
+    "auth/invalid-phone-number": "Telefon numarası geçerli değil. 05xx xxx xx xx formatında yaz.",
+    "auth/invalid-verification-code": "SMS kodu hatalı görünüyor.",
+    "auth/missing-verification-code": "SMS kodunu yazman gerekiyor.",
+    "auth/quota-exceeded": "SMS kotası doldu. Biraz sonra tekrar dene.",
+    "auth/requires-recent-login": "Telefonu değiştirmek için önce çıkış yapıp tekrar giriş yapmalısın.",
+    "auth/requires-login": "Telefon doğrulamak için önce hesaba giriş yapmalısın.",
     "permission-denied": "Firestore yazma izni reddedildi. Firebase kurallarını kontrol etmek gerekiyor.",
     "auth/operation-not-allowed":
-      "Firebase'de Anonim giriş kapalı. Console > Authentication > Sign-in method bölümünden Anonymous'u aç.",
+      "Firebase'de gerekli giriş sağlayıcısı kapalı. Authentication > Sign-in method bölümünden Anonymous ve Telefon sağlayıcılarını kontrol et.",
   };
 
   return messages[code] || `Kayıt tamamlanamadı: ${error?.message || "Bilinmeyen hata"}`;
@@ -461,6 +475,7 @@ const listingImageInput = document.querySelector("#listingImageInput");
 const listingImagePreview = document.querySelector("#listingImagePreview");
 const useFeaturedPromotionInput = document.querySelector("#useFeaturedPromotion");
 const useColorPromotionInput = document.querySelector("#useColorPromotion");
+const highlightColorInput = document.querySelector("#highlightColorInput");
 const featuredPromotionMeta = document.querySelector("#featuredPromotionMeta");
 const colorPromotionMeta = document.querySelector("#colorPromotionMeta");
 const featuredPromotionCard = document.querySelector("#featuredPromotionCard");
@@ -477,6 +492,10 @@ const portfolioPhotosInput = document.querySelector("#portfolioPhotosInput");
 const portfolioPreview = document.querySelector("#portfolioPreview");
 const securityForm = document.querySelector("#securityForm");
 const verificationGrid = document.querySelector("#verificationGrid");
+const securityPhoneInput = document.querySelector("#securityPhoneInput");
+const sendPhoneCodeButton = document.querySelector("#sendPhoneCodeButton");
+const phoneCodeInput = document.querySelector("#phoneCodeInput");
+const confirmPhoneCodeButton = document.querySelector("#confirmPhoneCodeButton");
 const identityFileInput = document.querySelector("#identityFileInput");
 const identityPreview = document.querySelector("#identityPreview");
 const notificationForm = document.querySelector("#notificationForm");
@@ -491,6 +510,8 @@ let sharedListingsUnsubscribe = null;
 let sharedNotificationsUnsubscribe = null;
 const sharedListingListeners = new Set();
 const sharedNotificationListeners = new Set();
+let phoneVerificationId = "";
+let phoneRecaptchaVerifier = null;
 
 const CREDIT_STORAGE_KEY = "ustaCreditBalance";
 const CREDIT_UNIT = "UB";
@@ -753,6 +774,129 @@ function getSecurityState() {
 
 function saveSecurityState(state) {
   localStorage.setItem("ustaSecurity", JSON.stringify(state));
+}
+
+function sanitizeHighlightColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value || "")) ? String(value).toLowerCase() : "#fbcfe8";
+}
+
+function hexToRgba(hex, alpha) {
+  const safeHex = sanitizeHighlightColor(hex).slice(1);
+  const red = Number.parseInt(safeHex.slice(0, 2), 16);
+  const green = Number.parseInt(safeHex.slice(2, 4), 16);
+  const blue = Number.parseInt(safeHex.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function getHighlightStyle(listing) {
+  if (!listing?.highlighted) return "";
+
+  const color = sanitizeHighlightColor(listing.highlightColor);
+  return ` style="--listing-highlight-border: ${hexToRgba(color, 0.48)}; --listing-highlight-soft: ${hexToRgba(color, 0.36)};"`;
+}
+
+function normalizePhoneToE164(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+
+  const digits = trimmed.replace(/\D/g, "");
+  if (trimmed.startsWith("+") && digits.length >= 10) return `+${digits}`;
+  if (digits.length === 10 && digits.startsWith("5")) return `+90${digits}`;
+  if (digits.length === 11 && digits.startsWith("05")) return `+90${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith("905")) return `+${digits}`;
+  return "";
+}
+
+function waitForSignedInUser(timeout = 6000) {
+  if (auth.currentUser) return Promise.resolve(auth.currentUser);
+
+  return new Promise((resolve) => {
+    let timer;
+    let unsubscribe = () => {};
+    unsubscribe = onAuthStateChanged(auth, (user) => {
+      window.clearTimeout(timer);
+      unsubscribe();
+      resolve(user);
+    });
+    timer = window.setTimeout(() => {
+      unsubscribe();
+      resolve(auth.currentUser);
+    }, timeout);
+  });
+}
+
+function getPhoneRecaptchaVerifier() {
+  if (phoneRecaptchaVerifier) return phoneRecaptchaVerifier;
+
+  phoneRecaptchaVerifier = new RecaptchaVerifier(auth, "phoneRecaptchaContainer", {
+    size: "invisible",
+  });
+  return phoneRecaptchaVerifier;
+}
+
+async function sendPhoneVerificationCode(rawPhone) {
+  const phoneNumber = normalizePhoneToE164(rawPhone);
+  if (!phoneNumber) {
+    throw { code: "auth/invalid-phone-number" };
+  }
+
+  const user = await waitForSignedInUser();
+  if (!user || user.isAnonymous) {
+    throw { code: "auth/requires-login" };
+  }
+
+  const provider = new PhoneAuthProvider(auth);
+  phoneVerificationId = await provider.verifyPhoneNumber(phoneNumber, getPhoneRecaptchaVerifier());
+  return phoneNumber;
+}
+
+async function confirmPhoneVerificationCode(verificationCode, phoneNumber) {
+  const code = String(verificationCode || "").trim();
+  if (!phoneVerificationId || !code) {
+    throw { code: "auth/missing-verification-code" };
+  }
+
+  const user = await waitForSignedInUser();
+  if (!user || user.isAnonymous) {
+    throw { code: "auth/requires-login" };
+  }
+
+  const normalizedPhone = normalizePhoneToE164(phoneNumber);
+  const credential = PhoneAuthProvider.credential(phoneVerificationId, code);
+  await updatePhoneNumber(user, credential);
+
+  const nextSecurity = {
+    ...getSecurityState(),
+    phone: normalizedPhone,
+    phoneVerified: true,
+    phoneVerifiedAt: new Date().toISOString(),
+  };
+  saveSecurityState(nextSecurity);
+
+  const currentUser = {
+    ...getUser(),
+    phone: normalizedPhone,
+    phoneVerified: true,
+  };
+  localStorage.setItem("ustaUser", JSON.stringify(currentUser));
+
+  try {
+    await setDoc(
+      doc(db, "users", user.uid),
+      {
+        phone: normalizedPhone,
+        phoneVerified: true,
+        phoneVerifiedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    console.warn("Telefon doğrulama Firestore profiline yazılamadı:", error);
+  }
+
+  phoneVerificationId = "";
+  return nextSecurity;
 }
 
 function getStoredOffers() {
@@ -1942,6 +2086,7 @@ function normalizeRemoteListing(snapshot) {
     assignedMaster: data.assignedMaster || data.master || null,
     completedAt: data.completedAt || "",
     highlighted: Boolean(data.highlighted),
+    highlightColor: sanitizeHighlightColor(data.highlightColor),
     carouselPriority: Number(data.carouselPriority || 0),
     carouselPriorityLabel: data.carouselPriorityLabel || "",
     promotionSource: data.promotionSource || data.promotionPlan || "",
@@ -2249,11 +2394,17 @@ if (profileEditForm) {
       ? (await Promise.all(portfolioFiles.map(readImageAsDataUrl))).filter(Boolean)
       : existingUser.portfolioPhotos || [];
 
+    const profilePhone = formData.get("phone");
+    const securityState = getSecurityState();
+    const keepsVerifiedPhone =
+      normalizePhoneToE164(profilePhone) &&
+      normalizePhoneToE164(profilePhone) === normalizePhoneToE164(securityState.phone);
     const updatedUser = {
       ...existingUser,
       role,
       fullName: formData.get("fullName"),
-      phone: formData.get("phone"),
+      phone: profilePhone,
+      phoneVerified: keepsVerifiedPhone ? securityState.phoneVerified || false : false,
       email: formData.get("email"),
       title: formData.get("title"),
       profession: formData.get("profession"),
@@ -2280,7 +2431,7 @@ if (profileEditForm) {
 
 if (securityForm) {
   const user = getUser();
-  const security = getSecurityState();
+  let security = getSecurityState();
 
   securityForm.elements.phone.value = security.phone || user.phone || "";
   securityForm.elements.email.value = security.email || user.email || "";
@@ -2289,22 +2440,92 @@ if (securityForm) {
     verificationGrid.querySelectorAll("[data-verification]").forEach((card) => {
       const key = card.dataset.verification;
       const verified = Boolean(security[`${key}Verified`]);
+      const button = card.querySelector("button");
       card.classList.toggle("verified", verified);
-      card.querySelector("button").textContent = verified ? "Doğrulandı" : "Doğrula";
+      button.textContent = verified ? "Doğrulandı" : key === "phone" ? "Kod gönder" : "Doğrula";
+      button.disabled = verified;
     });
   }
 
-  renderVerificationCards();
+  function setPhoneCodeControls(enabled) {
+    if (phoneCodeInput) phoneCodeInput.disabled = !enabled;
+    if (confirmPhoneCodeButton) confirmPhoneCodeButton.disabled = !enabled;
+  }
 
-  verificationGrid.addEventListener("click", (event) => {
+  async function startPhoneVerification(button = sendPhoneCodeButton) {
+    const normalizedPhone = normalizePhoneToE164(securityPhoneInput?.value || securityForm.elements.phone.value);
+    if (!normalizedPhone) {
+      showToast("Telefon numarasını 05xx xxx xx xx formatında yaz.");
+      return;
+    }
+
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Kod gönderiliyor...";
+      }
+      const sentPhone = await sendPhoneVerificationCode(normalizedPhone);
+      securityForm.elements.phone.value = sentPhone;
+      setPhoneCodeControls(true);
+      phoneCodeInput?.focus();
+      showToast("SMS kodu gönderildi.");
+    } catch (error) {
+      showToast(getFirebaseAuthMessage(error));
+    } finally {
+      security = getSecurityState();
+      renderVerificationCards();
+      if (button && !security.phoneVerified) {
+        button.disabled = false;
+        button.textContent = button === sendPhoneCodeButton ? "SMS kodu gönder" : "Kod gönder";
+      }
+    }
+  }
+
+  renderVerificationCards();
+  setPhoneCodeControls(false);
+
+  securityPhoneInput?.addEventListener("input", () => {
+    const changedPhone =
+      normalizePhoneToE164(securityPhoneInput.value) !== normalizePhoneToE164(security.phone);
+    if (changedPhone && security.phoneVerified) {
+      security = { ...security, phoneVerified: false };
+      setPhoneCodeControls(false);
+      renderVerificationCards();
+    }
+  });
+
+  verificationGrid.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-verify]");
     if (!button) return;
 
     const key = button.dataset.verify;
+    if (key === "phone") {
+      await startPhoneVerification(button);
+      return;
+    }
+
     security[`${key}Verified`] = true;
     saveSecurityState(security);
     renderVerificationCards();
     showToast("Doğrulama durumu güncellendi.");
+  });
+
+  sendPhoneCodeButton?.addEventListener("click", () => startPhoneVerification(sendPhoneCodeButton));
+
+  confirmPhoneCodeButton?.addEventListener("click", async () => {
+    try {
+      confirmPhoneCodeButton.disabled = true;
+      confirmPhoneCodeButton.textContent = "Doğrulanıyor...";
+      security = await confirmPhoneVerificationCode(phoneCodeInput?.value, securityForm.elements.phone.value);
+      setPhoneCodeControls(false);
+      renderVerificationCards();
+      showToast("Telefon numarası doğrulandı.");
+    } catch (error) {
+      confirmPhoneCodeButton.disabled = false;
+      showToast(getFirebaseAuthMessage(error));
+    } finally {
+      confirmPhoneCodeButton.textContent = "Telefonu doğrula";
+    }
   });
 
   identityFileInput?.addEventListener("change", () => {
@@ -2327,11 +2548,15 @@ if (securityForm) {
     }
 
     const currentSecurity = getSecurityState();
+    const nextPhone = formData.get("phone");
+    const sameVerifiedPhone =
+      normalizePhoneToE164(nextPhone) &&
+      normalizePhoneToE164(nextPhone) === normalizePhoneToE164(currentSecurity.phone);
     const nextSecurity = {
       ...currentSecurity,
-      phone: formData.get("phone"),
+      phone: nextPhone,
       email: formData.get("email"),
-      phoneVerified: currentSecurity.phoneVerified || false,
+      phoneVerified: sameVerifiedPhone ? currentSecurity.phoneVerified || false : false,
       emailVerified: currentSecurity.emailVerified || false,
       identityVerified: currentSecurity.identityVerified || false,
       securityPrefs: formData.getAll("securityPrefs"),
@@ -2346,6 +2571,7 @@ if (securityForm) {
         ...getUser(),
         phone: nextSecurity.phone,
         email: nextSecurity.email,
+        phoneVerified: nextSecurity.phoneVerified,
       }),
     );
 
@@ -2513,6 +2739,19 @@ if (paymentForm) {
 }
 
 if (listingCreateForm) {
+  function updateHighlightColorPicker() {
+    if (!highlightColorInput) return;
+
+    const canPickColor = Boolean(
+      useColorPromotionInput && !useColorPromotionInput.disabled && useColorPromotionInput.checked,
+    );
+    highlightColorInput.disabled = !canPickColor;
+    colorPromotionCard?.style.setProperty(
+      "--selected-promotion-color",
+      sanitizeHighlightColor(highlightColorInput.value),
+    );
+  }
+
   function renderListingPromotionRights() {
     const balance = getCreditBalance();
     const hasFeaturedRight = balance >= promotionCreditCosts.featured;
@@ -2536,10 +2775,14 @@ if (listingCreateForm) {
 
     featuredPromotionCard?.classList.toggle("disabled", !hasFeaturedRight);
     colorPromotionCard?.classList.toggle("disabled", !hasColoredRight);
+    updateHighlightColorPicker();
   }
 
   renderListingPromotionRights();
   subscribeSharedListings(renderListingPromotionRights);
+
+  useColorPromotionInput?.addEventListener("change", updateHighlightColorPicker);
+  highlightColorInput?.addEventListener("input", updateHighlightColorPicker);
 
   listingCreateForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -2596,6 +2839,7 @@ if (listingCreateForm) {
       status: "active",
       featured: listingPromotion.featured,
       highlighted: listingPromotion.highlighted,
+      highlightColor: listingPromotion.highlighted ? sanitizeHighlightColor(formData.get("highlightColor")) : "",
       carouselPriority: listingPromotion.carouselPriority,
       carouselPriorityLabel: listingPromotion.carouselPriorityLabel,
       promotionSource: listingPromotion.promotionSource,
@@ -2729,6 +2973,7 @@ if (listingGrid) {
   const drawerRole = document.querySelector("#drawerRole");
   const drawerAvatar = document.querySelector("#drawerAvatar");
   const drawerCreditBalance = document.querySelector("#drawerCreditBalance");
+  const drawerVerifyPill = document.querySelector("#drawerVerifyPill");
   const notificationButton = document.querySelector("#notificationButton");
   const notificationPanel = document.querySelector("#notificationPanel");
   const notificationList = document.querySelector("#notificationList");
@@ -2758,6 +3003,15 @@ if (listingGrid) {
     }
   }
 
+  function updateDrawerVerificationState(user) {
+    const security = getSecurityState();
+    const verified = Boolean(user.phoneVerified || security.phoneVerified);
+    if (drawerVerifyPill) {
+      drawerVerifyPill.textContent = verified ? "Telefon doğrulandı" : "Telefon doğrulanmadı";
+      drawerVerifyPill.classList.toggle("verified", verified);
+    }
+  }
+
   function setupProfile() {
     const params = new URLSearchParams(window.location.search);
     const user = getUser();
@@ -2773,6 +3027,7 @@ if (listingGrid) {
       role === "master" ? user.profession || "Usta hesabı" : "İş veren hesabı";
     setAvatarElement(drawerAvatar, user);
     updateDrawerCreditBalance();
+    updateDrawerVerificationState(user);
     marketSearch.placeholder =
       role === "master" ? "İlan, meslek veya ilçe ara" : "İlan, usta veya ilçe ara";
     restartSharedFeeds();
@@ -2781,6 +3036,7 @@ if (listingGrid) {
   function openProfileDrawer() {
     closeNotificationPanel();
     updateDrawerCreditBalance();
+    updateDrawerVerificationState(getUser());
     drawerBackdrop.hidden = false;
     profileDrawer.setAttribute("aria-hidden", "false");
     window.requestAnimationFrame(() => {
@@ -2985,7 +3241,7 @@ if (listingGrid) {
     const priorityLabel = listing.carouselPriorityLabel || (listing.carouselPriority ? "Öne çıkan sıra" : "");
 
     return `
-      <article class="${featured ? "featured-card" : "listing-card"} ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}">
+      <article class="${featured ? "featured-card" : "listing-card"} ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}"${getHighlightStyle(listing)}>
         <div class="${featured ? "featured-top" : "listing-top"}">
           <span class="category-icon">${categoryMark}</span>
           <strong class="budget">${currency.format(listing.budget)}</strong>
@@ -3169,7 +3425,7 @@ function accountListingCard(listing, passive = false) {
   const canComplete = assigned && !completed;
 
   return `
-    <article class="listing-card ${passive || completed ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}">
+    <article class="listing-card ${listing.highlighted ? "colored-listing" : ""} ${passive || completed ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}"${getHighlightStyle(listing)}>
       <div class="listing-top">
         <span class="badge ${passive || assigned || completed ? "" : "hot"}">${status}</span>
         <strong class="budget">${Number(listing.budget || 0).toLocaleString("tr-TR", {

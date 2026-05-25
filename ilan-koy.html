@@ -127,13 +127,19 @@
                 </span>
               </label>
 
-              <label class="promotion-right-card" id="colorPromotionCard">
-                <input name="useColorPromotion" id="useColorPromotion" type="checkbox" value="1" />
-                <span>
-                  <strong>Renkli arka plan</strong>
-                  <small id="colorPromotionMeta">Kredi bilgisi yükleniyor</small>
-                </span>
-              </label>
+              <div class="promotion-right-card promotion-color-card" id="colorPromotionCard">
+                <label class="promotion-option-label">
+                  <input name="useColorPromotion" id="useColorPromotion" type="checkbox" value="1" />
+                  <span>
+                    <strong>Renkli arka plan</strong>
+                    <small id="colorPromotionMeta">Kredi bilgisi yükleniyor</small>
+                  </span>
+                </label>
+                <label class="promotion-color-picker">
+                  <span>Renk</span>
+                  <input name="highlightColor" id="highlightColorInput" type="color" value="#fbcfe8" disabled />
+                </label>
+              </div>
             </div>
           </fieldset>
 
