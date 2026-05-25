@@ -216,7 +216,8 @@ function injectPageSwitcher() {
   if (document.querySelector(".page-switcher")) return;
 
   const pages = [
-    { href: "index.html", label: "Başlangıç" },
+    { href: "pazar.html", label: "İlan akışı" },
+    { href: "kayit.html", label: "Kayıt seçimi" },
     { href: "is-veren-kayit.html", label: "İş veren kaydı" },
     { href: "usta-kayit.html", label: "Usta kaydı" },
     { href: "giris.html", label: "Giriş yap" },
@@ -232,7 +233,7 @@ function injectPageSwitcher() {
     { href: "favori-ustalar.html", label: "Favori ustalar" },
     { href: "odeme-guvence.html", label: "Ödeme güvence" },
   ];
-  const currentPage = window.location.pathname.split("/").pop() || "index.html";
+  const currentPage = window.location.pathname.split("/").pop() || "pazar.html";
   const switcher = document.createElement("div");
   switcher.className = "page-switcher";
   switcher.innerHTML = `
@@ -752,6 +753,10 @@ function getUser() {
   } catch {
     return {};
   }
+}
+
+function isRegisteredUser(user = getCurrentUser()) {
+  return Boolean(user?.email && (user.uid || user.fullName || user.role));
 }
 
 function setAvatarElement(element, user) {
@@ -2799,6 +2804,14 @@ if (listingCreateForm) {
       currentUser = {};
     }
 
+    if (!isRegisteredUser(currentUser)) {
+      showToast("İlan açmak için önce ücretsiz hesap aç veya giriş yap.");
+      window.setTimeout(() => {
+        window.location.href = "kayit.html";
+      }, 700);
+      return;
+    }
+
     if (!isAllowedWorkDate(workDate)) {
       showToast("İlan tarihi bugünden eski, bu yılın dışında veya 2 aydan ileri olamaz.");
       return;
@@ -2974,6 +2987,7 @@ if (listingGrid) {
   const drawerAvatar = document.querySelector("#drawerAvatar");
   const drawerCreditBalance = document.querySelector("#drawerCreditBalance");
   const drawerVerifyPill = document.querySelector("#drawerVerifyPill");
+  const drawerUpgradeLink = document.querySelector(".upgrade-link");
   const notificationButton = document.querySelector("#notificationButton");
   const notificationPanel = document.querySelector("#notificationPanel");
   const notificationList = document.querySelector("#notificationList");
@@ -3004,6 +3018,14 @@ if (listingGrid) {
   }
 
   function updateDrawerVerificationState(user) {
+    if (!isRegisteredUser(user)) {
+      if (drawerVerifyPill) {
+        drawerVerifyPill.textContent = "Kayıt olmadan gez";
+        drawerVerifyPill.classList.remove("verified");
+      }
+      return;
+    }
+
     const security = getSecurityState();
     const verified = Boolean(user.phoneVerified || security.phoneVerified);
     if (drawerVerifyPill) {
@@ -3015,17 +3037,23 @@ if (listingGrid) {
   function setupProfile() {
     const params = new URLSearchParams(window.location.search);
     const user = getUser();
+    const registered = isRegisteredUser(user);
     const role = params.get("role") || user.role || "master";
-    const displayName = user.fullName || "Profil";
+    const displayName = registered ? user.fullName || "Profil" : "Misafir";
+    const roleLabel = registered
+      ? role === "master" ? user.profession || "Usta hesabı" : "İş veren hesabı"
+      : "İlanları keşfet";
 
     profileName.textContent = displayName;
-    profileRole.textContent =
-      role === "master" ? user.profession || "Usta hesabı" : "İş veren hesabı";
-    setAvatarElement(profileAvatar, user);
+    profileRole.textContent = roleLabel;
+    setAvatarElement(profileAvatar, registered ? user : { fullName: "Misafir" });
     drawerName.textContent = displayName;
-    drawerRole.textContent =
-      role === "master" ? user.profession || "Usta hesabı" : "İş veren hesabı";
-    setAvatarElement(drawerAvatar, user);
+    drawerRole.textContent = roleLabel;
+    setAvatarElement(drawerAvatar, registered ? user : { fullName: "Misafir" });
+    if (drawerUpgradeLink) {
+      drawerUpgradeLink.textContent = registered ? "Kredi yükle" : "Kayıt ol";
+      drawerUpgradeLink.href = registered ? "kredi-yukle.html" : "kayit.html";
+    }
     updateDrawerCreditBalance();
     updateDrawerVerificationState(user);
     marketSearch.placeholder =
@@ -3379,6 +3407,14 @@ if (listingGrid) {
     if (action) {
       const route = profileActionRoutes[action.dataset.panelAction];
       if (route) {
+        if (!isRegisteredUser(getUser())) {
+          showToast("Bu işlem için önce ücretsiz hesap aç veya giriş yap.");
+          window.setTimeout(() => {
+            window.location.href = "kayit.html";
+          }, 650);
+          return;
+        }
+
         window.location.href = route;
         return;
       }
@@ -3530,6 +3566,7 @@ if (listingDetail) {
     const savedRating = getStoredRatings()[listing.id];
     const canRevealListingPhone = assigned && Boolean(listing.phone);
     const canRateListing = isListingAssignedToCurrentUser(listing);
+    const registeredUser = isRegisteredUser(getCurrentUser());
 
     listingDetail.innerHTML = `
       <div class="detail-toolbar">
@@ -3575,7 +3612,7 @@ if (listingDetail) {
             maximumFractionDigits: 0,
           })}</strong>
           <div class="detail-primary-actions">
-            ${!inactive ? `<a class="ghost-link" href="#detailOfferForm">Talep alanına git</a>` : ""}
+            ${!inactive ? `<a class="ghost-link" href="${registeredUser ? "#detailOfferForm" : "#registerToOffer"}">${registeredUser ? "Talep alanına git" : "Teklif için kayıt ol"}</a>` : ""}
             ${canRevealListingPhone ? `<a class="ghost-link phone-action" href="tel:${listing.phone}">Ara</a>` : `<span class="ghost-link disabled-link">Telefon gizli</span>`}
           </div>
         </div>
@@ -3601,18 +3638,34 @@ if (listingDetail) {
         </article>
 
         <article class="detail-panel">
-          <h2>Talep gönder</h2>
-          <form class="offer-form" id="detailOfferForm">
-            <label>
-              Teklif tutarı
-              <input name="amount" type="number" min="500" step="100" placeholder="Örn. 2500" ${inactive ? "disabled" : "required"} />
-            </label>
-            <label>
-              Mesaj
-              <textarea name="message" rows="5" placeholder="Ne zaman gelebileceğini ve işi nasıl yapacağını yaz." ${inactive ? "disabled" : "required"}></textarea>
-            </label>
-            <button class="primary-action" type="submit" ${inactive ? "disabled" : ""}>Talebi gönder</button>
-          </form>
+          ${
+            registeredUser
+              ? `
+                <h2>Talep gönder</h2>
+                <form class="offer-form" id="detailOfferForm">
+                  <label>
+                    Teklif tutarı
+                    <input name="amount" type="number" min="500" step="100" placeholder="Örn. 2500" ${inactive ? "disabled" : "required"} />
+                  </label>
+                  <label>
+                    Mesaj
+                    <textarea name="message" rows="5" placeholder="Ne zaman gelebileceğini ve işi nasıl yapacağını yaz." ${inactive ? "disabled" : "required"}></textarea>
+                  </label>
+                  <button class="primary-action" type="submit" ${inactive ? "disabled" : ""}>Talebi gönder</button>
+                </form>
+              `
+              : `
+                <div class="guest-offer-panel" id="registerToOffer">
+                  <p class="eyebrow">Teklif göndermek için</p>
+                  <h2>Önce ücretsiz hesap aç.</h2>
+                  <p>İlanları kayıt olmadan gezebilirsin. Teklif göndermek için usta hesabı açman veya mevcut hesabına girmen gerekir.</p>
+                  <div class="guest-offer-actions">
+                    <a class="primary-action" href="usta-kayit.html">Usta olarak kayıt ol</a>
+                    <a class="ghost-link" href="giris.html">Giriş yap</a>
+                  </div>
+                </div>
+              `
+          }
         </article>
 
         ${canRateListing ? `
@@ -3659,6 +3712,14 @@ if (listingDetail) {
         const requesterKeys = new Set(getAccountAliases(user));
         const ownerKey = resolveListingOwnerKey(activeListing);
         const isOwnListing = isListingOwnedByUser(activeListing, user);
+
+        if (!isRegisteredUser(user)) {
+          showToast("Teklif göndermek için önce usta hesabı aç veya giriş yap.");
+          window.setTimeout(() => {
+            window.location.href = "kayit.html";
+          }, 700);
+          return;
+        }
 
         if (isOwnListing) {
           showToast("Kendi ilanına teklif gönderemezsin.");

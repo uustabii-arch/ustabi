@@ -2277,6 +2277,7 @@ textarea:focus {
   padding: 0 16px;
   background: var(--ink);
   color: #fff7da;
+  text-decoration: none;
 }
 
 .primary-action:hover {
@@ -2847,6 +2848,29 @@ textarea:focus {
 .offer-form {
   display: grid;
   gap: 14px;
+}
+
+.guest-offer-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(49, 94, 159, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(49, 94, 159, 0.08), rgba(246, 189, 47, 0.09)),
+    #fffdfa;
+}
+
+.guest-offer-panel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.guest-offer-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr);
+  gap: 10px;
 }
 
 .detail-empty {
@@ -3852,6 +3876,7 @@ textarea:focus {
   .pro-grid,
   .detail-grid,
   .detail-primary-actions,
+  .guest-offer-actions,
   .phone-verification-panel {
     grid-template-columns: 1fr;
   }
