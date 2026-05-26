@@ -3571,11 +3571,14 @@ if (listingGrid) {
     const registered = isRegisteredUser(user);
     const role = params.get("role") || user.role || "master";
     const displayName = registered ? user.fullName || "Profil" : "Misafir";
+    const profileButtonName = registered ? displayName : "Hesap";
     const roleLabel = registered
       ? role === "master" ? user.profession || "Hizmet veren hesabı" : "İş veren hesabı"
       : "İlanları keşfet";
 
-    profileName.textContent = displayName;
+    document.body.classList.toggle("guest-user", !registered);
+    profileButton.setAttribute("aria-label", registered ? "Profil panelini aç" : "Hesap panelini aç");
+    profileName.textContent = profileButtonName;
     profileRole.textContent = roleLabel;
     setAvatarElement(profileAvatar, registered ? user : { fullName: "Misafir" });
     drawerName.textContent = displayName;
