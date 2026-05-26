@@ -699,7 +699,7 @@ button:disabled,
   display: grid;
   align-content: start;
   gap: 18px;
-  width: min(390px, calc(100% - 22px));
+  width: min(460px, calc(100% - 12px));
   height: 100vh;
   padding: 20px;
   overflow-y: auto;
@@ -4338,7 +4338,7 @@ textarea:focus {
     position: sticky;
     top: 0;
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 40px 44px;
+    grid-template-columns: 40px minmax(116px, 210px) 40px 44px;
     gap: 8px;
     align-items: center;
     min-height: 58px;
@@ -4363,7 +4363,7 @@ textarea:focus {
     gap: 8px;
     align-items: center;
     order: initial;
-    width: 100%;
+    width: min(100%, 258px);
     margin: 0;
   }
 
@@ -4378,8 +4378,8 @@ textarea:focus {
   }
 
   .market-page .market-search input {
-    min-height: 40px;
-    padding: 0 9px 0 31px;
+    min-height: 38px;
+    padding: 0 8px 0 29px;
     border-radius: 8px;
   }
 
@@ -4452,6 +4452,8 @@ textarea:focus {
   }
 
   .market-page .profile-drawer {
+    inset: auto 4px 0 4px;
+    width: auto;
     border-radius: 18px 18px 0 0;
   }
 
@@ -4498,7 +4500,7 @@ textarea:focus {
 
 @media (max-width: 380px) {
   .market-page .market-topbar {
-    grid-template-columns: 38px minmax(0, 1fr) 38px 42px;
+    grid-template-columns: 38px minmax(102px, 1fr) 38px 42px;
     gap: 6px;
     padding-inline: 8px;
   }
@@ -4512,6 +4514,7 @@ textarea:focus {
   .market-page .market-toolbar {
     grid-template-columns: minmax(0, 1fr) 38px;
     gap: 6px;
+    width: min(100%, 214px);
   }
 
   .market-page .profile-button {
