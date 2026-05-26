@@ -1758,6 +1758,22 @@ body:not(.auth-active) .auth-shell {
   line-height: 1.35;
 }
 
+.category-picker-label {
+  gap: 8px;
+}
+
+.category-search-input {
+  min-height: 40px;
+  border-color: rgba(255, 160, 0, 0.32);
+  background: #fffaf1;
+  font-size: 0.92rem;
+}
+
+.category-search-input:focus {
+  border-color: var(--brand-orange);
+  box-shadow: 0 0 0 3px rgba(255, 160, 0, 0.16);
+}
+
 .upload-preview {
   overflow: hidden;
   width: 100%;
@@ -4338,7 +4354,7 @@ textarea:focus {
     position: sticky;
     top: 0;
     display: grid;
-    grid-template-columns: 40px minmax(116px, 210px) 40px 44px;
+    grid-template-columns: 40px minmax(96px, 1fr) 40px 66px;
     gap: 8px;
     align-items: center;
     min-height: 58px;
@@ -4407,11 +4423,11 @@ textarea:focus {
     grid-column: 4;
     justify-self: end;
     display: inline-flex;
-    width: 44px;
+    width: 66px;
     min-height: 40px;
     height: 40px;
-    gap: 5px;
-    padding: 4px 6px;
+    gap: 7px;
+    padding: 4px 8px;
     color: var(--brand-orange);
   }
 
@@ -4428,21 +4444,21 @@ textarea:focus {
 
   .market-page .panel-menu-icon {
     display: block;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 13px;
   }
 
   .market-page .panel-menu-icon::before {
-    width: 12px;
+    width: 16px;
   }
 
   .market-page .panel-menu-icon span {
-    top: 5px;
-    width: 9px;
+    top: 5.5px;
+    width: 12px;
   }
 
   .market-page .panel-menu-icon::after {
-    width: 11px;
+    width: 15px;
   }
 
   .market-page .notification-panel {
@@ -4510,7 +4526,7 @@ textarea:focus {
 
 @media (max-width: 380px) {
   .market-page .market-topbar {
-    grid-template-columns: 38px minmax(102px, 1fr) 38px 42px;
+    grid-template-columns: 38px minmax(78px, 1fr) 38px 62px;
     gap: 6px;
     padding-inline: 8px;
   }
@@ -4528,6 +4544,6 @@ textarea:focus {
   }
 
   .market-page .profile-button {
-    width: 42px;
+    width: 62px;
   }
 }

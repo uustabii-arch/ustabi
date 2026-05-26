@@ -481,6 +481,7 @@ const listingImageInput = document.querySelector("#listingImageInput");
 const listingImagePreview = document.querySelector("#listingImagePreview");
 const customCategoryField = document.querySelector("#customCategoryField");
 const customCategoryInput = document.querySelector("#customCategoryInput");
+const categorySearchInput = document.querySelector("#categorySearchInput");
 const useFeaturedPromotionInput = document.querySelector("#useFeaturedPromotion");
 const useColorPromotionInput = document.querySelector("#useColorPromotion");
 const highlightColorInput = document.querySelector("#highlightColorInput");
@@ -766,9 +767,15 @@ const categoryImageMap = {
 };
 
 function addGroupedProfessionOptions(select, options = {}) {
-  const { excludeOther = false } = options;
+  const { excludeOther = false, searchTerm = "" } = options;
+  const normalizedSearch = normalizeAccountValue(searchTerm);
   professionCategoryGroups.forEach((group) => {
-    const groupItems = excludeOther ? group.items.filter((item) => item !== "Diğer") : group.items;
+    const groupMatchesSearch = normalizeAccountValue(group.title).includes(normalizedSearch);
+    const groupItems = group.items.filter((item) => {
+      if (excludeOther && item === "Diğer") return false;
+      if (!normalizedSearch) return true;
+      return groupMatchesSearch || normalizeAccountValue(item).includes(normalizedSearch);
+    });
     if (!groupItems.length) return;
 
     const optionGroup = document.createElement("optgroup");
@@ -780,16 +787,23 @@ function addGroupedProfessionOptions(select, options = {}) {
   });
 }
 
+function populateCategorySelect(select, options = {}) {
+  const { firstValue = "", firstText = "Seç", searchTerm = "" } = options;
+  const currentValue = select.value;
+  select.innerHTML = `<option value="${firstValue}">${firstText}</option>`;
+  addGroupedProfessionOptions(select, { searchTerm });
+
+  const allowedValues = [...select.options].map((option) => option.value);
+  if (allowedValues.includes(currentValue)) {
+    select.value = currentValue;
+  }
+}
+
 function populateProfessionSelects() {
   document.querySelectorAll('select[name="category"], #categoryFilter').forEach((select) => {
     const firstValue = select.id === "categoryFilter" ? "Tümü" : "";
     const firstText = select.id === "categoryFilter" ? "Tümü" : "Seç";
-    const currentValue = select.value;
-    select.innerHTML = `<option value="${firstValue}">${firstText}</option>`;
-    addGroupedProfessionOptions(select);
-    if ([firstValue, ...professionCategories].includes(currentValue)) {
-      select.value = currentValue;
-    }
+    populateCategorySelect(select, { firstValue, firstText });
   });
 
   const professionSelectEl = document.querySelector("#professionSelect");
@@ -3189,6 +3203,16 @@ if (paymentForm) {
 if (listingCreateForm) {
   const categorySelect = listingCreateForm.elements.category;
 
+  function filterListingCategories() {
+    if (!categorySelect) return;
+    populateCategorySelect(categorySelect, {
+      firstValue: "",
+      firstText: "Seç",
+      searchTerm: categorySearchInput?.value || "",
+    });
+    syncCustomCategoryField();
+  }
+
   function syncCustomCategoryField() {
     const isOtherCategory = categorySelect?.value === "Diğer";
     customCategoryField?.classList.toggle("visible", isOtherCategory);
@@ -3242,6 +3266,7 @@ if (listingCreateForm) {
 
   useColorPromotionInput?.addEventListener("change", updateHighlightColorPicker);
   highlightColorInput?.addEventListener("input", updateHighlightColorPicker);
+  categorySearchInput?.addEventListener("input", filterListingCategories);
   categorySelect?.addEventListener("change", syncCustomCategoryField);
   syncCustomCategoryField();
 

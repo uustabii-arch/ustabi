@@ -37,8 +37,15 @@
           </label>
 
           <div class="form-grid">
-            <label>
+            <label class="category-picker-label">
               Kategori
+              <input
+                class="category-search-input"
+                id="categorySearchInput"
+                type="search"
+                placeholder="Kategori ara: yazılım, terzi, boya..."
+                autocomplete="off"
+              />
               <select name="category" required>
                 <option value="">Seç</option>
                 <optgroup label="Yazılım ve teknoloji">
