@@ -1030,6 +1030,10 @@ button:disabled,
     background 0.16s ease;
 }
 
+.drawer-actions button[hidden] {
+  display: none;
+}
+
 .drawer-actions button::after {
   margin-left: auto;
   color: rgba(32, 33, 36, 0.34);
@@ -4445,12 +4449,23 @@ textarea:focus {
     display: block;
   }
 
+  .market-page.guest-user .profile-avatar,
+  .market-page.guest-user .panel-menu-icon {
+    display: none;
+  }
+
+  .market-page.guest-user .profile-button {
+    justify-content: center;
+    width: 76px;
+    padding: 0 12px;
+  }
+
   .market-page.guest-user .profile-button strong {
-    max-width: 38px;
+    max-width: 100%;
     color: var(--brand-orange);
-    font-size: 0.8rem;
+    font-size: 0.84rem;
     line-height: 1;
-    text-align: left;
+    text-align: center;
   }
 
   .market-page.guest-user .profile-button small {
@@ -4571,6 +4586,6 @@ textarea:focus {
   }
 
   .market-page.guest-user .profile-button strong {
-    max-width: 34px;
+    max-width: 100%;
   }
 }
