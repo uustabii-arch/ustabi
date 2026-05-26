@@ -798,6 +798,10 @@ button:disabled,
   font-weight: 950;
 }
 
+.credit-balance-pill[hidden] {
+  display: none;
+}
+
 .upgrade-link {
   display: inline-flex;
   align-items: center;
@@ -4518,6 +4522,46 @@ textarea:focus {
 
   .market-page .profile-drawer.open {
     transform: translateY(0);
+  }
+
+  .market-page.guest-user .drawer-profile {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .market-page.guest-user .drawer-avatar {
+    display: none;
+  }
+
+  .market-page.guest-user .drawer-profile-copy {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .market-page.guest-user .drawer-profile strong {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .market-page.guest-user .drawer-profile small {
+    margin-top: 0;
+  }
+
+  .market-page.guest-user .verify-pill,
+  .market-page.guest-user .upgrade-link {
+    justify-content: center;
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .market-page.guest-user .upgrade-link {
+    min-height: 40px;
+    background: var(--yellow);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: var(--ink);
   }
 
   .market-page .drawer-head {

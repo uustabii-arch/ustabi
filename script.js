@@ -3544,6 +3544,7 @@ if (listingGrid) {
 
   function updateDrawerCreditBalance() {
     if (drawerCreditBalance) {
+      drawerCreditBalance.hidden = !isRegisteredUser(getUser());
       drawerCreditBalance.textContent = `Bakiyen: ${formatCredits(getCreditBalance())}`;
     }
   }
