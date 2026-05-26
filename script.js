@@ -1476,6 +1476,21 @@ function isOfferRequestedByAccount(offer, accountKey = getAccountKey(), user = g
   return hasSharedKey(getRequesterRecipientKeys(offer), [accountKey, ...getAccountAliases(user)]);
 }
 
+function hasAccountOfferedToListing(listingId, user = getCurrentUser()) {
+  const normalizedListingId = String(listingId || "");
+  if (!normalizedListingId) return false;
+
+  const accountKeys = [getAccountKey(user), ...getAccountAliases(user)]
+    .map(normalizeAccountValue)
+    .filter(Boolean);
+
+  return getAllOffers().some((offer) => {
+    if (String(offer.listingId) !== normalizedListingId) return false;
+    const requesterKeys = getRequesterRecipientKeys(offer).map(normalizeAccountValue);
+    return hasSharedKey(requesterKeys, accountKeys);
+  });
+}
+
 function findRelatedRequesterOffer(sourceOffer) {
   return getAllOffers().find((offer) => {
     if (offer.type !== "sent") return false;
@@ -4047,6 +4062,7 @@ if (listingDetail) {
   const listingId = params.get("id");
   let listing = getAllListings().find((item) => String(item.id) === String(listingId));
   let activeListing = listing || null;
+  let lastAlreadyOfferedState = null;
 
   function renderMissingListing() {
     listingDetail.innerHTML = `
@@ -4075,6 +4091,8 @@ if (listingDetail) {
     const canRevealListingPhone = assigned && Boolean(listing.phone);
     const canRateListing = isListingAssignedToCurrentUser(listing);
     const registeredUser = isRegisteredUser(getCurrentUser());
+    const alreadyOffered = registeredUser && hasAccountOfferedToListing(listing.id);
+    lastAlreadyOfferedState = alreadyOffered;
     const tagBadges = renderTagBadges(listing.tags, 8);
 
     listingDetail.innerHTML = `
@@ -4122,7 +4140,8 @@ if (listingDetail) {
             maximumFractionDigits: 0,
           })}</strong>
           <div class="detail-primary-actions">
-            ${!inactive ? `<a class="ghost-link" href="${registeredUser ? "#detailOfferForm" : "#registerToOffer"}">${registeredUser ? "Talep alanına git" : "Teklif için kayıt ol"}</a>` : ""}
+            ${!inactive && !alreadyOffered ? `<a class="ghost-link" href="${registeredUser ? "#detailOfferForm" : "#registerToOffer"}">${registeredUser ? "Talep alanına git" : "Teklif için kayıt ol"}</a>` : ""}
+            ${alreadyOffered ? `<span class="ghost-link disabled-link">Teklifin alındı</span>` : ""}
             ${canRevealListingPhone ? `<a class="ghost-link phone-action" href="tel:${listing.phone}">Ara</a>` : `<span class="ghost-link disabled-link">Telefon gizli</span>`}
           </div>
         </div>
@@ -4150,7 +4169,18 @@ if (listingDetail) {
         <article class="detail-panel">
           ${
             registeredUser
-              ? `
+              ? alreadyOffered
+                ? `
+                <div class="guest-offer-panel">
+                  <p class="eyebrow">Teklif durumu</p>
+                  <h2>Bu ilana teklifin alındı.</h2>
+                  <p>Aynı ilana yalnızca bir kez teklif gönderebilirsin. Gönderdiğin teklifi Teklifler sayfasından takip edebilirsin.</p>
+                  <div class="guest-offer-actions">
+                    <a class="primary-action" href="teklifler.html?filter=sent">Tekliflerime git</a>
+                  </div>
+                </div>
+              `
+                : `
                 <h2>Talep gönder</h2>
                 <form class="offer-form" id="detailOfferForm">
                   <label>
@@ -4246,6 +4276,12 @@ if (listingDetail) {
           return;
         }
 
+        if (hasAccountOfferedToListing(activeListing.id, user)) {
+          showToast("Bu ilana zaten teklif gönderdin.");
+          renderListingDetail(activeListing);
+          return;
+        }
+
         const sentOffer = {
           id: `${offerId}-sent`,
           listingId: activeListing.id,
@@ -4292,6 +4328,12 @@ if (listingDetail) {
             ownerOffer.requesterKeys = [...requesterKeys];
           }
 
+          if (hasAccountOfferedToListing(activeListing.id, { ...user, uid: sentOffer.requesterUid })) {
+            showToast("Bu ilana zaten teklif gönderdin.");
+            renderListingDetail(activeListing);
+            return;
+          }
+
           await publishOffersToFirestore(sentOffer, ownerOffer);
           saveOffer(sentOffer);
           saveOffer(ownerOffer);
@@ -4310,6 +4352,7 @@ if (listingDetail) {
 
           offerForm.reset();
           showToast("Teklif gönderildi. İlan sahibine bildirim düştü.");
+          renderListingDetail(activeListing);
         } catch (error) {
           console.warn("Teklif gönderilemedi:", error);
           showToast(`Teklif gönderilemedi. ${getFirestoreErrorMessage(error)}`);
@@ -4339,6 +4382,15 @@ if (listingDetail) {
       }
     });
   }
+
+  subscribeOfferFeed(() => {
+    if (!activeListing) return;
+
+    const alreadyOffered = isRegisteredUser(getCurrentUser()) && hasAccountOfferedToListing(activeListing.id);
+    if (alreadyOffered !== lastAlreadyOfferedState) {
+      renderListingDetail(activeListing);
+    }
+  });
 
   subscribeSharedListings((allListings) => {
     if (!listingId) return;
