@@ -19,8 +19,8 @@
         <p class="eyebrow">Yeni ilan</p>
         <h1 id="post-listing-title">İşini yayına al.</h1>
         <p class="lead">
-          Ustaların doğru teklif verebilmesi için işi, konumu, zamanı, bütçeyi ve
-          kısa açıklamayı net yaz.
+          Yazılım, tasarım, giyim, eğitim, bakım, tadilat veya günlük işler fark etmez;
+          işi, konumu, zamanı, bütçeyi ve kısa açıklamayı net yaz.
         </p>
       </section>
 
@@ -34,7 +34,7 @@
         <form class="register-form active" id="listingCreateForm">
           <label>
             İş başlığı
-            <input name="title" type="text" placeholder="Örn. 2+1 ev boya badana" required />
+            <input name="title" type="text" placeholder="Örn. e-ticaret sitesi, elbise dikimi, 2+1 boya" required />
           </label>
 
           <div class="form-grid">
@@ -42,6 +42,16 @@
               Kategori
               <select name="category" required>
                 <option value="">Seç</option>
+                <option value="Yazılım geliştirme">Yazılım geliştirme</option>
+                <option value="Web sitesi">Web sitesi</option>
+                <option value="Mobil uygulama">Mobil uygulama</option>
+                <option value="E-ticaret">E-ticaret</option>
+                <option value="Grafik tasarım">Grafik tasarım</option>
+                <option value="Sosyal medya">Sosyal medya</option>
+                <option value="Giyim dikim">Giyim dikim</option>
+                <option value="Tekstil üretim">Tekstil üretim</option>
+                <option value="Özel ders">Özel ders</option>
+                <option value="Etkinlik organizasyonu">Etkinlik organizasyonu</option>
                 <option value="Boya">Boya</option>
                 <option value="Tesisat">Tesisat</option>
                 <option value="Elektrik">Elektrik</option>
@@ -101,11 +111,11 @@
             </label>
 
             <label>
-              Malzeme durumu
+              İş / teslimat durumu
               <select name="materials" required>
                 <option value="">Seç</option>
                 <option value="Malzeme bende">Malzeme bende</option>
-                <option value="Usta getirsin">Usta getirsin</option>
+                <option value="Hizmeti veren getirsin">Hizmeti veren getirsin</option>
                 <option value="Birlikte karar verelim">Birlikte karar verelim</option>
               </select>
             </label>
@@ -145,12 +155,12 @@
 
           <label>
             Adres / ulaşım notu
-            <textarea name="addressNote" rows="3" placeholder="Mahalle, site/apartman bilgisi, asansör, park yeri veya ulaşım notu yaz."></textarea>
+            <textarea name="addressNote" rows="3" placeholder="Adres, teslimat, online görüşme veya ulaşım notu yaz."></textarea>
           </label>
 
           <label>
-            Ustadan beklentiler
-            <textarea name="expectations" rows="3" placeholder="Keşif ister misin, ekipman gerekli mi, temizlik beklentin var mı?"></textarea>
+            İşi yapacak kişiden beklentiler
+            <textarea name="expectations" rows="3" placeholder="Teslim formatı, ekipman, deneyim, keşif veya çalışma şekli beklentini yaz."></textarea>
           </label>
 
           <label>
@@ -164,7 +174,7 @@
 
           <label>
             Açıklama
-            <textarea name="details" rows="5" placeholder="İşin kapsamını, malzeme durumunu, beklediğin süreyi ve özel notları yaz." required></textarea>
+            <textarea name="details" rows="5" placeholder="İşin kapsamını, teslim beklentini, bütçeyi etkileyen detayları ve özel notları yaz." required></textarea>
           </label>
 
           <button class="primary-action" type="submit">İlanı paylaş</button>

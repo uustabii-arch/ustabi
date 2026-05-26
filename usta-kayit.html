@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>USTABI | Usta kaydı</title>
+    <title>USTABI | Hizmet veren kaydı</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="auth-active">
@@ -16,14 +16,14 @@
 
     <main class="auth-shell form-page">
       <section class="auth-intro" aria-labelledby="master-title">
-        <h1 id="master-title">Usta hesabı aç</h1>
+        <h1 id="master-title">Hizmet veren hesabı aç</h1>
       </section>
 
       <section class="auth-card" aria-labelledby="register-title">
         <div class="auth-card-head">
           <a class="back-button" href="kayit.html">← Seçime dön</a>
-          <p class="eyebrow">Usta kaydı</p>
-          <h2 id="register-title">Usta profilini oluştur</h2>
+          <p class="eyebrow">Hizmet veren kaydı</p>
+          <h2 id="register-title">Hizmet profilini oluştur</h2>
         </div>
 
         <form class="register-form active" id="masterRegisterPage">
@@ -34,10 +34,34 @@
             </label>
 
             <label>
-              Meslek
+              Sektör / beceri
               <select name="profession" id="professionSelect" required>
                 <option value="">Seç</option>
                 <option value="Diğer">Diğer</option>
+                <option value="Yazılım geliştirme">Yazılım geliştirme</option>
+                <option value="Web sitesi">Web sitesi</option>
+                <option value="Mobil uygulama">Mobil uygulama</option>
+                <option value="E-ticaret">E-ticaret</option>
+                <option value="UI/UX tasarım">UI/UX tasarım</option>
+                <option value="Grafik tasarım">Grafik tasarım</option>
+                <option value="Sosyal medya">Sosyal medya</option>
+                <option value="Dijital pazarlama">Dijital pazarlama</option>
+                <option value="Video kurgu">Video kurgu</option>
+                <option value="Fotoğraf çekimi">Fotoğraf çekimi</option>
+                <option value="İçerik yazarlığı">İçerik yazarlığı</option>
+                <option value="Çeviri">Çeviri</option>
+                <option value="Özel ders">Özel ders</option>
+                <option value="Muhasebe">Muhasebe</option>
+                <option value="Danışmanlık">Danışmanlık</option>
+                <option value="Giyim dikim">Giyim dikim</option>
+                <option value="Tekstil üretim">Tekstil üretim</option>
+                <option value="Moda tasarım">Moda tasarım</option>
+                <option value="Etkinlik organizasyonu">Etkinlik organizasyonu</option>
+                <option value="Catering">Catering</option>
+                <option value="Güzellik">Güzellik</option>
+                <option value="Kuaför">Kuaför</option>
+                <option value="Çocuk bakımı">Çocuk bakımı</option>
+                <option value="Yaşlı bakımı">Yaşlı bakımı</option>
                 <option value="Boya ustası">Boya ustası</option>
                 <option value="Tesisat ustası">Tesisat ustası</option>
                 <option value="Elektrik ustası">Elektrik ustası</option>
@@ -64,8 +88,8 @@
           </div>
 
           <label class="hidden-field" id="customProfessionField">
-            Mesleğini yaz
-            <input name="customProfession" id="customProfessionInput" type="text" placeholder="Örn. Mermer ustası" />
+            Sektörünü veya becerini yaz
+            <input name="customProfession" id="customProfessionInput" type="text" placeholder="Örn. yazılım, modelistlik, mermer işi" />
           </label>
 
           <div class="form-grid">
@@ -119,10 +143,10 @@
 
           <label>
             Kısa profil açıklaması
-            <textarea name="bio" rows="4" placeholder="Hangi işleri yaptığını, ekipman durumunu ve hangi günler müsait olduğunu yaz." required></textarea>
+            <textarea name="bio" rows="4" placeholder="Hangi işleri yaptığını, çalışma şeklini, teslim süreni ve hangi günler müsait olduğunu yaz." required></textarea>
           </label>
 
-          <button class="primary-action" type="submit">Usta hesabı aç</button>
+          <button class="primary-action" type="submit">Hizmet veren hesabı aç</button>
         </form>
 
         <form class="password-reset-form" data-password-reset>

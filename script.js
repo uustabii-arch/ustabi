@@ -222,7 +222,7 @@ function injectPageSwitcher() {
     { href: "pazar.html", label: "İlan akışı" },
     { href: "kayit.html", label: "Kayıt seçimi" },
     { href: "is-veren-kayit.html", label: "İş veren kaydı" },
-    { href: "usta-kayit.html", label: "Usta kaydı" },
+    { href: "usta-kayit.html", label: "Hizmet veren kaydı" },
     { href: "giris.html", label: "Giriş yap" },
     { href: "pazar.html", label: "İlanlar" },
     { href: "ilan-koy.html", label: "İlan koy" },
@@ -233,7 +233,7 @@ function injectPageSwitcher() {
     { href: "guvenlik.html", label: "Güvenlik" },
     { href: "teklifler.html", label: "Teklifler" },
     { href: "bildirim-ayarlari.html", label: "Bildirimler" },
-    { href: "favori-ustalar.html", label: "Favori ustalar" },
+    { href: "favori-ustalar.html", label: "Favori hizmet verenler" },
     { href: "odeme-guvence.html", label: "Ödeme güvence" },
     { href: "admin.html", label: "Admin panel" },
   ];
@@ -345,7 +345,7 @@ function handleRegister(form, role) {
 
       showToast(
         profileSynced
-          ? `${fullName} için ${role === "master" ? "usta" : "iş veren"} hesabı Firebase'de açıldı.`
+          ? `${fullName} için ${role === "master" ? "hizmet veren" : "iş veren"} hesabı Firebase'de açıldı.`
           : "Hesap açıldı, profil verisi Firestore izni bekliyor.",
       );
       window.setTimeout(() => {
@@ -356,7 +356,7 @@ function handleRegister(form, role) {
     } finally {
       if (submitButton) {
         submitButton.disabled = false;
-        submitButton.textContent = role === "master" ? "Usta hesabı aç" : "İş veren hesabı aç";
+        submitButton.textContent = role === "master" ? "Hizmet veren hesabı aç" : "İş veren hesabı aç";
       }
     }
   });
@@ -533,6 +533,52 @@ const creditPackages = [
 ];
 
 const professionCategories = [
+  "Yazılım geliştirme",
+  "Web sitesi",
+  "Mobil uygulama",
+  "E-ticaret",
+  "UI/UX tasarım",
+  "Grafik tasarım",
+  "Logo ve marka",
+  "Sosyal medya",
+  "Dijital pazarlama",
+  "SEO",
+  "Reklam yönetimi",
+  "Video kurgu",
+  "Fotoğraf çekimi",
+  "İçerik yazarlığı",
+  "Çeviri",
+  "Özel ders",
+  "Online eğitim",
+  "Muhasebe",
+  "Hukuk danışmanlığı",
+  "İnsan kaynakları",
+  "Satış desteği",
+  "Müşteri hizmetleri",
+  "Veri girişi",
+  "Araştırma",
+  "Danışmanlık",
+  "Giyim dikim",
+  "Tekstil üretim",
+  "Moda tasarım",
+  "Terzi",
+  "Ürün tasarımı",
+  "Paketleme",
+  "Depo ve sevkiyat",
+  "Kurye",
+  "Lojistik",
+  "Şoför",
+  "Etkinlik organizasyonu",
+  "Düğün ve davet",
+  "Catering",
+  "Müzik ve sahne",
+  "Spor ve antrenörlük",
+  "Sağlık ve bakım",
+  "Güzellik",
+  "Kuaför",
+  "Evcil hayvan bakımı",
+  "Çocuk bakımı",
+  "Yaşlı bakımı",
   "Boya",
   "Tesisat",
   "Elektrik",
@@ -3193,6 +3239,37 @@ if (listingGrid) {
   let listings = getAllListings();
 
   const categoryMarks = {
+    "Yazılım geliştirme": "YZ",
+    "Web sitesi": "WB",
+    "Mobil uygulama": "MB",
+    "E-ticaret": "ET",
+    "UI/UX tasarım": "UX",
+    "Grafik tasarım": "GR",
+    "Logo ve marka": "LM",
+    "Sosyal medya": "SM",
+    "Dijital pazarlama": "DP",
+    SEO: "SE",
+    "Reklam yönetimi": "RY",
+    "Video kurgu": "VK",
+    "Fotoğraf çekimi": "FÇ",
+    "İçerik yazarlığı": "İY",
+    Çeviri: "ÇV",
+    "Özel ders": "ÖD",
+    Muhasebe: "MH",
+    Danışmanlık: "DN",
+    "Giyim dikim": "GD",
+    "Tekstil üretim": "TÜ",
+    "Moda tasarım": "MT",
+    Terzi: "TR",
+    Kurye: "KR",
+    Lojistik: "LJ",
+    Şoför: "ŞF",
+    "Etkinlik organizasyonu": "EO",
+    Catering: "CT",
+    Güzellik: "GZ",
+    Kuaför: "KF",
+    "Çocuk bakımı": "ÇB",
+    "Yaşlı bakımı": "YB",
     Boya: "BO",
     Tesisat: "TS",
     Elektrik: "EL",
@@ -3283,7 +3360,7 @@ if (listingGrid) {
     const role = params.get("role") || user.role || "master";
     const displayName = registered ? user.fullName || "Profil" : "Misafir";
     const roleLabel = registered
-      ? role === "master" ? user.profession || "Usta hesabı" : "İş veren hesabı"
+      ? role === "master" ? user.profession || "Hizmet veren hesabı" : "İş veren hesabı"
       : "İlanları keşfet";
 
     profileName.textContent = displayName;
@@ -3301,8 +3378,7 @@ if (listingGrid) {
     }
     updateDrawerCreditBalance();
     updateDrawerVerificationState(user);
-    marketSearch.placeholder =
-      role === "master" ? "İlan, meslek veya ilçe ara" : "İlan, usta veya ilçe ara";
+    marketSearch.placeholder = "İlan, sektör, beceri veya ilçe ara";
     restartSharedFeeds();
   }
 
@@ -3852,10 +3928,10 @@ if (listingDetail) {
               <small>${owner.rating}/10 · ${owner.reviewCount} değerlendirme</small>
             </div>
             <div>
-              <span>Usta puanı</span>
+              <span>Hizmet veren puanı</span>
               <strong>${master.name}</strong>
               <div class="stars">${getRatingStars(master.rating)}</div>
-              <small>${assigned ? "Usta atandı" : master.rating ? `${master.rating}/10 · ${master.reviewCount} değerlendirme` : "Henüz atanmadı"}</small>
+              <small>${assigned ? "Hizmet veren atandı" : master.rating ? `${master.rating}/10 · ${master.reviewCount} değerlendirme` : "Henüz atanmadı"}</small>
             </div>
           </div>
           <strong class="detail-budget">${Number(listing.budget || 0).toLocaleString("tr-TR", {
@@ -3874,7 +3950,7 @@ if (listingDetail) {
         <article class="detail-panel">
           <h2>İlan bilgileri</h2>
           <dl class="detail-list">
-            <div><dt>Telefon</dt><dd>${canRevealListingPhone ? listing.phone : "Usta atanınca paylaşılır"}</dd></div>
+            <div><dt>Telefon</dt><dd>${canRevealListingPhone ? listing.phone : "Hizmet veren atanınca paylaşılır"}</dd></div>
             <div><dt>İş tarihi</dt><dd>${listing.workDate ? new Date(`${listing.workDate}T00:00:00`).toLocaleDateString("tr-TR", {
               day: "numeric",
               month: "long",
@@ -3910,9 +3986,9 @@ if (listingDetail) {
                 <div class="guest-offer-panel" id="registerToOffer">
                   <p class="eyebrow">Teklif göndermek için</p>
                   <h2>Önce ücretsiz hesap aç.</h2>
-                  <p>İlanları kayıt olmadan gezebilirsin. Teklif göndermek için usta hesabı açman veya mevcut hesabına girmen gerekir.</p>
+                  <p>İlanları kayıt olmadan gezebilirsin. Teklif göndermek için hizmet veren hesabı açman veya mevcut hesabına girmen gerekir.</p>
                   <div class="guest-offer-actions">
-                    <a class="primary-action" href="usta-kayit.html">Usta olarak kayıt ol</a>
+                    <a class="primary-action" href="usta-kayit.html">Hizmet veren olarak kayıt ol</a>
                     <a class="ghost-link" href="giris.html">Giriş yap</a>
                   </div>
                 </div>
@@ -3959,14 +4035,14 @@ if (listingDetail) {
         const createdAt = new Date().toISOString();
         const amount = Number(formData.get("amount"));
         const message = formData.get("message").trim();
-        const requesterName = user.fullName || user.profession || "Bir usta";
+        const requesterName = user.fullName || user.profession || "Bir hizmet veren";
         const requesterKey = getAccountKey(user);
         const requesterKeys = new Set(getAccountAliases(user));
         const ownerKey = resolveListingOwnerKey(activeListing);
         const isOwnListing = isListingOwnedByUser(activeListing, user);
 
         if (!isRegisteredUser(user)) {
-          showToast("Teklif göndermek için önce usta hesabı aç veya giriş yap.");
+          showToast("Teklif göndermek için önce hizmet veren hesabı aç veya giriş yap.");
           window.setTimeout(() => {
             window.location.href = "kayit.html";
           }, 700);
@@ -3979,7 +4055,7 @@ if (listingDetail) {
         }
 
         if (isAssignedListing(activeListing)) {
-          showToast("Bu ilana usta atandı, yeni teklif alınmıyor.");
+          showToast("Bu ilana hizmet veren atandı, yeni teklif alınmıyor.");
           return;
         }
 
@@ -4004,7 +4080,7 @@ if (listingDetail) {
           ownerUid: activeListing.ownerUid || activeListing.owner?.uid || "",
           ownerEmail: getListingOwnerEmail(activeListing),
           requesterName,
-          requesterProfession: user.profession || `${activeListing.category || "Genel"} ustası`,
+          requesterProfession: user.profession || `${activeListing.category || "Genel"} uzmanı`,
           requesterPhone: user.phone || "",
           requesterCity: user.city || activeListing.city || "",
           requesterDistrict: user.district || activeListing.district || "",
@@ -4113,7 +4189,7 @@ function getOfferMasterProfile(offer) {
 
   return {
     name: offer.requesterName || listingMaster.name || "Usta profili",
-    profession: offer.requesterProfession || `${listing.category || "Genel"} ustası`,
+    profession: offer.requesterProfession || `${listing.category || "Genel"} uzmanı`,
     rating,
     reviewCount,
     phone: offer.requesterPhone || "",
