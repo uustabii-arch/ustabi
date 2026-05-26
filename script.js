@@ -532,82 +532,132 @@ const creditPackages = [
   { id: "boost", title: "Görünürlük", credits: 300, price: 200, description: "Yoğun kullanım ve reklam denemeleri için" },
 ];
 
-const professionCategories = [
-  "Yazılım geliştirme",
-  "Web sitesi",
-  "Mobil uygulama",
-  "E-ticaret",
-  "UI/UX tasarım",
-  "Grafik tasarım",
-  "Logo ve marka",
-  "Sosyal medya",
-  "Dijital pazarlama",
-  "SEO",
-  "Reklam yönetimi",
-  "Video kurgu",
-  "Fotoğraf çekimi",
-  "İçerik yazarlığı",
-  "Çeviri",
-  "Özel ders",
-  "Online eğitim",
-  "Muhasebe",
-  "Hukuk danışmanlığı",
-  "İnsan kaynakları",
-  "Satış desteği",
-  "Müşteri hizmetleri",
-  "Veri girişi",
-  "Araştırma",
-  "Danışmanlık",
-  "Giyim dikim",
-  "Tekstil üretim",
-  "Moda tasarım",
-  "Terzi",
-  "Ürün tasarımı",
-  "Paketleme",
-  "Depo ve sevkiyat",
-  "Kurye",
-  "Lojistik",
-  "Şoför",
-  "Etkinlik organizasyonu",
-  "Düğün ve davet",
-  "Catering",
-  "Müzik ve sahne",
-  "Spor ve antrenörlük",
-  "Sağlık ve bakım",
-  "Güzellik",
-  "Kuaför",
-  "Evcil hayvan bakımı",
-  "Çocuk bakımı",
-  "Yaşlı bakımı",
-  "Boya",
-  "Tesisat",
-  "Elektrik",
-  "Montaj",
-  "Taşıma",
-  "Temizlik",
-  "Marangoz",
-  "Mobilya montaj",
-  "Klima",
-  "Kombi",
-  "Bahçe",
-  "Fayans",
-  "Seramik",
-  "Parke",
-  "Alçıpan",
-  "Çatı",
-  "Kaynak",
-  "Cam balkon",
-  "Kapı pencere",
-  "Demir doğrama",
-  "Anahtarcı",
-  "Beyaz eşya",
-  "Kamera güvenlik",
-  "Uydu anten",
-  "İnşaat işçisi",
-  "Gündelik yardımcı",
-  "Haşere ilaçlama",
-  "Diğer",
+const professionCategoryGroups = [
+  {
+    title: "Yazılım ve teknoloji",
+    items: [
+      "Yazılım geliştirme",
+      "Web sitesi",
+      "Mobil uygulama",
+      "E-ticaret",
+      "Backend API",
+      "WordPress",
+      "Shopify",
+      "Oyun geliştirme",
+      "Veri analizi",
+      "Yapay zeka otomasyonu",
+      "Teknik destek",
+    ],
+  },
+  {
+    title: "Tasarım ve medya",
+    items: [
+      "UI/UX tasarım",
+      "Grafik tasarım",
+      "Logo ve marka",
+      "Video kurgu",
+      "Fotoğraf çekimi",
+      "Animasyon",
+      "Sunum tasarımı",
+    ],
+  },
+  {
+    title: "Pazarlama ve içerik",
+    items: [
+      "Sosyal medya",
+      "Dijital pazarlama",
+      "SEO",
+      "Reklam yönetimi",
+      "İçerik yazarlığı",
+      "Metin yazarlığı",
+      "E-posta pazarlama",
+    ],
+  },
+  {
+    title: "Eğitim ve danışmanlık",
+    items: [
+      "Özel ders",
+      "Online eğitim",
+      "Çeviri",
+      "Muhasebe",
+      "Hukuk danışmanlığı",
+      "İnsan kaynakları",
+      "Satış desteği",
+      "Müşteri hizmetleri",
+      "Veri girişi",
+      "Araştırma",
+      "Danışmanlık",
+    ],
+  },
+  {
+    title: "Giyim, tekstil ve üretim",
+    items: [
+      "Giyim dikim",
+      "Tekstil üretim",
+      "Moda tasarım",
+      "Terzi",
+      "Ürün tasarımı",
+      "Paketleme",
+    ],
+  },
+  {
+    title: "Lojistik ve saha işleri",
+    items: ["Depo ve sevkiyat", "Kurye", "Lojistik", "Şoför", "Taşıma"],
+  },
+  {
+    title: "Etkinlik ve yeme içme",
+    items: ["Etkinlik organizasyonu", "Düğün ve davet", "Catering", "Müzik ve sahne"],
+  },
+  {
+    title: "Bakım, sağlık ve güzellik",
+    items: [
+      "Spor ve antrenörlük",
+      "Sağlık ve bakım",
+      "Güzellik",
+      "Kuaför",
+      "Evcil hayvan bakımı",
+      "Çocuk bakımı",
+      "Yaşlı bakımı",
+    ],
+  },
+  {
+    title: "Ev, tadilat ve teknik servis",
+    items: [
+      "Boya",
+      "Tesisat",
+      "Elektrik",
+      "Montaj",
+      "Temizlik",
+      "Marangoz",
+      "Mobilya montaj",
+      "Klima",
+      "Kombi",
+      "Bahçe",
+      "Fayans",
+      "Seramik",
+      "Parke",
+      "Alçıpan",
+      "Çatı",
+      "Kaynak",
+      "Cam balkon",
+      "Kapı pencere",
+      "Demir doğrama",
+      "Anahtarcı",
+      "Beyaz eşya",
+      "Kamera güvenlik",
+      "Uydu anten",
+      "İnşaat işçisi",
+      "Gündelik yardımcı",
+      "Haşere ilaçlama",
+    ],
+  },
+  {
+    title: "Diğer",
+    items: ["Diğer"],
+  },
 ];
+
+const professionCategories = professionCategoryGroups.flatMap((group) => group.items);
 
 const categoryImageMap = {
   Boya:
@@ -668,15 +718,28 @@ const categoryImageMap = {
     "https://images.unsplash.com/photo-1683115096447-5d01c11d3ead?auto=format&fit=crop&q=80&w=1200",
 };
 
+function addGroupedProfessionOptions(select, options = {}) {
+  const { excludeOther = false } = options;
+  professionCategoryGroups.forEach((group) => {
+    const groupItems = excludeOther ? group.items.filter((item) => item !== "Diğer") : group.items;
+    if (!groupItems.length) return;
+
+    const optionGroup = document.createElement("optgroup");
+    optionGroup.label = group.title;
+    groupItems.forEach((category) => {
+      optionGroup.append(new Option(category, category));
+    });
+    select.append(optionGroup);
+  });
+}
+
 function populateProfessionSelects() {
   document.querySelectorAll('select[name="category"], #categoryFilter').forEach((select) => {
     const firstValue = select.id === "categoryFilter" ? "Tümü" : "";
     const firstText = select.id === "categoryFilter" ? "Tümü" : "Seç";
     const currentValue = select.value;
     select.innerHTML = `<option value="${firstValue}">${firstText}</option>`;
-    professionCategories.forEach((category) => {
-      select.add(new Option(category, category));
-    });
+    addGroupedProfessionOptions(select);
     if ([firstValue, ...professionCategories].includes(currentValue)) {
       select.value = currentValue;
     }
@@ -686,9 +749,7 @@ function populateProfessionSelects() {
   if (professionSelectEl) {
     const currentValue = professionSelectEl.value;
     professionSelectEl.innerHTML = `<option value="">Seç</option><option value="Diğer">Diğer</option>`;
-    professionCategories
-      .filter((category) => category !== "Diğer")
-      .forEach((category) => professionSelectEl.add(new Option(category, category)));
+    addGroupedProfessionOptions(professionSelectEl, { excludeOther: true });
     professionSelectEl.value = currentValue;
   }
 }
