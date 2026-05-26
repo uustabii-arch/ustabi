@@ -1650,6 +1650,7 @@ function buildAssignedMasterFromOffer(offer) {
     district: offer.requesterDistrict || "",
     rating: Number(offer.requesterRating || 0),
     reviewCount: Number(offer.requesterReviewCount || 0),
+    favoriteCount: Number(offer.requesterFavoriteCount || 0),
     completedJobs: Number(offer.requesterCompletedJobs || 0),
     verified: offer.requesterVerified !== false,
   };
@@ -1707,13 +1708,25 @@ function applyListingOfferCountLocally(listingId, delta = 1) {
   notifySharedListingListeners();
 }
 
-function applyListingCompletionLocally(listingId) {
+function buildListingCompletionPatch(options = {}) {
   const completedAt = new Date().toISOString();
-  const patch = {
+  return {
     status: "completed",
     completedAt,
     updatedAt: Date.now(),
+    completionRating: options.ratingScore
+      ? {
+          score: Number(options.ratingScore),
+          ratedAt: completedAt,
+          ratedBy: getAccountKey(),
+        }
+      : null,
+    assignedMasterFavorited: Boolean(options.favoriteMaster),
   };
+}
+
+function applyListingCompletionLocally(listingId, options = {}) {
+  const patch = buildListingCompletionPatch(options);
   const updateListing = (listing) =>
     String(listing.id) === String(listingId)
       ? {
@@ -1753,15 +1766,11 @@ async function publishListingOfferCountToFirestore(listingId) {
   );
 }
 
-async function publishListingCompletionToFirestore(listingId) {
+async function publishListingCompletionToFirestore(listingId, options = {}) {
   await ensureFirestoreAuth();
   await setDoc(
     doc(db, "listings", String(listingId)),
-    sanitizeFirestoreData({
-      status: "completed",
-      completedAt: new Date().toISOString(),
-      updatedAt: Date.now(),
-    }),
+    sanitizeFirestoreData(buildListingCompletionPatch(options)),
     { merge: true },
   );
 }
@@ -2133,6 +2142,177 @@ function saveRating(listingId, rating) {
   const ratings = getStoredRatings();
   ratings[listingId] = rating;
   localStorage.setItem("ustaRatings", JSON.stringify(ratings));
+}
+
+function getStoredFavoriteMasters() {
+  try {
+    return JSON.parse(localStorage.getItem("ustaFavoriteMasters")) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredFavoriteMasters(favorites) {
+  localStorage.setItem("ustaFavoriteMasters", JSON.stringify(favorites));
+}
+
+function getStoredMasterFavoriteStats() {
+  try {
+    return JSON.parse(localStorage.getItem("ustaMasterFavoriteStats")) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredMasterFavoriteStats(stats) {
+  localStorage.setItem("ustaMasterFavoriteStats", JSON.stringify(stats));
+}
+
+function getFirestoreSafeId(value) {
+  return encodeURIComponent(String(value || "unknown")).replace(/\./g, "%2E");
+}
+
+function getMasterStatKey(source = {}) {
+  return normalizeAccountValue(
+    source.requesterKey ||
+      source.assignedMasterKey ||
+      source.key ||
+      source.requesterUid ||
+      source.assignedMasterUid ||
+      source.uid ||
+      source.requesterEmail ||
+      source.assignedMasterEmail ||
+      source.email ||
+      source.requesterName ||
+      source.name,
+  );
+}
+
+function getAssignedMasterInfo(listing = {}) {
+  const master = listing.assignedMaster || listing.master || {};
+  return {
+    key: getMasterStatKey({
+      assignedMasterKey: listing.assignedMasterKey,
+      assignedMasterUid: listing.assignedMasterUid,
+      assignedMasterEmail: listing.assignedMasterEmail,
+      ...master,
+    }),
+    name: master.name || "Atanan usta",
+    profession: master.profession || `${listing.category || "Genel"} uzmanı`,
+    phone: master.phone || "",
+    city: master.city || "",
+    district: master.district || "",
+    rating: Number(master.rating || 0),
+    reviewCount: Number(master.reviewCount || 0),
+    completedJobs: Number(master.completedJobs || 0),
+    verified: master.verified !== false,
+  };
+}
+
+function getLocalMasterFavoriteCount(masterKey) {
+  const key = normalizeAccountValue(masterKey);
+  if (!key) return 0;
+  return Number(getStoredMasterFavoriteStats()[key] || 0);
+}
+
+function setLocalMasterFavoriteCount(masterKey, count) {
+  const key = normalizeAccountValue(masterKey);
+  if (!key) return;
+  const stats = getStoredMasterFavoriteStats();
+  stats[key] = Math.max(0, Number(count || 0));
+  saveStoredMasterFavoriteStats(stats);
+}
+
+async function getRemoteMasterFavoriteCount(masterSource = {}) {
+  const masterKey = getMasterStatKey(masterSource);
+  if (!masterKey) return 0;
+
+  const localCount = getLocalMasterFavoriteCount(masterKey);
+  try {
+    await ensureFirestoreAuth();
+    const snapshot = await withTimeout(getDoc(doc(db, "masterStats", getFirestoreSafeId(masterKey))), 7000);
+    if (!snapshot.exists()) return localCount;
+    const count = Number(snapshot.data().favoriteCount || 0);
+    setLocalMasterFavoriteCount(masterKey, count);
+    return count;
+  } catch (error) {
+    console.warn("Usta favori sayısı okunamadı:", error);
+    return localCount;
+  }
+}
+
+function saveFavoriteMasterLocally(master, listing, ratingScore) {
+  const masterKey = getMasterStatKey(master);
+  if (!masterKey) return false;
+
+  const ownerKey = getAccountKey();
+  const favoriteId = `${ownerKey}:${masterKey}`;
+  const favorites = getStoredFavoriteMasters();
+  const isNewFavorite = !favorites[favoriteId];
+  favorites[favoriteId] = {
+    id: favoriteId,
+    masterKey,
+    masterName: master.name || "Favori usta",
+    profession: master.profession || `${listing.category || "Genel"} uzmanı`,
+    city: master.city || listing.city || "",
+    district: master.district || listing.district || "",
+    rating: Number(master.rating || ratingScore || 0),
+    reviewCount: Number(master.reviewCount || 0),
+    listingId: listing.id || "",
+    listingTitle: listing.title || "",
+    ownerKey,
+    favoritedAt: new Date().toISOString(),
+  };
+  saveStoredFavoriteMasters(favorites);
+
+  if (isNewFavorite) {
+    setLocalMasterFavoriteCount(masterKey, getLocalMasterFavoriteCount(masterKey) + 1);
+  }
+
+  return isNewFavorite;
+}
+
+async function publishFavoriteMaster(master, listing, ratingScore) {
+  const masterKey = getMasterStatKey(master);
+  if (!masterKey) return;
+
+  const user = getCurrentUser();
+  const ownerKey = getAccountKey(user);
+  const favoriteId = `${ownerKey}:${masterKey}`;
+  const favoriteRef = doc(db, "masterFavorites", getFirestoreSafeId(favoriteId));
+  const statsRef = doc(db, "masterStats", getFirestoreSafeId(masterKey));
+
+  await ensureFirestoreAuth();
+  const existingFavorite = await getDoc(favoriteRef);
+  await setDoc(
+    favoriteRef,
+    sanitizeFirestoreData({
+      id: favoriteId,
+      masterKey,
+      masterName: master.name || "Favori usta",
+      profession: master.profession || `${listing.category || "Genel"} uzmanı`,
+      listingId: listing.id || "",
+      listingTitle: listing.title || "",
+      ownerKey,
+      ownerUid: user.uid || "",
+      ownerEmail: user.email || "",
+      ratingScore,
+      favoritedAt: new Date().toISOString(),
+      updatedAt: Date.now(),
+    }),
+    { merge: true },
+  );
+
+  await setDoc(
+    statsRef,
+    {
+      masterKey,
+      masterName: master.name || "Favori usta",
+      favoriteCount: existingFavorite.exists() ? increment(0) : increment(1),
+      updatedAt: Date.now(),
+    },
+    { merge: true },
+  );
 }
 
 const defaultListings = [
@@ -4043,6 +4223,55 @@ function accountListingCard(listing, passive = false) {
 
 const myListingsGrid = document.querySelector("#myListingsGrid");
 if (myListingsGrid) {
+  const completionBackdrop = document.createElement("div");
+  completionBackdrop.className = "completion-backdrop";
+  completionBackdrop.hidden = true;
+  completionBackdrop.innerHTML = `
+    <section class="completion-panel" role="dialog" aria-modal="true" aria-labelledby="completionTitle">
+      <button class="close-button" type="button" data-close-completion aria-label="İş kapatma panelini kapat">×</button>
+      <div class="completion-content"></div>
+    </section>
+  `;
+  document.body.appendChild(completionBackdrop);
+  const completionContent = completionBackdrop.querySelector(".completion-content");
+  let completionListing = null;
+
+  function closeCompletionDialog() {
+    completionBackdrop.classList.remove("open");
+    window.setTimeout(() => {
+      completionBackdrop.hidden = true;
+    }, 160);
+  }
+
+  function openCompletionDialog(listing) {
+    completionListing = listing;
+    const master = getAssignedMasterInfo(listing);
+    completionContent.innerHTML = `
+      <div class="completion-head">
+        <p class="eyebrow">İşi kapat</p>
+        <h2 id="completionTitle">${listing.title}</h2>
+        <p>${master.name} için puan verip istersen favorilerine ekleyebilirsin.</p>
+      </div>
+      <form class="offer-form completion-form" id="completionForm">
+        <label class="score-control">
+          <span>Usta puanı</span>
+          <input name="rating" type="number" min="1" max="10" step="1" value="10" required />
+          <small>/10</small>
+        </label>
+        <label class="favorite-master-toggle">
+          <input name="favoriteMaster" type="checkbox" value="1" checked />
+          <span>
+            <strong>${master.name} favori ustalarıma eklensin</strong>
+            <small>Bu bilgi, ustanın başka tekliflerinde favori sayısı olarak görünür.</small>
+          </span>
+        </label>
+        <button class="primary-action" type="submit">İşi kapat ve puanla</button>
+      </form>
+    `;
+    completionBackdrop.hidden = false;
+    window.requestAnimationFrame(() => completionBackdrop.classList.add("open"));
+  }
+
   function renderMyListings() {
     const listings = getMyListings();
     myListingsGrid.innerHTML = listings.length
@@ -4055,16 +4284,73 @@ if (myListingsGrid) {
     if (!completeButton) return;
 
     const listingId = completeButton.dataset.completeListing;
-    completeButton.disabled = true;
-    completeButton.textContent = "Bitiriliyor...";
-    applyListingCompletionLocally(listingId);
+    const listing = getMyListings().find((item) => String(item.id) === String(listingId));
+    if (!listing) return;
+    openCompletionDialog(listing);
+  });
+
+  completionBackdrop.addEventListener("click", (event) => {
+    if (event.target === completionBackdrop || event.target.closest("[data-close-completion]")) {
+      closeCompletionDialog();
+    }
+  });
+
+  completionBackdrop.addEventListener("submit", async (event) => {
+    const form = event.target.closest("#completionForm");
+    if (!form || !completionListing) return;
+
+    event.preventDefault();
+    const submitButton = form.querySelector('button[type="submit"]');
+    const formData = new FormData(form);
+    const ratingScore = Number(formData.get("rating"));
+    const favoriteMaster = formData.get("favoriteMaster") === "1";
+    const assignedMaster = getAssignedMasterInfo(completionListing);
+
+    if (!ratingScore || ratingScore < 1 || ratingScore > 10) {
+      showToast("Usta puanı 1 ile 10 arasında olmalı.");
+      return;
+    }
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Kapatılıyor...";
+    }
+
+    saveRating(completionListing.id, {
+      score: ratingScore,
+      target: "assignedMaster",
+      masterKey: assignedMaster.key,
+      masterName: assignedMaster.name,
+      favoriteMaster,
+      completedAt: new Date().toISOString(),
+    });
+
+    if (favoriteMaster) {
+      saveFavoriteMasterLocally(assignedMaster, completionListing, ratingScore);
+    }
+
+    applyListingCompletionLocally(completionListing.id, { ratingScore, favoriteMaster });
 
     try {
-      await publishListingCompletionToFirestore(listingId);
-      showToast("İş tamamlandı olarak işaretlendi.");
+      if (favoriteMaster) {
+        try {
+          await publishFavoriteMaster(assignedMaster, completionListing, ratingScore);
+        } catch (favoriteError) {
+          console.warn("Favori usta Firestore'a yazılamadı:", favoriteError);
+        }
+      }
+      await publishListingCompletionToFirestore(completionListing.id, { ratingScore, favoriteMaster });
+      showToast(favoriteMaster ? "İş kapatıldı, usta puanlandı ve favorilere eklendi." : "İş kapatıldı ve usta puanlandı.");
+      closeCompletionDialog();
     } catch (error) {
       console.warn("İş tamamlama Firestore'a yazılamadı:", error);
-      showToast(`İş yerelde tamamlandı. ${getFirestoreErrorMessage(error)}`);
+      showToast(`İş yerelde kapatıldı. ${getFirestoreErrorMessage(error)}`);
+      closeCompletionDialog();
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "İşi kapat ve puanla";
+      }
     }
   });
 
@@ -4311,6 +4597,13 @@ if (listingDetail) {
           return;
         }
 
+        const requesterFavoriteCount = await getRemoteMasterFavoriteCount({
+          key: requesterKey,
+          uid: user.uid,
+          email: user.email,
+          name: requesterName,
+        });
+
         const sentOffer = {
           id: `${offerId}-sent`,
           listingId: activeListing.id,
@@ -4334,6 +4627,7 @@ if (listingDetail) {
           requesterRating: Number(user.rating || 9.1),
           requesterReviewCount: Number(user.reviewCount || 12),
           createdAt,
+          requesterFavoriteCount,
         };
         const ownerOffer = {
           ...sentOffer,
@@ -4456,12 +4750,19 @@ function getOfferMasterProfile(offer) {
   const listingMaster = listing.master || {};
   const rating = Number(offer.requesterRating || listingMaster.rating || 9.1);
   const reviewCount = Number(offer.requesterReviewCount || listingMaster.reviewCount || 12);
+  const masterKey = getMasterStatKey({
+    requesterKey: offer.requesterKey,
+    requesterUid: offer.requesterUid,
+    requesterEmail: offer.requesterEmail,
+    requesterName: offer.requesterName,
+  });
 
   return {
     name: offer.requesterName || listingMaster.name || "Usta profili",
     profession: offer.requesterProfession || `${listing.category || "Genel"} uzmanı`,
     rating,
     reviewCount,
+    favoriteCount: Number(offer.requesterFavoriteCount || getLocalMasterFavoriteCount(masterKey) || 0),
     phone: offer.requesterPhone || "",
     location: [offer.requesterCity, offer.requesterDistrict].filter(Boolean).join(" / ") ||
       [listing.city, listing.district].filter(Boolean).join(" / ") ||
@@ -4474,6 +4775,7 @@ function getOfferMasterProfile(offer) {
 function offerCard(offer) {
   const isIncoming = offer.type === "incoming";
   const isAcceptedIncoming = isIncoming && offer.status === "Kabul edildi";
+  const masterProfile = isIncoming ? getOfferMasterProfile(offer) : null;
   const canCancelSentOffer = offer.type === "sent" && !["Kabul edildi", "Reddedildi", "İptal edildi"].includes(offer.status);
   return `
     <article class="offer-card" data-offer-type="${offer.type || "sent"}">
@@ -4492,6 +4794,7 @@ function offerCard(offer) {
       <div class="job-meta">
         <span class="badge">${offer.type === "incoming" ? "Gelen teklif" : "Gönderilen teklif"}</span>
         <span class="badge">${new Date(offer.createdAt).toLocaleDateString("tr-TR")}</span>
+        ${isIncoming ? `<span class="badge favorite-count-badge">${masterProfile.favoriteCount || 0} favori</span>` : ""}
       </div>
       <div class="listing-bottom">
         <a class="ghost-link" href="ilan-detay.html?id=${offer.listingId}">İlana git</a>
@@ -4601,6 +4904,10 @@ if (offersList) {
         <div>
           <strong>${master.completedJobs}</strong>
           <small>Tamamlanan iş</small>
+        </div>
+        <div>
+          <strong>${master.favoriteCount || 0}</strong>
+          <small>Favorileyen iş veren</small>
         </div>
         <div>
           <strong>${master.verified ? "Doğrulandı" : "Bekliyor"}</strong>
@@ -4754,6 +5061,36 @@ function setupInviteButtons() {
   });
 }
 
+function renderFavoriteMastersPage() {
+  const favoritesTitle = document.querySelector("#favorites-title");
+  const favoritesGrid = favoritesTitle?.closest(".all-listings-section")?.querySelector(".pro-grid");
+  if (!favoritesGrid) return;
+
+  const favorites = Object.values(getStoredFavoriteMasters()).sort(
+    (left, right) => new Date(right.favoritedAt || 0) - new Date(left.favoritedAt || 0),
+  );
+  if (!favorites.length) return;
+
+  favoritesGrid.innerHTML = favorites
+    .map((favorite) => {
+      const masterName = favorite.masterName || "Favori usta";
+      const location = [favorite.city, favorite.district].filter(Boolean).join(" / ") || "Konum yok";
+      return `
+        <article class="pro-card">
+          <div class="profile-avatar">${escapeHtml(masterName.slice(0, 2).toLocaleUpperCase("tr-TR"))}</div>
+          <div>
+            <h3>${escapeHtml(masterName)}</h3>
+            <p>${escapeHtml(favorite.profession || "Hizmet veren")} · ${escapeHtml(location)}</p>
+            <div class="stars">${getRatingStars(favorite.rating || 10)}</div>
+            <small>${Number(favorite.rating || 10).toFixed(1)}/10 · ${getLocalMasterFavoriteCount(favorite.masterKey)} favori · ${escapeHtml(favorite.listingTitle || "Tamamlanan iş")}</small>
+          </div>
+          <button class="job-action" type="button" data-invite-master="${escapeHtml(masterName)}">İlana davet et</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 document.addEventListener("click", (event) => {
   const inviteButton = event.target.closest("[data-invite-master]");
   if (inviteButton) {
@@ -4764,4 +5101,5 @@ document.addEventListener("click", (event) => {
   }
 });
 
+renderFavoriteMastersPage();
 setupInviteButtons();

@@ -2190,7 +2190,8 @@ body:not(.auth-active) .auth-shell {
   line-height: 1.5;
 }
 
-.master-review-backdrop {
+.master-review-backdrop,
+.completion-backdrop {
   position: fixed;
   inset: 0;
   z-index: 95;
@@ -2203,16 +2204,19 @@ body:not(.auth-active) .auth-shell {
   transition: opacity 0.16s ease;
 }
 
-.master-review-backdrop[hidden] {
+.master-review-backdrop[hidden],
+.completion-backdrop[hidden] {
   display: none;
 }
 
-.master-review-backdrop.open {
+.master-review-backdrop.open,
+.completion-backdrop.open {
   opacity: 1;
   pointer-events: auto;
 }
 
-.master-review-panel {
+.master-review-panel,
+.completion-panel {
   position: relative;
   display: grid;
   width: min(620px, 100%);
@@ -2227,14 +2231,71 @@ body:not(.auth-active) .auth-shell {
   transition: transform 0.16s ease;
 }
 
-.master-review-backdrop.open .master-review-panel {
+.master-review-backdrop.open .master-review-panel,
+.completion-backdrop.open .completion-panel {
   transform: translateY(0);
 }
 
-.master-review-panel .close-button {
+.master-review-panel .close-button,
+.completion-panel .close-button {
   position: absolute;
   top: 12px;
   right: 12px;
+}
+
+.completion-head {
+  display: grid;
+  gap: 6px;
+  padding-right: 42px;
+}
+
+.completion-head h2,
+.completion-head p {
+  margin: 0;
+}
+
+.completion-head p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.completion-form {
+  margin-top: 18px;
+}
+
+.favorite-master-toggle {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid rgba(246, 189, 47, 0.34);
+  border-radius: 8px;
+  background: #fffaf1;
+}
+
+.favorite-master-toggle input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.favorite-master-toggle strong,
+.favorite-master-toggle small {
+  display: block;
+}
+
+.favorite-master-toggle small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.favorite-count-badge {
+  background: #fff7e7;
+  color: var(--brand-orange-dark);
 }
 
 .master-review-head {
@@ -2268,7 +2329,7 @@ body:not(.auth-active) .auth-shell {
 
 .master-score-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-top: 18px;
 }
@@ -3849,7 +3910,8 @@ textarea:focus {
     flex-direction: column;
   }
 
-  .master-review-panel {
+  .master-review-panel,
+  .completion-panel {
     padding: 16px;
   }
 
