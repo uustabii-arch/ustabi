@@ -478,6 +478,8 @@ document.querySelectorAll("[data-password-reset]").forEach((form) => {
 const listingCreateForm = document.querySelector("#listingCreateForm");
 const listingImageInput = document.querySelector("#listingImageInput");
 const listingImagePreview = document.querySelector("#listingImagePreview");
+const customCategoryField = document.querySelector("#customCategoryField");
+const customCategoryInput = document.querySelector("#customCategoryInput");
 const useFeaturedPromotionInput = document.querySelector("#useFeaturedPromotion");
 const useColorPromotionInput = document.querySelector("#useColorPromotion");
 const highlightColorInput = document.querySelector("#highlightColorInput");
@@ -658,6 +660,50 @@ const professionCategoryGroups = [
 ];
 
 const professionCategories = professionCategoryGroups.flatMap((group) => group.items);
+
+function getCategoryGroupTitle(category) {
+  return professionCategoryGroups.find((group) => group.items.includes(category))?.title || "Diğer";
+}
+
+function parseListingTags(value) {
+  const values = Array.isArray(value) ? value : String(value || "").split(/[,;\n]/);
+  const seen = new Set();
+
+  return values
+    .map((tag) => String(tag).replace(/^#+/, "").trim())
+    .filter(Boolean)
+    .filter((tag) => {
+      const key = tag.toLocaleLowerCase("tr-TR");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getListingTags(listing) {
+  return parseListingTags(listing?.tags);
+}
+
+function renderTagBadges(tags, limit = 6) {
+  const visibleTags = parseListingTags(tags).slice(0, limit);
+  if (!visibleTags.length) return "";
+
+  return `
+    <div class="tag-row" aria-label="İlan etiketleri">
+      ${visibleTags.map((tag) => `<span class="tag-badge">#${escapeHtml(tag)}</span>`).join("")}
+    </div>
+  `;
+}
 
 const categoryImageMap = {
   Boya:
@@ -2165,7 +2211,11 @@ defaultListings.length = 0;
 function getAllListings() {
   const listingMap = new Map();
   [...getStoredListings(), ...remoteListings.filter(isAfterDataReset)].forEach((listing) => {
-    listingMap.set(String(listing.id), listing);
+    listingMap.set(String(listing.id), {
+      ...listing,
+      categoryGroup: listing.categoryGroup || getCategoryGroupTitle(listing.category),
+      tags: getListingTags(listing),
+    });
   });
   return [...listingMap.values()];
 }
@@ -2301,6 +2351,9 @@ function normalizeRemoteListing(snapshot) {
     featured: data.featured !== false,
     owner,
     master: data.master || { name: "Atanmadı", rating: 0, reviewCount: 0 },
+    categoryGroup: data.categoryGroup || getCategoryGroupTitle(data.category),
+    customCategoryTitle: data.customCategoryTitle || "",
+    tags: getListingTags(data),
   };
 }
 
@@ -3088,6 +3141,17 @@ if (paymentForm) {
 }
 
 if (listingCreateForm) {
+  const categorySelect = listingCreateForm.elements.category;
+
+  function syncCustomCategoryField() {
+    const isOtherCategory = categorySelect?.value === "Diğer";
+    customCategoryField?.classList.toggle("visible", isOtherCategory);
+    if (customCategoryInput) {
+      customCategoryInput.required = Boolean(isOtherCategory);
+      if (!isOtherCategory) customCategoryInput.value = "";
+    }
+  }
+
   function updateHighlightColorPicker() {
     if (!highlightColorInput) return;
 
@@ -3132,6 +3196,8 @@ if (listingCreateForm) {
 
   useColorPromotionInput?.addEventListener("change", updateHighlightColorPicker);
   highlightColorInput?.addEventListener("input", updateHighlightColorPicker);
+  categorySelect?.addEventListener("change", syncCustomCategoryField);
+  syncCustomCategoryField();
 
   listingCreateForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -3161,6 +3227,17 @@ if (listingCreateForm) {
       return;
     }
 
+    const selectedCategory = String(formData.get("category") || "");
+    const customCategoryTitle = String(formData.get("customCategory") || "").trim();
+    const category = selectedCategory === "Diğer" ? customCategoryTitle : selectedCategory;
+    const categoryGroup = selectedCategory === "Diğer" ? "Diğer" : getCategoryGroupTitle(selectedCategory);
+    const tags = parseListingTags(formData.get("tags"));
+
+    if (selectedCategory === "Diğer" && !customCategoryTitle) {
+      showToast("Diğer kategorisi için işe özel başlık yazman gerekiyor.");
+      return;
+    }
+
     const requestedPromotion = {
       featured: formData.get("useFeaturedPromotion") === "1",
       highlighted: formData.get("useColorPromotion") === "1",
@@ -3180,7 +3257,10 @@ if (listingCreateForm) {
       ownerUid: currentUser.uid || "",
       ownerEmail: getAccountEmail(currentUser),
       title: formData.get("title").trim(),
-      category: formData.get("category"),
+      category,
+      categoryGroup,
+      customCategoryTitle,
+      tags,
       city: formData.get("city"),
       district: formData.get("district"),
       workDate,
@@ -3629,14 +3709,17 @@ if (listingGrid) {
       const matchesQuery = [
         listing.title,
         listing.category,
+        listing.categoryGroup,
         listing.city,
         listing.district,
         listing.details,
+        listing.expectations,
+        ...getListingTags(listing),
       ]
         .join(" ")
         .toLocaleLowerCase("tr-TR")
         .includes(query);
-      const matchesCategory = category === "Tümü" || listing.category === category;
+      const matchesCategory = category === "Tümü" || listing.category === category || listing.categoryGroup === category;
       const matchesTime = selectedTime === "Tümü" || listing.time === selectedTime;
 
       return matchesQuery && matchesCategory && matchesTime;
@@ -3650,6 +3733,7 @@ if (listingGrid) {
     const timeLabel = getTimeLabel(listing.workDate) || listing.time;
     const promoted = Boolean(listing.highlighted);
     const priorityLabel = listing.carouselPriorityLabel || (listing.carouselPriority ? "Öne çıkan sıra" : "");
+    const tagBadges = renderTagBadges(listing.tags, featured ? 4 : 5);
 
     return `
       <article class="${featured ? "featured-card" : "listing-card"} ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}"${getHighlightStyle(listing)}>
@@ -3664,6 +3748,7 @@ if (listingGrid) {
         <div>
           <h3>${listing.title}</h3>
           <p>${listing.details}</p>
+          ${tagBadges}
         </div>
         <div class="card-action-area">
           <div class="job-meta">
@@ -3843,6 +3928,7 @@ function accountListingCard(listing, passive = false) {
   const status = completed ? "Tamamlandı" : assigned ? "Usta atandı" : passive ? "Pasif" : "Aktif";
   const assignedMaster = listing.assignedMaster || listing.master || {};
   const canComplete = assigned && !completed && isApprovedListing(listing);
+  const tagBadges = renderTagBadges(listing.tags, 5);
 
   return `
     <article class="listing-card ${listing.highlighted ? "colored-listing" : ""} ${passive || completed || !isApprovedListing(listing) ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}"${getHighlightStyle(listing)}>
@@ -3860,6 +3946,7 @@ function accountListingCard(listing, passive = false) {
       <div>
         <h3>${listing.title}</h3>
         <p>${listing.details}</p>
+        ${tagBadges}
       </div>
       <div class="card-action-area">
         <div class="job-meta">
@@ -3956,6 +4043,7 @@ if (listingDetail) {
     const canRevealListingPhone = assigned && Boolean(listing.phone);
     const canRateListing = isListingAssignedToCurrentUser(listing);
     const registeredUser = isRegisteredUser(getCurrentUser());
+    const tagBadges = renderTagBadges(listing.tags, 8);
 
     listingDetail.innerHTML = `
       <div class="detail-toolbar">
@@ -3974,6 +4062,7 @@ if (listingDetail) {
           <p class="eyebrow">${listing.category}</p>
           <h1>${listing.title}</h1>
           <p>${listing.details}</p>
+          ${tagBadges}
           <div class="detail-meta">
             <span class="badge ${getTimeLabel(listing.workDate) === "Bugün" ? "hot" : ""}">${getTimeLabel(listing.workDate)}</span>
             <span class="badge">${listing.category}</span>

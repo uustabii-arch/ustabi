@@ -95,6 +95,12 @@
             </label>
           </div>
 
+          <label class="hidden-field" id="customCategoryField">
+            İşe özel kategori başlığı
+            <input name="customCategory" id="customCategoryInput" type="text" placeholder="Örn. ayakkabı kalıp tasarımı, podcast montajı" />
+            <small class="form-help">Kategori listesinde yoksa işini en net anlatan kısa başlığı yaz.</small>
+          </label>
+
           <label>
             İlçe
             <select name="district" id="districtSelect" required disabled>
@@ -183,6 +189,12 @@
           <label>
             İşi yapacak kişiden beklentiler
             <textarea name="expectations" rows="3" placeholder="Teslim formatı, ekipman, deneyim, keşif veya çalışma şekli beklentini yaz."></textarea>
+          </label>
+
+          <label class="tag-input-label">
+            Etiketler
+            <input name="tags" type="text" placeholder="Örn. react, logo, acil, dikim, online" />
+            <small class="form-help">Aramayı kolaylaştırmak için etiketleri virgülle ayır. En fazla 8 etiket gösterilir.</small>
           </label>
 
           <label>
