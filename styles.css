@@ -985,6 +985,11 @@ button:disabled,
   color: #fff7da;
 }
 
+.action-admin {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
 .drawer-actions strong,
 .drawer-actions small {
   display: block;
@@ -1765,6 +1770,52 @@ body:not(.auth-active) .auth-shell {
 .security-shell {
   grid-template-columns: minmax(260px, 0.62fr) minmax(520px, 1fr);
   width: min(1180px, calc(100% - 36px));
+}
+
+.admin-shell {
+  grid-template-columns: minmax(260px, 0.48fr) minmax(620px, 1fr);
+  width: min(1280px, calc(100% - 36px));
+}
+
+.admin-card {
+  max-width: none;
+}
+
+.admin-moderation-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-moderation-item {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.admin-moderation-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-moderation-head h3,
+.admin-moderation-item p {
+  margin: 0;
+}
+
+.admin-moderation-item p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.admin-moderation-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .security-card {
@@ -3361,6 +3412,7 @@ textarea:focus {
   .auth-shell,
   .auth-shell.form-page,
   .profile-edit-shell,
+  .admin-shell,
   .security-shell {
     width: min(100% - 20px, 760px);
     margin-top: 16px;
@@ -3725,6 +3777,7 @@ textarea:focus {
   .auth-shell,
   .auth-shell.form-page,
   .profile-edit-shell,
+  .admin-shell,
   .security-shell {
     width: min(100% - 16px, 680px);
     margin-top: 10px;
@@ -3844,6 +3897,7 @@ textarea:focus {
   .auth-shell,
   .auth-shell.form-page,
   .profile-edit-shell,
+  .admin-shell,
   .security-shell {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -3877,6 +3931,7 @@ textarea:focus {
   .detail-grid,
   .detail-primary-actions,
   .guest-offer-actions,
+  .admin-moderation-actions,
   .phone-verification-panel {
     grid-template-columns: 1fr;
   }

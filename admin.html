@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USTABI | Admin panel</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="auth-active">
+    <header class="topbar">
+      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
+        <span class="brand-mark">UB</span>
+        <span>USTABI</span>
+      </a>
+    </header>
+
+    <main class="auth-shell admin-shell">
+      <section class="auth-intro" aria-labelledby="admin-title">
+        <p class="eyebrow">Admin</p>
+        <h1 id="admin-title">İlan kontrol paneli.</h1>
+        <p class="lead">
+          Yeni ilanlar ana akışa düşmeden önce burada bekler. Onaylarsan yayınlanır,
+          reddedersen ilan sahibine bildirim gider.
+        </p>
+      </section>
+
+      <section class="auth-card admin-card" aria-labelledby="admin-list-title">
+        <div class="auth-card-head">
+          <a class="back-button" href="pazar.html">← Panele dön</a>
+          <p class="eyebrow" id="adminModerationSummary">Yetki kontrol ediliyor</p>
+          <h2 id="admin-list-title">Bekleyen ilanlar</h2>
+        </div>
+
+        <div class="admin-moderation-list" id="adminModerationList"></div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="script.js"></script>
+  </body>
+</html>

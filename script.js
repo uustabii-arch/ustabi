@@ -14,6 +14,7 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -45,6 +46,7 @@ auth.languageCode = "tr";
 const db = getFirestore(firebaseApp);
 const DATA_RESET_AT = Date.parse("2026-05-24T15:11:45+03:00");
 const DATA_RESET_STORAGE_KEY = "ustaDataResetAt";
+const ADMIN_EMAIL = "sayedarman1352@gmail.com";
 
 isAnalyticsSupported().then((supported) => {
   if (supported) getAnalytics(firebaseApp);
@@ -232,6 +234,7 @@ function injectPageSwitcher() {
     { href: "bildirim-ayarlari.html", label: "Bildirimler" },
     { href: "favori-ustalar.html", label: "Favori ustalar" },
     { href: "odeme-guvence.html", label: "Ödeme güvence" },
+    { href: "admin.html", label: "Admin panel" },
   ];
   const currentPage = window.location.pathname.split("/").pop() || "pazar.html";
   const switcher = document.createElement("div");
@@ -505,6 +508,8 @@ const offersList = document.querySelector("#offersList");
 const paymentForm = document.querySelector("#paymentForm");
 const creditTopupGrid = document.querySelector("#creditTopupGrid");
 const creditBalanceText = document.querySelector("#creditBalanceText");
+const adminModerationList = document.querySelector("#adminModerationList");
+const adminModerationSummary = document.querySelector("#adminModerationSummary");
 let remoteListings = [];
 let remoteNotifications = [];
 let sharedListingsUnsubscribe = null;
@@ -712,11 +717,29 @@ function isCompletedListing(listing) {
   return listing?.status === "completed" || Boolean(listing?.completedAt);
 }
 
+function getModerationStatus(listing) {
+  return listing?.moderationStatus || "approved";
+}
+
+function isPendingModerationListing(listing) {
+  return getModerationStatus(listing) === "pending";
+}
+
+function isRejectedModerationListing(listing) {
+  return getModerationStatus(listing) === "rejected";
+}
+
+function isApprovedListing(listing) {
+  return getModerationStatus(listing) === "approved";
+}
+
 function isUnavailableListing(listing) {
   return isExpiredListing(listing) || isAssignedListing(listing) || isCompletedListing(listing);
 }
 
 function getListingStatusLabel(listing) {
+  if (isRejectedModerationListing(listing)) return "Reddedildi";
+  if (isPendingModerationListing(listing)) return "Onay bekliyor";
   if (isCompletedListing(listing)) return "Tamamlandı";
   if (isAssignedListing(listing)) return "Usta atandı";
   if (isExpiredListing(listing)) return "Pasif ilan";
@@ -1004,6 +1027,10 @@ function getAccountEmail(user = getCurrentUser()) {
   return normalizeAccountValue(user.email);
 }
 
+function isAdminUser(user = getCurrentUser()) {
+  return getAccountEmail(user) === ADMIN_EMAIL;
+}
+
 function getAccountKey(user = getCurrentUser()) {
   return getAccountEmail(user) || normalizeAccountValue(user.uid) || normalizeAccountValue(user.fullName) || "guest";
 }
@@ -1241,6 +1268,28 @@ async function publishOwnerNotification(notification, listing) {
     },
     recipientKeys,
   );
+}
+
+function buildListingModerationNotification(listing, moderationStatus, reason = "") {
+  const approved = moderationStatus === "approved";
+  const recipientKeys = getOwnerRecipientKeys(listing);
+
+  return {
+    id: `listing-moderation-${listing.id}-${moderationStatus}-${Date.now()}`,
+    type: approved ? "approved" : "rejected",
+    title: approved ? "İlanın onaylandı" : "İlanın reddedildi",
+    body: approved
+      ? `"${listing.title}" ilanı admin onayından geçti ve ana akışta yayınlandı.`
+      : `"${listing.title}" ilanı admin tarafından reddedildi.${reason ? ` Sebep: ${reason}` : ""}`,
+    time: new Date().toISOString(),
+    read: false,
+    href: "ilanlarim.html",
+    listingId: listing.id,
+    recipientKey: recipientKeys[0] || "",
+    recipientUid: listing.ownerUid || listing.owner?.uid || "",
+    recipientEmail: listing.ownerEmail || listing.owner?.email || "",
+    recipientKeys,
+  };
 }
 
 async function publishOffersToFirestore(sentOffer, ownerOffer) {
@@ -1501,6 +1550,38 @@ async function publishListingCompletionToFirestore(listingId) {
     }),
     { merge: true },
   );
+}
+
+function applyListingModerationLocally(listingId, patch) {
+  const updateListing = (listing) =>
+    String(listing.id) === String(listingId)
+      ? {
+          ...listing,
+          ...patch,
+        }
+      : listing;
+
+  const storedListings = getStoredListings();
+  localStorage.setItem("ustaListings", JSON.stringify(storedListings.map(updateListing)));
+  remoteListings = remoteListings.map(updateListing);
+  notifySharedListingListeners();
+}
+
+function removeListingLocally(listingId) {
+  const removeListing = (listing) => String(listing.id) !== String(listingId);
+  localStorage.setItem("ustaListings", JSON.stringify(getStoredListings().filter(removeListing)));
+  remoteListings = remoteListings.filter(removeListing);
+  notifySharedListingListeners();
+}
+
+async function publishListingModerationToFirestore(listingId, patch) {
+  await ensureFirestoreAuth();
+  await setDoc(doc(db, "listings", String(listingId)), sanitizeFirestoreData(patch), { merge: true });
+}
+
+async function deleteListingFromFirestore(listingId) {
+  await ensureFirestoreAuth();
+  await deleteDoc(doc(db, "listings", String(listingId)));
 }
 
 let remoteOffers = [];
@@ -1981,6 +2062,10 @@ function getAllListings() {
   return [...listingMap.values()];
 }
 
+function getPublicListings(listings = getAllListings()) {
+  return listings.filter(isApprovedListing);
+}
+
 function notifySharedListingListeners() {
   const allListings = getAllListings();
   sharedListingListeners.forEach((listener) => listener(allListings));
@@ -1994,6 +2079,10 @@ function subscribeSharedListings(listener) {
 
 function isListingOwnedByCurrentUser(listing) {
   return isListingOwnedByUser(listing, getCurrentUser());
+}
+
+function canViewListingDetail(listing, user = getCurrentUser()) {
+  return isApprovedListing(listing) || isListingOwnedByUser(listing, user) || isAdminUser(user);
 }
 
 function isListingAssignedToUser(listing, user = getCurrentUser()) {
@@ -2087,6 +2176,10 @@ function normalizeRemoteListing(snapshot) {
     ownerUid: data.ownerUid || "",
     ownerEmail: normalizeAccountValue(data.ownerEmail || owner.email || ""),
     status: data.status || (data.assignedOfferId ? "assigned" : "active"),
+    moderationStatus: data.moderationStatus || "approved",
+    moderationReason: data.moderationReason || "",
+    moderatedAt: data.moderatedAt || "",
+    moderatedBy: data.moderatedBy || "",
     assignedOfferId: data.assignedOfferId || "",
     assignedMaster: data.assignedMaster || data.master || null,
     completedAt: data.completedAt || "",
@@ -2657,6 +2750,149 @@ if (notificationHistoryList) {
   subscribeNotificationFeed(renderNotificationHistoryPage);
 }
 
+if (adminModerationList) {
+  function renderAdminModerationPanel(listings = getAllListings()) {
+    const user = getCurrentUser();
+    if (!isAdminUser(user)) {
+      if (adminModerationSummary) adminModerationSummary.textContent = "Yetkisiz hesap";
+      adminModerationList.innerHTML = `
+        <article class="admin-moderation-item">
+          <h3>Bu panel sadece admin hesabına açık.</h3>
+          <p>Admin panelini kullanmak için ${ADMIN_EMAIL} hesabıyla giriş yap.</p>
+          <div class="admin-moderation-actions">
+            <a class="primary-action" href="giris.html">Giriş yap</a>
+          </div>
+        </article>
+      `;
+      return;
+    }
+
+    const moderatedListings = [...listings].sort((left, right) => {
+      const pendingScore = Number(isPendingModerationListing(right)) - Number(isPendingModerationListing(left));
+      return pendingScore || getRecordTimestamp(right) - getRecordTimestamp(left);
+    });
+    const pendingCount = moderatedListings.filter(isPendingModerationListing).length;
+    if (adminModerationSummary) {
+      adminModerationSummary.textContent = `${pendingCount} bekleyen ilan · ${moderatedListings.length} toplam`;
+    }
+
+    adminModerationList.innerHTML = moderatedListings.length
+      ? moderatedListings
+          .map((listing) => {
+            const status = getModerationStatus(listing);
+            return `
+              <article class="admin-moderation-item" data-admin-listing="${listing.id}">
+                <div class="admin-moderation-head">
+                  <div>
+                    <span class="badge ${status === "pending" ? "hot" : ""}">${getListingStatusLabel(listing)}</span>
+                    <h3>${listing.title}</h3>
+                  </div>
+                  <strong class="budget">${Number(listing.budget || 0).toLocaleString("tr-TR", {
+                    style: "currency",
+                    currency: "TRY",
+                    maximumFractionDigits: 0,
+                  })}</strong>
+                </div>
+                <p>${listing.details || "Detay yazılmadı."}</p>
+                <div class="job-meta">
+                  <span class="badge">${listing.category || "Kategori yok"}</span>
+                  ${listing.city ? `<span class="badge">${listing.city}</span>` : ""}
+                  ${listing.district ? `<span class="badge">${listing.district}</span>` : ""}
+                  <span class="badge">${listing.owner?.name || "İlan sahibi"}</span>
+                  ${listing.ownerEmail ? `<span class="badge">${listing.ownerEmail}</span>` : ""}
+                </div>
+                ${listing.moderationReason ? `<p><strong>Ret sebebi:</strong> ${listing.moderationReason}</p>` : ""}
+                <div class="admin-moderation-actions">
+                  <button class="primary-action" type="button" data-approve-listing="${listing.id}" ${status === "approved" ? "disabled" : ""}>Onayla</button>
+                  <button class="ghost-action" type="button" data-reject-listing="${listing.id}" ${status === "rejected" ? "disabled" : ""}>Reddet</button>
+                  <button class="danger-action" type="button" data-delete-listing="${listing.id}">Sil</button>
+                </div>
+              </article>
+            `;
+          })
+          .join("")
+      : `<article class="admin-moderation-item"><h3>İlan yok</h3><p>Yeni ilan geldiğinde burada görünecek.</p></article>`;
+  }
+
+  async function notifyListingModeration(listing, moderationStatus, reason = "") {
+    await publishOwnerNotification(
+      buildListingModerationNotification(listing, moderationStatus, reason),
+      listing,
+    );
+  }
+
+  async function updateListingModeration(listing, moderationStatus, reason = "") {
+    const patch = {
+      moderationStatus,
+      moderationReason: reason,
+      moderatedAt: new Date().toISOString(),
+      moderatedBy: ADMIN_EMAIL,
+      updatedAt: Date.now(),
+    };
+
+    applyListingModerationLocally(listing.id, patch);
+    await publishListingModerationToFirestore(listing.id, patch);
+    await notifyListingModeration({ ...listing, ...patch }, moderationStatus, reason);
+  }
+
+  adminModerationList.addEventListener("click", async (event) => {
+    const approveButton = event.target.closest("[data-approve-listing]");
+    const rejectButton = event.target.closest("[data-reject-listing]");
+    const deleteButton = event.target.closest("[data-delete-listing]");
+    const targetButton = approveButton || rejectButton || deleteButton;
+    if (!targetButton) return;
+
+    if (!isAdminUser(getCurrentUser())) {
+      showToast("Bu işlem için admin hesabıyla giriş yapmalısın.");
+      return;
+    }
+
+    const listingId =
+      approveButton?.dataset.approveListing ||
+      rejectButton?.dataset.rejectListing ||
+      deleteButton?.dataset.deleteListing;
+    const listing = getAllListings().find((item) => String(item.id) === String(listingId));
+    if (!listing) {
+      showToast("İlan bulunamadı.");
+      return;
+    }
+
+    const previousText = targetButton.textContent;
+    targetButton.disabled = true;
+
+    try {
+      if (approveButton) {
+        targetButton.textContent = "Onaylanıyor...";
+        await updateListingModeration(listing, "approved");
+        showToast("İlan onaylandı ve sahibine bildirim gönderildi.");
+      } else if (rejectButton) {
+        const reason = window.prompt("Ret sebebi yaz", "İlan detayları eksik veya uygun değil.") || "";
+        targetButton.textContent = "Reddediliyor...";
+        await updateListingModeration(listing, "rejected", reason.trim());
+        showToast("İlan reddedildi ve sahibine bildirim gönderildi.");
+      } else if (deleteButton) {
+        const confirmed = window.confirm("Bu ilanı kalıcı olarak silmek istiyor musun?");
+        if (!confirmed) return;
+        targetButton.textContent = "Siliniyor...";
+        await notifyListingModeration(listing, "rejected", "İlan admin tarafından silindi.");
+        await deleteListingFromFirestore(listing.id);
+        removeListingLocally(listing.id);
+        showToast("İlan silindi.");
+      }
+    } catch (error) {
+      console.warn("Admin ilan işlemi tamamlanamadı:", error);
+      showToast(`İşlem tamamlanamadı. ${getFirestoreErrorMessage(error)}`);
+    } finally {
+      targetButton.disabled = false;
+      targetButton.textContent = previousText;
+      renderAdminModerationPanel(getAllListings());
+    }
+  });
+
+  renderAdminModerationPanel();
+  subscribeSharedListings(renderAdminModerationPanel);
+}
+
 function renderCreditTopupPage() {
   if (!creditTopupGrid) return;
 
@@ -2850,6 +3086,10 @@ if (listingCreateForm) {
       details: formData.get("details").trim(),
       offers: 0,
       status: "active",
+      moderationStatus: "pending",
+      moderationReason: "",
+      moderatedAt: "",
+      moderatedBy: "",
       featured: listingPromotion.featured,
       highlighted: listingPromotion.highlighted,
       highlightColor: listingPromotion.highlighted ? sanitizeHighlightColor(formData.get("highlightColor")) : "",
@@ -2903,7 +3143,7 @@ if (listingCreateForm) {
       sharedSuccessfully = true;
       spendCredits(promotionCost);
       renderListingPromotionRights();
-      showToast("İlan paylaşıldı. Tüm kullanıcıların ana akışında görünecek.");
+      showToast("İlan alındı. Admin onayından sonra ana akışta görünecek.");
     } catch (error) {
       console.warn("Firestore ilan kaydı yazılamadı:", error);
 
@@ -2988,6 +3228,7 @@ if (listingGrid) {
   const drawerCreditBalance = document.querySelector("#drawerCreditBalance");
   const drawerVerifyPill = document.querySelector("#drawerVerifyPill");
   const drawerUpgradeLink = document.querySelector(".upgrade-link");
+  const adminPanelAction = document.querySelector("#adminPanelAction");
   const notificationButton = document.querySelector("#notificationButton");
   const notificationPanel = document.querySelector("#notificationPanel");
   const notificationList = document.querySelector("#notificationList");
@@ -3053,6 +3294,9 @@ if (listingGrid) {
     if (drawerUpgradeLink) {
       drawerUpgradeLink.textContent = registered ? "Kredi yükle" : "Kayıt ol";
       drawerUpgradeLink.href = registered ? "kredi-yukle.html" : "kayit.html";
+    }
+    if (adminPanelAction) {
+      adminPanelAction.hidden = !isAdminUser(user);
     }
     updateDrawerCreditBalance();
     updateDrawerVerificationState(user);
@@ -3242,6 +3486,7 @@ if (listingGrid) {
 
     return listings.filter((listing) => {
       if (isUnavailableListing(listing)) return false;
+      if (!isApprovedListing(listing)) return false;
 
       const matchesQuery = [
         listing.title,
@@ -3401,6 +3646,7 @@ if (listingGrid) {
     "Bildirim ayarları": "bildirim-ayarlari.html",
     "Bildirim geçmişi": "bildirim-gecmisi.html",
     Güvenlik: "guvenlik.html",
+    "Admin panel": "admin.html",
   };
   profileDrawer.addEventListener("click", (event) => {
     const action = event.target.closest("[data-panel-action]");
@@ -3458,12 +3704,12 @@ function accountListingCard(listing, passive = false) {
   const completed = isCompletedListing(listing);
   const status = completed ? "Tamamlandı" : assigned ? "Usta atandı" : passive ? "Pasif" : "Aktif";
   const assignedMaster = listing.assignedMaster || listing.master || {};
-  const canComplete = assigned && !completed;
+  const canComplete = assigned && !completed && isApprovedListing(listing);
 
   return `
-    <article class="listing-card ${listing.highlighted ? "colored-listing" : ""} ${passive || completed ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}"${getHighlightStyle(listing)}>
+    <article class="listing-card ${listing.highlighted ? "colored-listing" : ""} ${passive || completed || !isApprovedListing(listing) ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}"${getHighlightStyle(listing)}>
       <div class="listing-top">
-        <span class="badge ${passive || assigned || completed ? "" : "hot"}">${status}</span>
+        <span class="badge ${passive || assigned || completed || !isApprovedListing(listing) ? "" : "hot"}">${getListingStatusLabel(listing)}</span>
         <strong class="budget">${Number(listing.budget || 0).toLocaleString("tr-TR", {
           style: "currency",
           currency: "TRY",
@@ -3500,7 +3746,7 @@ if (myListingsGrid) {
     const listings = getMyListings();
     myListingsGrid.innerHTML = listings.length
       ? listings.map((listing) => accountListingCard(listing, isExpiredListing(listing))).join("")
-      : `<article class="listing-card"><h3>${myListingsGrid.dataset.empty}</h3><p>İlan koyduğunda tüm kullanıcıların gördüğü ortak akışta yayınlanır.</p></article>`;
+      : `<article class="listing-card"><h3>${myListingsGrid.dataset.empty}</h3><p>İlan koyduğunda admin onayından sonra ortak akışta yayınlanır.</p></article>`;
   }
 
   myListingsGrid.addEventListener("click", async (event) => {
@@ -3556,6 +3802,11 @@ if (listingDetail) {
   }
 
   function renderListingDetail(listing) {
+    if (!canViewListingDetail(listing)) {
+      renderMissingListing();
+      return;
+    }
+
     activeListing = listing;
     const imageSrc = getListingImage(listing);
     const inactive = isUnavailableListing(listing);
@@ -3728,6 +3979,11 @@ if (listingDetail) {
 
         if (isAssignedListing(activeListing)) {
           showToast("Bu ilana usta atandı, yeni teklif alınmıyor.");
+          return;
+        }
+
+        if (!isApprovedListing(activeListing)) {
+          showToast("Bu ilan admin onayından geçmeden teklif alamaz.");
           return;
         }
 

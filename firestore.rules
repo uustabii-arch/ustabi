@@ -2,11 +2,25 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == "sayedarman1352@gmail.com";
+    }
+
     match /listings/{listingId} {
       allow read: if true;
-      allow create: if true;
-      allow update, delete: if request.auth != null
-        && request.auth.uid == resource.data.ownerUid;
+      allow create: if request.resource.data.moderationStatus == "pending" || isAdmin();
+      allow update: if isAdmin()
+        || (request.auth != null
+          && request.auth.uid == resource.data.ownerUid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            "moderationStatus",
+            "moderationReason",
+            "moderatedAt",
+            "moderatedBy"
+          ]));
+      allow delete: if request.auth != null
+        && (request.auth.uid == resource.data.ownerUid || isAdmin());
     }
 
     match /users/{userId} {
