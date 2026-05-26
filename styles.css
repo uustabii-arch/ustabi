@@ -638,6 +638,46 @@ button:disabled,
   font-weight: 800;
 }
 
+.panel-menu-icon {
+  display: none;
+  width: 18px;
+  height: 14px;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.panel-menu-icon,
+.panel-menu-icon::before,
+.panel-menu-icon::after,
+.panel-menu-icon span {
+  border-radius: 999px;
+}
+
+.panel-menu-icon::before,
+.panel-menu-icon::after,
+.panel-menu-icon span {
+  content: "";
+  position: absolute;
+  right: 0;
+  height: 2px;
+  background: currentColor;
+}
+
+.panel-menu-icon::before {
+  top: 0;
+  width: 18px;
+}
+
+.panel-menu-icon span {
+  top: 6px;
+  width: 13px;
+}
+
+.panel-menu-icon::after {
+  bottom: 0;
+  width: 16px;
+}
+
 .drawer-backdrop {
   position: fixed;
   inset: 0;
@@ -4289,5 +4329,192 @@ textarea:focus {
 
   .market-page .all-listings-section .list-section-head {
     align-items: flex-start;
+  }
+}
+
+/* Mobile marketplace header */
+@media (max-width: 760px) {
+  .market-page .market-topbar {
+    position: sticky;
+    top: 0;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) 40px 44px;
+    gap: 8px;
+    align-items: center;
+    min-height: 58px;
+    padding: 8px 10px;
+  }
+
+  .market-page .brand {
+    grid-column: 1;
+    align-self: center;
+  }
+
+  .market-page .brand-mark,
+  .market-page .notification-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .market-page .market-toolbar {
+    grid-column: 2 / 4;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 40px;
+    gap: 8px;
+    align-items: center;
+    order: initial;
+    width: 100%;
+    margin: 0;
+  }
+
+  .market-page .market-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .market-page .market-search span {
+    left: 11px;
+    font-size: 0.9rem;
+  }
+
+  .market-page .market-search input {
+    min-height: 40px;
+    padding: 0 9px 0 31px;
+    border-radius: 8px;
+  }
+
+  .market-page .notification-wrap {
+    justify-self: end;
+  }
+
+  .market-page .notification-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .market-page .notification-icon::before {
+    top: 6px;
+    width: 11px;
+    height: 11px;
+  }
+
+  .market-page .notification-icon::after {
+    top: 18px;
+    width: 13px;
+  }
+
+  .market-page .profile-button {
+    grid-column: 4;
+    justify-self: end;
+    display: inline-flex;
+    width: 44px;
+    min-height: 40px;
+    height: 40px;
+    gap: 5px;
+    padding: 4px 6px;
+    color: var(--brand-orange);
+  }
+
+  .market-page .profile-button > span:nth-child(2) {
+    display: none;
+  }
+
+  .market-page .profile-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    font-size: 0.78rem;
+  }
+
+  .market-page .panel-menu-icon {
+    display: block;
+    width: 12px;
+    height: 12px;
+  }
+
+  .market-page .panel-menu-icon::before {
+    width: 12px;
+  }
+
+  .market-page .panel-menu-icon span {
+    top: 5px;
+    width: 9px;
+  }
+
+  .market-page .panel-menu-icon::after {
+    width: 11px;
+  }
+
+  .market-page .notification-panel {
+    top: calc(62px + env(safe-area-inset-top));
+    right: 8px;
+    width: min(360px, calc(100vw - 16px));
+  }
+
+  .market-page .profile-drawer {
+    border-radius: 18px 18px 0 0;
+  }
+
+  .market-page .drawer-head {
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(222, 216, 205, 0.8);
+  }
+
+  .market-page .drawer-head h2 {
+    margin: 0;
+    font-size: 1.18rem;
+  }
+
+  .market-page .drawer-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .market-page .drawer-actions button {
+    align-content: start;
+    align-items: flex-start;
+    flex-direction: column;
+    min-height: 108px;
+    padding: 11px;
+  }
+
+  .market-page .drawer-actions button::after {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+  }
+
+  .market-page .drawer-action-mark {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .market-page .drawer-actions small {
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .market-page .market-topbar {
+    grid-template-columns: 38px minmax(0, 1fr) 38px 42px;
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .market-page .brand-mark,
+  .market-page .notification-button {
+    width: 38px;
+    height: 38px;
+  }
+
+  .market-page .market-toolbar {
+    grid-template-columns: minmax(0, 1fr) 38px;
+    gap: 6px;
+  }
+
+  .market-page .profile-button {
+    width: 42px;
   }
 }
