@@ -216,6 +216,7 @@ function withTimeout(promise, milliseconds, code = "auth/timeout") {
 
 function injectPageSwitcher() {
   if (document.querySelector(".page-switcher")) return;
+  if (getAccountEmail(getCurrentUser()) !== ADMIN_EMAIL) return;
 
   const pages = [
     { href: "pazar.html", label: "İlan akışı" },
