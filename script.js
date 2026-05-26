@@ -19,6 +19,7 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -1661,6 +1662,22 @@ function applyListingAssignmentLocally(offer) {
   notifySharedListingListeners();
 }
 
+function applyListingOfferCountLocally(listingId, delta = 1) {
+  const updateListing = (listing) =>
+    String(listing.id) === String(listingId)
+      ? {
+          ...listing,
+          offers: Math.max(0, Number(listing.offers || 0) + delta),
+          updatedAt: Date.now(),
+        }
+      : listing;
+
+  const storedListings = getStoredListings();
+  localStorage.setItem("ustaListings", JSON.stringify(storedListings.map(updateListing)));
+  remoteListings = remoteListings.map(updateListing);
+  notifySharedListingListeners();
+}
+
 function applyListingCompletionLocally(listingId) {
   const completedAt = new Date().toISOString();
   const patch = {
@@ -1689,6 +1706,20 @@ async function publishListingAssignmentToFirestore(offer) {
   await setDoc(
     doc(db, "listings", String(offer.listingId)),
     sanitizeFirestoreData(buildListingAssignmentPatch(offer)),
+    { merge: true },
+  );
+}
+
+async function publishListingOfferCountToFirestore(listingId) {
+  if (!listingId) return;
+
+  await ensureFirestoreAuth();
+  await setDoc(
+    doc(db, "listings", String(listingId)),
+    {
+      offers: increment(1),
+      updatedAt: Date.now(),
+    },
     { merge: true },
   );
 }
@@ -4264,6 +4295,13 @@ if (listingDetail) {
           await publishOffersToFirestore(sentOffer, ownerOffer);
           saveOffer(sentOffer);
           saveOffer(ownerOffer);
+          applyListingOfferCountLocally(activeListing.id, 1);
+
+          try {
+            await publishListingOfferCountToFirestore(activeListing.id);
+          } catch (countError) {
+            console.warn("İlan teklif sayısı Firestore'da güncellenemedi:", countError);
+          }
 
           await publishOwnerNotification(
             buildOfferOwnerNotification(ownerOffer, requesterName, activeListing.title, amount, activeListing),
