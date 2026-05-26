@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>USTABI | İlanlar</title>
+    <title>ustabii | İlanlar</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar market-topbar">
-      <a class="brand" href="pazar.html" aria-label="USTABI ilan sayfası">
-        <span class="brand-mark">UB</span>
-        <span>USTABI</span>
+      <a class="brand" href="pazar.html" aria-label="ustabii ilan sayfası">
+        <span class="brand-mark" aria-hidden="true">U</span>
+        <span class="brand-name">USTA Bİİ</span>
       </a>
 
       <div class="market-toolbar">
@@ -82,7 +82,7 @@
 
       <p class="drawer-section-label">Hızlı işlemler</p>
       <div class="drawer-actions" aria-label="Profil işlemleri">
-        <button type="button" data-panel-action="İlan koy">
+        <button type="button" data-panel-action="İlan koy" data-panel-href="ilan-koy.html">
           <span class="drawer-action-mark action-post">+</span>
           <span>
             <strong>İlan koy</strong>
@@ -90,7 +90,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Profil özelleştir">
+        <button type="button" data-panel-action="Profil özelleştir" data-panel-href="profil-duzenle.html">
           <span class="drawer-action-mark action-profile">◉</span>
           <span>
             <strong>Profil özelleştir</strong>
@@ -98,7 +98,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="İlanlarım">
+        <button type="button" data-panel-action="İlanlarım" data-panel-href="ilanlarim.html">
           <span class="drawer-action-mark action-listings">▦</span>
           <span>
             <strong>İlanlarım</strong>
@@ -106,7 +106,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Önceki işlerim">
+        <button type="button" data-panel-action="Önceki işlerim" data-panel-href="onceki-islerim.html">
           <span class="drawer-action-mark action-history">↺</span>
           <span>
             <strong>Önceki işlerim</strong>
@@ -114,7 +114,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Teklifler">
+        <button type="button" data-panel-action="Teklifler" data-panel-href="teklifler.html">
           <span class="drawer-action-mark action-offers">₺</span>
           <span>
             <strong>Teklifler</strong>
@@ -122,7 +122,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Favori ustalar">
+        <button type="button" data-panel-action="Favori hizmet verenler" data-panel-href="favori-ustalar.html">
           <span class="drawer-action-mark action-favorites">★</span>
           <span>
             <strong>Favori hizmet verenler</strong>
@@ -130,7 +130,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Ödeme ve güvence">
+        <button type="button" data-panel-action="Ödeme ve güvence" data-panel-href="odeme-guvence.html">
           <span class="drawer-action-mark action-payment">✓</span>
           <span>
             <strong>Ödeme ve güvence</strong>
@@ -138,7 +138,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Kredi yükle">
+        <button type="button" data-panel-action="Kredi yükle" data-panel-href="kredi-yukle.html">
           <span class="drawer-action-mark action-credit">UB</span>
           <span>
             <strong>Kredi yükle</strong>
@@ -146,7 +146,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Bildirim ayarları">
+        <button type="button" data-panel-action="Bildirim ayarları" data-panel-href="bildirim-ayarlari.html">
           <span class="drawer-action-mark action-notify">!</span>
           <span>
             <strong>Bildirim ayarları</strong>
@@ -154,7 +154,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Bildirim geçmişi">
+        <button type="button" data-panel-action="Bildirim geçmişi" data-panel-href="bildirim-gecmisi.html">
           <span class="drawer-action-mark action-notify-history">↧</span>
           <span>
             <strong>Bildirim geçmişi</strong>
@@ -162,7 +162,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Güvenlik">
+        <button type="button" data-panel-action="Güvenlik" data-panel-href="guvenlik.html">
           <span class="drawer-action-mark action-security">⌂</span>
           <span>
             <strong>Güvenlik ve doğrulama</strong>
@@ -170,7 +170,7 @@
           </span>
         </button>
 
-        <button type="button" data-panel-action="Admin panel" id="adminPanelAction" hidden>
+        <button type="button" data-panel-action="Admin panel" data-panel-href="admin.html" id="adminPanelAction" hidden>
           <span class="drawer-action-mark action-admin">AD</span>
           <span>
             <strong>Admin panel</strong>

@@ -3864,6 +3864,7 @@ if (listingGrid) {
     "Önceki işlerim": "onceki-islerim.html",
     Teklifler: "teklifler.html",
     "Favori ustalar": "favori-ustalar.html",
+    "Favori hizmet verenler": "favori-ustalar.html",
     "Ödeme ve güvence": "odeme-guvence.html",
     "Kredi yükle": "kredi-yukle.html",
     "Bildirim ayarları": "bildirim-ayarlari.html",
@@ -3874,7 +3875,7 @@ if (listingGrid) {
   profileDrawer.addEventListener("click", (event) => {
     const action = event.target.closest("[data-panel-action]");
     if (action) {
-      const route = profileActionRoutes[action.dataset.panelAction];
+      const route = action.dataset.panelHref || profileActionRoutes[action.dataset.panelAction];
       if (route) {
         if (!isRegisteredUser(getUser())) {
           showToast("Bu işlem için önce ücretsiz hesap aç veya giriş yap.");
@@ -3888,7 +3889,7 @@ if (listingGrid) {
         return;
       }
 
-      showToast(`${action.dataset.panelAction} özelliğinin detay ekranı sonraki adımda bağlanacak.`);
+      showToast("Bu buton için hedef sayfa tanımlı değil.");
     }
   });
   window.addEventListener("keydown", (event) => {
