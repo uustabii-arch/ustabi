@@ -3280,7 +3280,7 @@ if (adminModerationList) {
             `;
           })
           .join("")
-      : `<article class="admin-moderation-item"><h3>İlan yok</h3><p>Yeni ilan geldiğinde burada görünecek.</p></article>`;
+      : `<article class="admin-moderation-item"><h3>İlan yok</h3></article>`;
   }
 
   async function notifyListingModeration(listing, moderationStatus, reason = "") {
@@ -3931,11 +3931,10 @@ if (listingGrid) {
             `,
           )
           .join("")
-      : `<li class="notification-empty">Henüz bildirim yok. Yeni teklif veya mesaj gelince burada görünür.</li>`;
+      : `<li class="notification-empty">Bildirim yok.</li>`;
 
     if (!visibleNotifications.length) {
-      notificationList.innerHTML =
-        `<li class="notification-empty">Yeni bildirim yok. Okuduklarını side paneldeki Bildirim geçmişi alanından görebilirsin.</li>`;
+      notificationList.innerHTML = `<li class="notification-empty">Bildirim yok.</li>`;
     }
 
     updateNotificationBadge();
@@ -4148,14 +4147,14 @@ if (listingGrid) {
     if (featuredListings) {
       featuredListings.innerHTML = featured.length
         ? featured.map((listing) => listingCard(listing, true)).join("")
-        : `<article class="featured-card"><h3>Öne çıkan sonuç yok</h3><p>Aramayı genişletince uygun ilanlar burada görünür.</p></article>`;
+        : `<article class="featured-card"><h3>Öne çıkan sonuç yok</h3></article>`;
       updateFeaturedCarousel();
       restartCarousel();
     }
 
     listingGrid.innerHTML = orderedListings.length
       ? orderedListings.map((listing) => listingCard(listing)).join("")
-      : `<article class="listing-card"><h3>Sonuç bulunamadı</h3><p>Arama veya filtreyi genişletmeyi dene.</p></article>`;
+      : `<article class="listing-card"><h3>Sonuç bulunamadı</h3></article>`;
   }
 
   subscribeSharedListings((allListings) => {
@@ -4317,7 +4316,6 @@ if (myListingsGrid) {
       <div class="completion-head">
         <p class="eyebrow">İşi kapat</p>
         <h2 id="completionTitle">${listing.title}</h2>
-        <p>${master.name} için puan verip istersen favorilerine ekleyebilirsin.</p>
       </div>
       <form class="offer-form completion-form" id="completionForm">
         <label class="score-control">
@@ -4329,7 +4327,6 @@ if (myListingsGrid) {
           <input name="favoriteMaster" type="checkbox" value="1" checked />
           <span>
             <strong>${master.name} favori ustalarıma eklensin</strong>
-            <small>Bu bilgi, ustanın başka tekliflerinde favori sayısı olarak görünür.</small>
           </span>
         </label>
         <button class="primary-action" type="submit">İşi kapat ve puanla</button>
@@ -4343,7 +4340,7 @@ if (myListingsGrid) {
     const listings = getMyListings();
     myListingsGrid.innerHTML = listings.length
       ? listings.map((listing) => accountListingCard(listing, isExpiredListing(listing))).join("")
-      : `<article class="listing-card"><h3>${myListingsGrid.dataset.empty}</h3><p>İlan koyduğunda admin onayından sonra ortak akışta yayınlanır.</p></article>`;
+      : `<article class="listing-card"><h3>${myListingsGrid.dataset.empty}</h3></article>`;
   }
 
   myListingsGrid.addEventListener("click", async (event) => {
@@ -4431,7 +4428,7 @@ if (pastJobsGrid) {
     const expiredListings = getMyListings().filter((listing) => isExpiredListing(listing) || isCompletedListing(listing));
     pastJobsGrid.innerHTML = expiredListings.length
       ? expiredListings.map((listing) => accountListingCard(listing, true)).join("")
-      : `<article class="listing-card"><h3>${pastJobsGrid.dataset.empty}</h3><p>Süresi biten veya tamamlanan işler burada pasif olarak listelenecek.</p></article>`;
+      : `<article class="listing-card"><h3>${pastJobsGrid.dataset.empty}</h3></article>`;
   }
 
   renderPastJobs();
@@ -4556,7 +4553,6 @@ if (listingDetail) {
                 <div class="guest-offer-panel">
                   <p class="eyebrow">Teklif durumu</p>
                   <h2>Bu ilana teklifin alındı.</h2>
-                  <p>Aynı ilana yalnızca bir kez teklif gönderebilirsin. Gönderdiğin teklifi Teklifler sayfasından takip edebilirsin.</p>
                   <div class="guest-offer-actions">
                     <a class="primary-action" href="teklifler.html?filter=sent">Tekliflerime git</a>
                   </div>
@@ -4580,7 +4576,6 @@ if (listingDetail) {
                 <div class="guest-offer-panel" id="registerToOffer">
                   <p class="eyebrow">Teklif göndermek için</p>
                   <h2>Önce ücretsiz hesap aç.</h2>
-                  <p>İlanları kayıt olmadan gezebilirsin. Teklif göndermek için hizmet veren hesabı açman veya mevcut hesabına girmen gerekir.</p>
                   <div class="guest-offer-actions">
                     <a class="primary-action" href="usta-kayit.html">Hizmet veren olarak kayıt ol</a>
                     <a class="ghost-link" href="giris.html">Giriş yap</a>
@@ -5015,7 +5010,7 @@ if (offersList) {
     const filtered = filter === "all" ? activeOffers : activeOffers.filter((offer) => offer.type === filter);
     offersList.innerHTML = filtered.length
       ? filtered.map(offerCard).join("")
-      : `<article class="offer-card"><h3>Teklif yok</h3><p>Gönderilen veya gelen teklifler burada görünecek.</p></article>`;
+      : `<article class="offer-card"><h3>Teklif yok</h3></article>`;
   }
 
   document.querySelectorAll("[data-offer-filter]").forEach((button) => {

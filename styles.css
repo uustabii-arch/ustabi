@@ -4793,3 +4793,131 @@ textarea:focus {
     max-width: 100%;
   }
 }
+
+/* Site cleanup */
+.auth-intro .lead,
+.form-help,
+.password-reset-fields p,
+.guest-offer-panel p:not(.eyebrow),
+.drawer-actions small,
+.verification-card small {
+  display: none;
+}
+
+.auth-card,
+.detail-panel,
+.listing-card,
+.featured-card,
+.offer-card,
+.pro-card,
+.plan-card,
+.drawer-actions button,
+.market-toolbar,
+.market-search,
+.profile-drawer,
+.notification-panel {
+  min-width: 0;
+}
+
+h1,
+h2,
+h3,
+p,
+span,
+small,
+strong,
+button,
+a {
+  overflow-wrap: anywhere;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+}
+
+.auth-intro {
+  align-self: start;
+}
+
+.auth-card-head {
+  margin-bottom: 12px;
+}
+
+.role-card {
+  min-height: 132px;
+}
+
+.drawer-actions button {
+  min-height: 54px;
+}
+
+.market-page .drawer-actions button {
+  min-height: 86px;
+}
+
+.drawer-actions button::after {
+  align-self: center;
+}
+
+.listing-card,
+.offer-card,
+.detail-panel,
+.auth-card {
+  overflow: hidden;
+}
+
+@media (min-width: 1181px) {
+  .auth-shell,
+  .auth-shell.form-page,
+  .profile-edit-shell,
+  .security-shell,
+  .admin-shell {
+    align-items: start;
+  }
+
+  .auth-intro h1 {
+    max-width: 11ch;
+  }
+
+  .upgrade-page-shell {
+    grid-template-columns: 180px minmax(980px, 1fr);
+    width: min(1680px, calc(100% - 24px));
+  }
+}
+
+@media (max-width: 760px) {
+  .market-page .market-topbar {
+    grid-template-columns: 40px minmax(0, 1fr) 40px 76px;
+  }
+
+  .market-page .market-toolbar {
+    width: 100%;
+  }
+
+  .drawer-actions,
+  .market-page .drawer-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .drawer-actions button,
+  .market-page .drawer-actions button {
+    min-height: 76px;
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .drawer-actions,
+  .market-page .drawer-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-actions button,
+  .market-page .drawer-actions button {
+    min-height: 58px;
+    flex-direction: row;
+    align-items: center;
+  }
+}
