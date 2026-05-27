@@ -93,25 +93,21 @@
               </select>
             </label>
 
-            <label>
-              <span class="sr-only">İl</span>
-              <select name="city" id="citySelect" required>
-                <option value="">Seç</option>
+            <div class="location-picker-card">
+              <span>Konum</span>
+              <select name="city" id="citySelect" required aria-label="İl seç">
+                <option value="">İl seç</option>
               </select>
-            </label>
+              <select name="district" id="districtSelect" required disabled aria-label="İlçe seç">
+                <option value="">Önce il seç</option>
+              </select>
+            </div>
           </div>
 
           <label class="hidden-field" id="customCategoryField">
             İşe özel kategori başlığı
             <input name="customCategory" id="customCategoryInput" type="text" placeholder="Örn. ayakkabı kalıp tasarımı, podcast montajı" />
             <small class="form-help">Kategori listesinde yoksa işini en net anlatan kısa başlığı yaz.</small>
-          </label>
-
-          <label>
-            İlçe
-            <select name="district" id="districtSelect" required disabled>
-              <option value="">Önce il seç</option>
-            </select>
           </label>
 
           <div class="form-grid">

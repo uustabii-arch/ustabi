@@ -1812,6 +1812,23 @@ body:not(.auth-active) .auth-shell {
   gap: 8px;
 }
 
+.location-picker-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.location-picker-card > span {
+  color: #4d4b47;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.location-picker-card select {
+  min-height: 40px;
+}
+
 .category-search-input {
   min-height: 40px;
   border-color: rgba(255, 160, 0, 0.32);
