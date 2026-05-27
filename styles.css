@@ -875,9 +875,9 @@ button:disabled,
 }
 
 .upgrade-page-shell {
-  grid-template-columns: minmax(220px, 0.42fr) minmax(720px, 1fr);
-  gap: 22px;
-  width: min(1320px, calc(100% - 28px));
+  grid-template-columns: minmax(180px, 0.28fr) minmax(960px, 1fr);
+  gap: 18px;
+  width: min(1540px, calc(100% - 28px));
 }
 
 .upgrade-page-card {
@@ -887,7 +887,7 @@ button:disabled,
 .plan-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 14px;
 }
 
 .plan-usage {
@@ -896,7 +896,7 @@ button:disabled,
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   border: 1px solid #e8dfd1;
   border-radius: 8px;
   background: #fbfaf7;
@@ -924,12 +924,28 @@ button:disabled,
   text-align: right;
 }
 
+.upgrade-page-card .auth-card-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.upgrade-page-card .auth-card-head h2 {
+  margin: 0;
+  justify-self: end;
+}
+
+.upgrade-page-card .auth-card-head .eyebrow {
+  margin: 0;
+}
+
 .plan-card {
   display: grid;
   align-content: space-between;
   gap: 12px;
   min-height: 430px;
-  padding: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fffdfa;
@@ -937,7 +953,7 @@ button:disabled,
 }
 
 .credit-card {
-  min-height: 300px;
+  min-height: 248px;
 }
 
 .credit-card.active {
@@ -3909,6 +3925,15 @@ textarea:focus {
 
   .credit-card {
     min-height: 0;
+  }
+
+  .upgrade-page-card .auth-card-head {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .upgrade-page-card .auth-card-head h2 {
+    justify-self: start;
   }
 
   .plan-usage,

@@ -536,27 +536,24 @@ const creditPackages = [
     title: "Başlangıç",
     credits: 50,
     price: 50,
-    badge: "Denemek için",
-    description: "İlk ilanlarını renklendir, birkaç işi öne çıkar ve akışta daha hızlı fark edil.",
-    features: ["5 renkli ilan hakkı", "2 öne çıkan görünüm", "Küçük bütçeyle reklam testi"],
+    badge: "Başla",
+    features: ["5 renkli ilan", "2 öne çıkan vitrin"],
   },
   {
     id: "growth",
     title: "Büyüme",
     credits: 120,
     price: 100,
-    badge: "En dengeli",
-    description: "Daha sık ilan paylaşanlar için görünürlük ve renkli arka planı birlikte kullan.",
-    features: ["12 renkli ilan hakkı", "6 öne çıkan görünüm", "Daha uzun süre vitrinde kalma"],
+    badge: "Önerilen",
+    features: ["12 renkli ilan", "6 öne çıkan vitrin"],
   },
   {
     id: "boost",
     title: "Görünürlük",
     credits: 300,
     price: 200,
-    badge: "Yoğun kullanım",
-    description: "Çok ilan açanlar ve hızlı teklif toplamak isteyenler için güçlü reklam kredisi.",
-    features: ["30 renkli ilan hakkı", "15 öne çıkan görünüm", "Yoğun dönemlerde ekstra vitrin"],
+    badge: "Güçlü",
+    features: ["30 renkli ilan", "15 öne çıkan vitrin"],
   },
 ];
 
@@ -3376,10 +3373,9 @@ function renderCreditTopupPage() {
   creditTopupGrid.innerHTML = `
     <div class="plan-usage">
       <div>
-        <strong>İlanını daha görünür yap</strong>
-        <span>Renkli ilan ${formatCredits(promotionCreditCosts.colored)} · Öne çıkan vitrin ${formatCredits(promotionCreditCosts.featured)}</span>
+        <strong>Renkli ilan ${formatCredits(promotionCreditCosts.colored)}</strong>
+        <span>Öne çıkan vitrin ${formatCredits(promotionCreditCosts.featured)}</span>
       </div>
-      <small>Kredi sadece reklam görünürlüğü içindir; ilan açma ve teklif gönderme hakkın sınırsız kalır.</small>
     </div>
     ${creditPackages
       .map(
@@ -3388,7 +3384,6 @@ function renderCreditTopupPage() {
             <div>
               <span class="plan-price">${pack.price} TL · ${pack.badge}</span>
               <h3>${pack.title}</h3>
-              <p>${pack.description}</p>
             </div>
             <dl class="plan-limits">
               <div><dt>Kredi</dt><dd>${formatCredits(pack.credits)}</dd></div>
