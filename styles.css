@@ -900,9 +900,26 @@ button:disabled,
   background: #fbfaf7;
 }
 
-.plan-usage span {
+.plan-usage strong,
+.plan-usage span,
+.plan-usage small {
+  display: block;
+}
+
+.plan-usage span,
+.plan-usage small {
   color: var(--muted);
   font-weight: 850;
+}
+
+.plan-usage span {
+  margin-top: 4px;
+}
+
+.plan-usage small {
+  max-width: 360px;
+  line-height: 1.35;
+  text-align: right;
 }
 
 .plan-card {
@@ -915,6 +932,28 @@ button:disabled,
   border-radius: 8px;
   background: #fffdfa;
   box-shadow: 0 12px 28px rgba(62, 52, 33, 0.08);
+}
+
+.credit-card {
+  min-height: 390px;
+}
+
+.credit-card.active {
+  position: relative;
+}
+
+.credit-card.active::before {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-height: 26px;
+  padding: 5px 9px;
+  background: var(--ink);
+  border-radius: 999px;
+  color: var(--yellow);
+  content: "Önerilen";
+  font-size: 0.72rem;
+  font-weight: 950;
 }
 
 .plan-card.active {
@@ -3847,6 +3886,11 @@ textarea:focus {
   .upgrade-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .plan-usage small {
+    max-width: 100%;
+    text-align: left;
   }
 
   .pro-grid {

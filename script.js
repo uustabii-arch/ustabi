@@ -531,9 +531,33 @@ const promotionCreditCosts = {
   colored: 10,
 };
 const creditPackages = [
-  { id: "starter", title: "Başlangıç", credits: 50, price: 50, description: "Birkaç ilanı öne çıkarmak için" },
-  { id: "growth", title: "Büyüme", credits: 120, price: 100, description: "Renkli ilan ve öne çıkan görünüm için" },
-  { id: "boost", title: "Görünürlük", credits: 300, price: 200, description: "Yoğun kullanım ve reklam denemeleri için" },
+  {
+    id: "starter",
+    title: "Başlangıç",
+    credits: 50,
+    price: 50,
+    badge: "Denemek için",
+    description: "İlk ilanlarını renklendir, birkaç işi öne çıkar ve akışta daha hızlı fark edil.",
+    features: ["5 renkli ilan hakkı", "2 öne çıkan görünüm", "Küçük bütçeyle reklam testi"],
+  },
+  {
+    id: "growth",
+    title: "Büyüme",
+    credits: 120,
+    price: 100,
+    badge: "En dengeli",
+    description: "Daha sık ilan paylaşanlar için görünürlük ve renkli arka planı birlikte kullan.",
+    features: ["12 renkli ilan hakkı", "6 öne çıkan görünüm", "Daha uzun süre vitrinde kalma"],
+  },
+  {
+    id: "boost",
+    title: "Görünürlük",
+    credits: 300,
+    price: 200,
+    badge: "Yoğun kullanım",
+    description: "Çok ilan açanlar ve hızlı teklif toplamak isteyenler için güçlü reklam kredisi.",
+    features: ["30 renkli ilan hakkı", "15 öne çıkan görünüm", "Yoğun dönemlerde ekstra vitrin"],
+  },
 ];
 
 const professionCategoryGroups = [
@@ -1305,6 +1329,49 @@ function pushNotification(notification, recipientKey = getAccountKey()) {
   saveNotificationInbox(nextInbox, recipientKey);
 }
 
+function getEmailNotificationOutbox() {
+  try {
+    return JSON.parse(localStorage.getItem("ustaEmailNotifications")) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveEmailNotificationOutbox(items) {
+  localStorage.setItem("ustaEmailNotifications", JSON.stringify(items));
+}
+
+async function queueEmailNotification(notification) {
+  const recipientEmail = normalizeAccountValue(
+    notification.recipientEmail ||
+      (Array.isArray(notification.recipientKeys)
+        ? notification.recipientKeys.find((key) => String(key).includes("@"))
+        : ""),
+  );
+  if (!recipientEmail) return;
+
+  const emailPayload = sanitizeFirestoreData({
+    id: `email-${notification.id}`,
+    notificationId: notification.id,
+    to: recipientEmail,
+    subject: `ustabii: ${notification.title || "Yeni bildirim"}`,
+    preview: notification.body || "",
+    href: notification.href || "pazar.html",
+    status: "queued",
+    createdAt: Date.now(),
+  });
+
+  const outbox = getEmailNotificationOutbox().filter((item) => item.id !== emailPayload.id);
+  saveEmailNotificationOutbox([emailPayload, ...outbox].slice(0, 80));
+
+  try {
+    await ensureFirestoreAuth();
+    await setDoc(doc(db, "emailNotifications", String(emailPayload.id)), emailPayload, { merge: true });
+  } catch (error) {
+    console.warn("E-posta bildirim kuyruğu yazılamadı:", error);
+  }
+}
+
 async function publishNotificationToRecipients(notification, recipientKeys) {
   const cleanRecipientKeys = [...new Set((recipientKeys || []).filter(Boolean).map((key) => String(key)))];
   if (!cleanRecipientKeys.length) return;
@@ -1327,6 +1394,8 @@ async function publishNotificationToRecipients(notification, recipientKeys) {
   } catch (error) {
     console.warn("Bildirim Firestore kaydı yazılamadı:", error);
   }
+
+  await queueEmailNotification(payload);
 }
 
 function resolveListingOwnerKey(listing) {
@@ -3085,7 +3154,8 @@ if (notificationForm) {
   const settings = getNotificationSettings();
 
   ["channels", "topics"].forEach((name) => {
-    const values = Array.isArray(settings[name]) ? settings[name] : [];
+    const defaultValues = name === "channels" ? ["Uygulama içi", "E-posta"] : [];
+    const values = Array.isArray(settings[name]) ? settings[name] : defaultValues;
     notificationForm.querySelectorAll(`input[name="${name}"]`).forEach((checkbox) => {
       checkbox.checked = values.includes(checkbox.value);
     });
@@ -3102,6 +3172,7 @@ if (notificationForm) {
       JSON.stringify({
         channels: formData.getAll("channels"),
         topics: formData.getAll("topics"),
+        emailEnabled: formData.getAll("channels").includes("E-posta"),
         frequency: formData.get("frequency"),
         quietHours: formData.get("quietHours"),
       }),
@@ -3304,15 +3375,18 @@ function renderCreditTopupPage() {
 
   creditTopupGrid.innerHTML = `
     <div class="plan-usage">
-      <strong>Kredi kullanımı</strong>
-      <span>Renkli ilan ${formatCredits(promotionCreditCosts.colored)} · Öne çıkan ${formatCredits(promotionCreditCosts.featured)}</span>
+      <div>
+        <strong>İlanını daha görünür yap</strong>
+        <span>Renkli ilan ${formatCredits(promotionCreditCosts.colored)} · Öne çıkan vitrin ${formatCredits(promotionCreditCosts.featured)}</span>
+      </div>
+      <small>Kredi sadece reklam görünürlüğü içindir; ilan açma ve teklif gönderme hakkın sınırsız kalır.</small>
     </div>
     ${creditPackages
       .map(
         (pack) => `
-          <article class="plan-card credit-card">
+          <article class="plan-card credit-card ${pack.id === "growth" ? "active" : ""}">
             <div>
-              <span class="plan-price">${pack.price} TL</span>
+              <span class="plan-price">${pack.price} TL · ${pack.badge}</span>
               <h3>${pack.title}</h3>
               <p>${pack.description}</p>
             </div>
@@ -3321,11 +3395,9 @@ function renderCreditTopupPage() {
               <div><dt>Kullanım</dt><dd>Reklam</dd></div>
             </dl>
             <ul class="plan-features">
-              <li>Renkli ilan arka planı alabilirsin</li>
-              <li>Öne çıkan kaydırmalı alanda yer alabilirsin</li>
-              <li>İlan ve teklif hakların krediye bağlı değildir</li>
+              ${pack.features.map((feature) => `<li>${feature}</li>`).join("")}
             </ul>
-            <button class="primary-action" type="button" data-credit-pack="${pack.id}">Kredi yükle</button>
+            <button class="primary-action" type="button" data-credit-pack="${pack.id}">Bu paketi yükle</button>
           </article>
         `,
       )
