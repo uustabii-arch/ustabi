@@ -1,10 +1,136 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ustabii | İlanlar</title>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      body.market-page .market-hidden-description {
+        display: none !important;
+      }
+
+      body.market-page .listing-card,
+      body.market-page .featured-card,
+      body.market-page .listing-item,
+      body.market-page .job-card,
+      body.market-page article {
+        cursor: pointer;
+      }
+
+      .listing-detail-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        background: rgba(15, 23, 42, 0.58);
+        backdrop-filter: blur(8px);
+      }
+
+      .listing-detail-backdrop[hidden] {
+        display: none;
+      }
+
+      .listing-detail-modal {
+        width: min(720px, 100%);
+        max-height: min(82vh, 760px);
+        overflow: auto;
+        border-radius: 28px;
+        background: #fff;
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
+      }
+
+      .listing-detail-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 24px 24px 12px;
+      }
+
+      .listing-detail-head h2 {
+        margin: 4px 0 0;
+        color: #111827;
+        font-size: clamp(1.35rem, 4vw, 2rem);
+        line-height: 1.12;
+      }
+
+      .listing-detail-close {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 999px;
+        background: #f3f4f6;
+        color: #111827;
+        font-size: 28px;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .listing-detail-body {
+        display: grid;
+        gap: 18px;
+        padding: 0 24px 24px;
+      }
+
+      .listing-detail-image {
+        width: 100%;
+        max-height: 320px;
+        object-fit: cover;
+        border-radius: 22px;
+        background: #f3f4f6;
+      }
+
+      .listing-detail-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .listing-detail-meta span {
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: #f8fafc;
+        color: #334155;
+        font-size: 0.92rem;
+        font-weight: 700;
+      }
+
+      .listing-detail-section {
+        border: 1px solid #eef2f7;
+        border-radius: 22px;
+        padding: 16px;
+        background: #fff;
+      }
+
+      .listing-detail-section h3 {
+        margin: 0 0 8px;
+        color: #111827;
+        font-size: 1rem;
+      }
+
+      .listing-detail-section p {
+        margin: 0;
+        color: #475569;
+        line-height: 1.65;
+        white-space: pre-wrap;
+      }
+
+      @media (max-width: 640px) {
+        .listing-detail-backdrop {
+          align-items: end;
+          padding: 10px;
+        }
+
+        .listing-detail-modal {
+          max-height: 88vh;
+          border-radius: 24px 24px 18px 18px;
+        }
+      }
+    </style>
   </head>
   <body class="market-page">
     <header class="topbar market-topbar">
@@ -215,8 +341,271 @@
       </section>
     </main>
 
+
+
+    <div class="listing-detail-backdrop" id="listingDetailBackdrop" hidden>
+      <section class="listing-detail-modal" role="dialog" aria-modal="true" aria-labelledby="listingDetailTitle">
+        <div class="listing-detail-head">
+          <div>
+            <p class="eyebrow">İlan detayı</p>
+            <h2 id="listingDetailTitle">İlan detayı</h2>
+          </div>
+          <button class="listing-detail-close" id="listingDetailClose" type="button" aria-label="Detayı kapat">×</button>
+        </div>
+        <div class="listing-detail-body" id="listingDetailBody"></div>
+      </section>
+    </div>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script type="module" src="script.js"></script>
+
+    <script>
+      (() => {
+        const CARD_SELECTOR = [
+          '.listing-card',
+          '.featured-card',
+          '.listing-item',
+          '.job-card',
+          '[data-listing-id]',
+          '[data-ad-id]',
+          '[data-ilan-id]',
+          '#listingGrid > *',
+          '#featuredListings > *'
+        ].join(',');
+
+        const DESCRIPTION_SELECTOR = [
+          '.listing-description',
+          '.listing-details',
+          '.listing-card-description',
+          '.card-description',
+          '.job-description',
+          '.description',
+          '.details',
+          '.ilan-aciklama',
+          '.aciklama',
+          '[data-description]',
+          '[data-details]',
+          '[data-field="details"]',
+          '[data-field="description"]'
+        ].join(',');
+
+        const GRID_SELECTOR = '#listingGrid, #featuredListings';
+        const INTERACTIVE_SELECTOR = 'a, button, input, select, textarea, label, [role="button"], [data-no-detail]';
+        const backdrop = document.getElementById('listingDetailBackdrop');
+        const titleTarget = document.getElementById('listingDetailTitle');
+        const bodyTarget = document.getElementById('listingDetailBody');
+        const closeButton = document.getElementById('listingDetailClose');
+        let lastFocus = null;
+
+        const normalize = (value) => (value || '').toString().trim().replace(/\s+/g, ' ');
+        const normalizeKey = (value) => normalize(value).toLocaleLowerCase('tr-TR');
+        const escapeHtml = (value) => normalize(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+
+        const findStoredListings = () => {
+          const results = [];
+          const seen = new WeakSet();
+
+          const collect = (value) => {
+            if (!value || typeof value !== 'object') return;
+            if (seen.has(value)) return;
+            seen.add(value);
+
+            if (Array.isArray(value)) {
+              value.forEach(collect);
+              return;
+            }
+
+            const hasListingShape = value.title || value.name || value.details || value.description || value.aciklama;
+            if (hasListingShape) results.push(value);
+
+            Object.values(value).forEach((child) => {
+              if (child && typeof child === 'object') collect(child);
+            });
+          };
+
+          for (let index = 0; index < localStorage.length; index += 1) {
+            const key = localStorage.key(index) || '';
+            if (!/(listing|ilan|job|ustabi|ustabii|market|pazar)/i.test(key)) continue;
+            try {
+              collect(JSON.parse(localStorage.getItem(key)));
+            } catch (_) {
+              // JSON olmayan kayıtları atla.
+            }
+          }
+
+          return results;
+        };
+
+        const getCardTitle = (card) => {
+          const titleElement = card.querySelector('h1, h2, h3, h4, .listing-title, .card-title, .job-title, [data-title]');
+          return normalize(titleElement?.textContent || card.dataset.title || card.getAttribute('aria-label'));
+        };
+
+        const getCardImage = (card, stored) => {
+          const img = card.querySelector('img');
+          return img?.currentSrc || img?.src || stored?.image || stored?.imageUrl || stored?.photo || stored?.photoUrl || '';
+        };
+
+        const getCardMeta = (card, stored) => {
+          const storedMeta = [
+            stored?.category || stored?.kategori,
+            stored?.city || stored?.il,
+            stored?.district || stored?.ilce || stored?.ilçe,
+            stored?.budget ? `${stored.budget} TL` : '',
+            stored?.duration || stored?.sure || stored?.süre,
+            stored?.workDate || stored?.date || stored?.tarih
+          ];
+
+          const elementMeta = Array.from(card.querySelectorAll('.listing-meta span, .meta span, .chip, .pill, [data-meta]'))
+            .map((item) => normalize(item.textContent))
+            .filter(Boolean);
+
+          return [...storedMeta, ...elementMeta]
+            .map(normalize)
+            .filter(Boolean)
+            .filter((value, index, arr) => arr.indexOf(value) === index)
+            .slice(0, 8);
+        };
+
+        const looksLikeDescription = (element) => {
+          const text = normalize(element.textContent);
+          if (!text || text.length < 55) return false;
+          if (element.closest('.listing-detail-backdrop')) return false;
+          if (element.closest('button, a, .listing-meta, .meta, .chip-row, .notification-panel, .drawer-actions')) return false;
+          if (/^(bugün|yarın|bu hafta|tümü|teklif|favori|kredi|profil)$/i.test(text)) return false;
+          return true;
+        };
+
+        const findDescriptionElement = (card) => {
+          const explicit = card.querySelector(DESCRIPTION_SELECTOR);
+          if (explicit && normalize(explicit.textContent)) return explicit;
+
+          const paragraphs = Array.from(card.querySelectorAll('p, small, [class*="desc"], [class*="detail"], [class*="aciklama"]'));
+          return paragraphs.find(looksLikeDescription) || null;
+        };
+
+        const findStoredListing = (card) => {
+          const id = normalize(card.dataset.listingId || card.dataset.adId || card.dataset.ilanId || card.dataset.id);
+          const title = normalizeKey(getCardTitle(card));
+          if (!id && !title) return null;
+
+          return findStoredListings().find((item) => {
+            const itemId = normalize(item.id || item.listingId || item.ilanId || item.adId);
+            const itemTitle = normalizeKey(item.title || item.name || item.baslik || item.başlık);
+            return (id && itemId && id === itemId) || (title && itemTitle && title === itemTitle);
+          }) || null;
+        };
+
+        const getDescription = (card, stored) => {
+          const fromData = card.dataset.details || card.dataset.description || card.dataset.aciklama;
+          if (normalize(fromData)) return normalize(fromData);
+
+          const element = findDescriptionElement(card);
+          if (element) return normalize(element.textContent);
+
+          return normalize(stored?.details || stored?.description || stored?.aciklama || stored?.açıklama || stored?.expectations || stored?.note);
+        };
+
+        const hideCardDescriptions = (root = document) => {
+          root.querySelectorAll(CARD_SELECTOR).forEach((card) => {
+            if (!card.closest(GRID_SELECTOR)) return;
+            const descriptionElement = findDescriptionElement(card);
+            if (!descriptionElement) return;
+
+            card.dataset.marketDetailDescription = normalize(descriptionElement.textContent);
+            descriptionElement.classList.add('market-hidden-description');
+            descriptionElement.setAttribute('aria-hidden', 'true');
+            card.setAttribute('tabindex', card.getAttribute('tabindex') || '0');
+            card.setAttribute('role', card.getAttribute('role') || 'button');
+            card.setAttribute('aria-label', card.getAttribute('aria-label') || `${getCardTitle(card) || 'İlan'} detayını aç`);
+          });
+        };
+
+        const openDetail = (card) => {
+          const stored = findStoredListing(card);
+          const title = getCardTitle(card) || normalize(stored?.title || stored?.name || stored?.baslik || stored?.başlık) || 'İlan detayı';
+          const description = card.dataset.marketDetailDescription || getDescription(card, stored) || 'Bu ilan için açıklama bulunamadı.';
+          const meta = getCardMeta(card, stored);
+          const image = getCardImage(card, stored);
+          const addressNote = normalize(stored?.addressNote || stored?.address || stored?.adres);
+          const expectations = normalize(stored?.expectations || stored?.beklentiler);
+          const phone = normalize(stored?.phone || stored?.telefon);
+
+          titleTarget.textContent = title;
+          bodyTarget.innerHTML = `
+            ${image ? `<img class="listing-detail-image" src="${escapeHtml(image)}" alt="${escapeHtml(title)}">` : ''}
+            ${meta.length ? `<div class="listing-detail-meta">${meta.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
+            <div class="listing-detail-section">
+              <h3>Açıklama</h3>
+              <p>${escapeHtml(description)}</p>
+            </div>
+            ${expectations ? `<div class="listing-detail-section"><h3>Beklentiler</h3><p>${escapeHtml(expectations)}</p></div>` : ''}
+            ${addressNote ? `<div class="listing-detail-section"><h3>Adres / ulaşım notu</h3><p>${escapeHtml(addressNote)}</p></div>` : ''}
+            ${phone ? `<div class="listing-detail-section"><h3>İletişim telefonu</h3><p>${escapeHtml(phone)}</p></div>` : ''}
+          `;
+
+          lastFocus = document.activeElement;
+          backdrop.hidden = false;
+          document.body.style.overflow = 'hidden';
+          closeButton.focus();
+        };
+
+        const closeDetail = () => {
+          backdrop.hidden = true;
+          document.body.style.overflow = '';
+          if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+        };
+
+        document.addEventListener('click', (event) => {
+          const card = event.target.closest(CARD_SELECTOR);
+          if (!card || !card.closest(GRID_SELECTOR)) return;
+          if (event.target.closest(INTERACTIVE_SELECTOR)) return;
+          openDetail(card);
+        });
+
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && !backdrop.hidden) closeDetail();
+
+          if ((event.key === 'Enter' || event.key === ' ') && backdrop.hidden) {
+            const card = event.target.closest(CARD_SELECTOR);
+            if (!card || !card.closest(GRID_SELECTOR)) return;
+            if (event.target.closest(INTERACTIVE_SELECTOR)) return;
+            event.preventDefault();
+            openDetail(card);
+          }
+        });
+
+        closeButton.addEventListener('click', closeDetail);
+        backdrop.addEventListener('click', (event) => {
+          if (event.target === backdrop) closeDetail();
+        });
+
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === Node.ELEMENT_NODE) hideCardDescriptions(node);
+            });
+          });
+        });
+
+        const start = () => {
+          hideCardDescriptions();
+          observer.observe(document.body, { childList: true, subtree: true });
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', start, { once: true });
+        } else {
+          start();
+        }
+      })();
+    </script>
+
   </body>
 </html>
