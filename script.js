@@ -159,6 +159,28 @@ function resetLegacyWorkspaceData() {
 
 resetLegacyWorkspaceData();
 
+function renderSiteFooter() {
+  if (document.querySelector(".site-footer")) return;
+
+  const footer = document.createElement("footer");
+  footer.className = "site-footer";
+  footer.innerHTML = `
+    <div>
+      <strong>ustabii</strong>
+      <span>© ${new Date().getFullYear()} Tüm hakları saklıdır.</span>
+    </div>
+    <nav aria-label="Site politikaları">
+      <a href="odeme-guvence.html">Güvenli ödeme</a>
+      <a href="guvenlik.html">Güvenlik</a>
+      <a href="bildirim-ayarlari.html">Bildirim tercihleri</a>
+      <span>Gizlilik ve kullanım politikalarımız saklıdır.</span>
+    </nav>
+  `;
+  document.body.appendChild(footer);
+}
+
+renderSiteFooter();
+
 async function ensureFirestoreAuth() {
   if (auth.currentUser) return auth.currentUser;
 
@@ -4193,6 +4215,11 @@ if (listingGrid) {
   const featuredCarousel = document.querySelector(".featured-carousel");
   const marketSearch = document.querySelector("#marketSearch");
   const categoryFilter = document.querySelector("#categoryFilter");
+  const budgetMinFilter = document.querySelector("#budgetMinFilter");
+  const budgetMaxFilter = document.querySelector("#budgetMaxFilter");
+  const workModeFilter = document.querySelector("#workModeFilter");
+  const locationFilter = document.querySelector("#locationFilter");
+  const clearMarketFilters = document.querySelector("#clearMarketFilters");
   const chips = document.querySelectorAll(".chip");
   const profileName = document.querySelector("#profileName");
   const profileRole = document.querySelector("#profileRole");
@@ -4571,6 +4598,10 @@ if (listingGrid) {
   function getFilteredListings() {
     const query = marketSearch.value.trim().toLocaleLowerCase("tr-TR");
     const category = categoryFilter.value;
+    const minBudget = Number(budgetMinFilter?.value || 0);
+    const maxBudget = Number(budgetMaxFilter?.value || 0);
+    const workMode = workModeFilter?.value || "all";
+    const locationQuery = (locationFilter?.value || "").trim().toLocaleLowerCase("tr-TR");
 
     return listings.filter((listing) => {
       if (isUnavailableListing(listing)) return false;
@@ -4593,8 +4624,15 @@ if (listingGrid) {
         .includes(query);
       const matchesCategory = category === "Tümü" || listing.category === category || listing.categoryGroup === category;
       const matchesTime = selectedTime === "Tümü" || listing.time === selectedTime;
+      const listingBudget = Number(listing.budget || 0);
+      const matchesMinBudget = !minBudget || listingBudget >= minBudget;
+      const matchesMaxBudget = !maxBudget || listingBudget <= maxBudget;
+      const listingWorkMode = listing.workLocationMode || "onsite";
+      const matchesWorkMode = workMode === "all" || listingWorkMode === workMode;
+      const locationText = [listing.city, listing.district].filter(Boolean).join(" ").toLocaleLowerCase("tr-TR");
+      const matchesLocation = !locationQuery || locationText.includes(locationQuery);
 
-      return matchesQuery && matchesCategory && matchesTime;
+      return matchesQuery && matchesCategory && matchesTime && matchesMinBudget && matchesMaxBudget && matchesWorkMode && matchesLocation;
     });
   }
 
@@ -4786,6 +4824,17 @@ if (listingGrid) {
 
   marketSearch.addEventListener("input", renderListings);
   categoryFilter.addEventListener("change", renderListings);
+  [budgetMinFilter, budgetMaxFilter, workModeFilter, locationFilter].forEach((input) => {
+    input?.addEventListener("input", renderListings);
+    input?.addEventListener("change", renderListings);
+  });
+  clearMarketFilters?.addEventListener("click", () => {
+    if (budgetMinFilter) budgetMinFilter.value = "";
+    if (budgetMaxFilter) budgetMaxFilter.value = "";
+    if (workModeFilter) workModeFilter.value = "all";
+    if (locationFilter) locationFilter.value = "";
+    renderListings();
+  });
 
   chips.forEach((chip) => {
     chip.addEventListener("click", () => {
@@ -5015,6 +5064,57 @@ if (listingDetail) {
     `;
   }
 
+  function renderListingTimeline(listing) {
+    const steps = [
+      {
+        label: "Admin onayı",
+        active: isApprovedListing(listing) || isPendingModerationListing(listing) || isRejectedModerationListing(listing),
+        current: isPendingModerationListing(listing),
+        meta: isPendingModerationListing(listing) ? "Kontrolde" : isRejectedModerationListing(listing) ? "Reddedildi" : "Tamam",
+      },
+      {
+        label: "Yayında",
+        active: isApprovedListing(listing),
+        current: isApprovedListing(listing) && !Number(listing.offers || 0) && !isAssignedListing(listing),
+        meta: isApprovedListing(listing) ? "Görünür" : "Bekliyor",
+      },
+      {
+        label: "Teklifler",
+        active: Number(listing.offers || 0) > 0 || isAssignedListing(listing) || isCompletedListing(listing),
+        current: Number(listing.offers || 0) > 0 && !isAssignedListing(listing),
+        meta: `${Number(listing.offers || 0)} teklif`,
+      },
+      {
+        label: "Usta seçimi",
+        active: isAssignedListing(listing) || isCompletedListing(listing),
+        current: isAssignedListing(listing) && !isCompletedListing(listing),
+        meta: isAssignedListing(listing) ? "Atandı" : "Bekliyor",
+      },
+      {
+        label: "Tamamlandı",
+        active: isCompletedListing(listing),
+        current: isCompletedListing(listing),
+        meta: isCompletedListing(listing) ? "Kapandı" : "Bekliyor",
+      },
+    ];
+
+    return `
+      <section class="status-timeline" aria-label="İlan durumu">
+        ${steps
+          .map(
+            (step) => `
+              <div class="status-step ${step.active ? "active" : ""} ${step.current ? "current" : ""}">
+                <span></span>
+                <strong>${step.label}</strong>
+                <small>${step.meta}</small>
+              </div>
+            `,
+          )
+          .join("")}
+      </section>
+    `;
+  }
+
   function renderListingDetail(listing) {
     if (!canViewListingDetail(listing)) {
       renderMissingListing();
@@ -5090,6 +5190,8 @@ if (listingDetail) {
           </div>
         </div>
       </section>
+
+      ${renderListingTimeline(listing)}
 
       <section class="detail-grid">
         <article class="detail-panel">
@@ -5442,6 +5544,7 @@ function offerCard(offer) {
 }
 
 if (offersList) {
+  const offerComparisonPanel = document.querySelector("#offerComparisonPanel");
   const sampleOffers = [
     {
       id: "sample-1",
@@ -5575,14 +5678,76 @@ if (offersList) {
     window.requestAnimationFrame(() => masterReviewBackdrop.classList.add("open"));
   }
 
+  function renderOfferComparison(activeOffers) {
+    if (!offerComparisonPanel) return;
+    const incomingOffers = activeOffers
+      .filter((offer) => offer.type === "incoming")
+      .sort((left, right) => Number(left.amount || 0) - Number(right.amount || 0));
+
+    if (!incomingOffers.length) {
+      offerComparisonPanel.innerHTML = "";
+      return;
+    }
+
+    const minAmount = Math.min(...incomingOffers.map((offer) => Number(offer.amount || 0)));
+    const maxRating = Math.max(...incomingOffers.map((offer) => getOfferMasterProfile(offer).rating));
+    const listingCount = new Set(incomingOffers.map((offer) => String(offer.listingId))).size;
+
+    offerComparisonPanel.innerHTML = `
+      <div class="offer-comparison-head">
+        <div>
+          <p class="eyebrow">Teklif karşılaştırma</p>
+          <h2>${incomingOffers.length} teklif · ${listingCount} ilan</h2>
+        </div>
+      </div>
+      <div class="offer-comparison-table">
+        ${incomingOffers
+          .slice(0, 8)
+          .map((offer) => {
+            const master = getOfferMasterProfile(offer);
+            const amount = Number(offer.amount || 0);
+            return `
+              <article class="offer-comparison-row">
+                <div>
+                  <strong>${escapeHtml(master.name)}</strong>
+                  <span>${escapeHtml(offer.listingTitle || "İlan")}</span>
+                </div>
+                <span>${amount.toLocaleString("tr-TR", {
+                  style: "currency",
+                  currency: "TRY",
+                  maximumFractionDigits: 0,
+                })}</span>
+                <span>${master.rating.toFixed(1)}/10</span>
+                <span>${master.completedJobs} iş</span>
+                <div class="offer-comparison-actions">
+                  ${amount === minAmount ? `<small>En uygun</small>` : ""}
+                  ${master.rating === maxRating ? `<small>En yüksek puan</small>` : ""}
+                  <button class="ghost-action" type="button" data-master-review="${offer.id}">İncele</button>
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
   function renderOffers(filter = "all") {
     mergeVisibleOffers();
     const activeOffers = offers.filter((offer) => !(offer.type === "incoming" && offer.status === "Reddedildi"));
     const filtered = filter === "all" ? activeOffers : activeOffers.filter((offer) => offer.type === filter);
+    renderOfferComparison(filter === "sent" ? [] : activeOffers);
     offersList.innerHTML = filtered.length
       ? filtered.map(offerCard).join("")
       : `<article class="offer-card"><h3>Teklif yok</h3></article>`;
   }
+
+  offerComparisonPanel?.addEventListener("click", (event) => {
+    const reviewButton = event.target.closest("[data-master-review]");
+    if (!reviewButton) return;
+    const offer = offers.find((item) => String(item.id) === reviewButton.dataset.masterReview);
+    if (offer) openMasterReview(offer);
+  });
 
   document.querySelectorAll("[data-offer-filter]").forEach((button) => {
     button.addEventListener("click", () => {

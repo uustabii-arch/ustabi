@@ -236,6 +236,30 @@
           </div>
         </div>
 
+        <div class="market-filter-bar" aria-label="İlan filtreleri">
+          <label>
+            Bütçe alt
+            <input id="budgetMinFilter" type="number" min="0" step="100" placeholder="Min" />
+          </label>
+          <label>
+            Bütçe üst
+            <input id="budgetMaxFilter" type="number" min="0" step="100" placeholder="Max" />
+          </label>
+          <label>
+            Çalışma
+            <select id="workModeFilter">
+              <option value="all">Tümü</option>
+              <option value="remote">Uzaktan</option>
+              <option value="onsite">Yakından</option>
+            </select>
+          </label>
+          <label>
+            Konum
+            <input id="locationFilter" type="search" placeholder="İl veya ilçe" />
+          </label>
+          <button class="ghost-action" id="clearMarketFilters" type="button">Temizle</button>
+        </div>
+
         <div class="listing-grid" id="listingGrid"></div>
       </section>
     </main>
