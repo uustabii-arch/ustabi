@@ -1357,6 +1357,7 @@ button:disabled,
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 12px 28px rgba(62, 52, 33, 0.08);
+  position: relative;
 }
 
 .featured-card.colored-listing,
@@ -1469,6 +1470,23 @@ button:disabled,
   padding: 17px;
 }
 
+.listing-card-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid rgba(222, 216, 205, 0.72);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.listing-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
 .passive-listing {
   opacity: 0.72;
 }
@@ -1572,8 +1590,10 @@ button:disabled,
 
 .card-action-area {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   align-self: end;
+  min-width: 0;
+  padding-top: 2px;
 }
 
 .card-action-area .job-meta {
@@ -1587,6 +1607,9 @@ button:disabled,
 .listing-card .job-action,
 .featured-card .job-action {
   justify-content: center;
+  position: relative;
+  z-index: 2;
+  width: 100%;
 }
 
 .auth-active .nav-links,

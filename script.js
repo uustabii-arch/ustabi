@@ -4047,6 +4047,11 @@ if (listingGrid) {
     });
   }
 
+  function getListingDetailHref(listing, focusOffer = false) {
+    const listingId = encodeURIComponent(String(listing?.id || ""));
+    return listingId ? `ilan-detay.html?id=${listingId}${focusOffer ? "#listingOfferPanel" : ""}` : "ilan-detay.html";
+  }
+
   function listingCard(listing, featured = false) {
     const imageSrc = getListingImage(listing);
     const categoryMark =
@@ -4055,6 +4060,7 @@ if (listingGrid) {
     const promoted = Boolean(listing.highlighted);
     const priorityLabel = listing.carouselPriorityLabel || (listing.carouselPriority ? "Öne çıkan sıra" : "");
     const tagBadges = renderTagBadges(listing.tags, featured ? 4 : 5);
+    const offerHref = getListingDetailHref(listing, true);
 
     return `
       <article class="${featured ? "featured-card" : "listing-card"} ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}"${getHighlightStyle(listing)}>
@@ -4066,9 +4072,9 @@ if (listingGrid) {
           <img src="${imageSrc}" alt="${listing.title} ilan fotoğrafı" loading="lazy" onerror="this.onerror=null;this.src='assets/listing-placeholder.svg';" />
           ${featured ? `<span class="featured-photo-label">${priorityLabel || "Öne çıkan"}</span>` : ""}
         </div>
-        <div>
+        <div class="listing-card-copy">
           <h3>${listing.title}</h3>
-          <p>${listing.details}</p>
+          <p class="listing-description">${listing.details}</p>
           ${tagBadges}
         </div>
         <div class="card-action-area">
@@ -4081,7 +4087,7 @@ if (listingGrid) {
           ${promoted ? `<span class="badge promo-badge">Renkli ilan</span>` : ""}
         </div>
         <div class="listing-bottom">
-            <a class="job-action" href="ilan-detay.html?id=${listing.id}">Teklif ver</a>
+            <a class="job-action" href="${offerHref}" aria-label="${listing.title} ilanına teklif ver">Teklif ver</a>
           </div>
         </div>
       </article>
@@ -4545,7 +4551,7 @@ if (listingDetail) {
           </dl>
         </article>
 
-        <article class="detail-panel">
+        <article class="detail-panel offer-panel" id="listingOfferPanel">
           ${
             registeredUser
               ? alreadyOffered
@@ -4607,6 +4613,11 @@ if (listingDetail) {
       </section>
     `;
 
+    if (window.location.hash === "#listingOfferPanel" || window.location.hash === "#detailOfferForm") {
+      requestAnimationFrame(() => {
+        listingDetail.querySelector("#listingOfferPanel")?.scrollIntoView({ block: "start" });
+      });
+    }
   }
 
   if (!listingDetail.dataset.formsBound) {
