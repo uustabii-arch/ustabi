@@ -479,6 +479,7 @@ document.querySelectorAll("[data-password-reset]").forEach((form) => {
 const listingCreateForm = document.querySelector("#listingCreateForm");
 const listingImageInput = document.querySelector("#listingImageInput");
 const listingImagePreview = document.querySelector("#listingImagePreview");
+const listingTitleMaxLength = 72;
 const customCategoryField = document.querySelector("#customCategoryField");
 const customCategoryInput = document.querySelector("#customCategoryInput");
 const categorySearchInput = document.querySelector("#categorySearchInput");
@@ -711,6 +712,10 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function normalizeListingTitle(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, listingTitleMaxLength);
 }
 
 function getListingTags(listing) {
@@ -3449,6 +3454,11 @@ if (paymentForm) {
 
 if (listingCreateForm) {
   const categorySelect = listingCreateForm.elements.category;
+  const listingTitleInput = listingCreateForm.elements.title;
+
+  if (listingTitleInput) {
+    listingTitleInput.maxLength = listingTitleMaxLength;
+  }
 
   function filterListingCategories() {
     if (!categorySelect) return;
@@ -3545,6 +3555,7 @@ if (listingCreateForm) {
       return;
     }
 
+    const listingTitle = normalizeListingTitle(formData.get("title"));
     const selectedCategory = String(formData.get("category") || "");
     const customCategoryTitle = String(formData.get("customCategory") || "").trim();
     const category = selectedCategory === "Diğer" ? customCategoryTitle : selectedCategory;
@@ -3574,7 +3585,7 @@ if (listingCreateForm) {
       ownerKey: getAccountKey(currentUser),
       ownerUid: currentUser.uid || "",
       ownerEmail: getAccountEmail(currentUser),
-      title: formData.get("title").trim(),
+      title: listingTitle,
       category,
       categoryGroup,
       customCategoryTitle,
@@ -4059,8 +4070,10 @@ if (listingGrid) {
     const timeLabel = getTimeLabel(listing.workDate) || listing.time;
     const promoted = Boolean(listing.highlighted);
     const priorityLabel = listing.carouselPriorityLabel || (listing.carouselPriority ? "Öne çıkan sıra" : "");
-    const tagBadges = renderTagBadges(listing.tags, featured ? 4 : 5);
     const offerHref = getListingDetailHref(listing, true);
+    const displayTitle = normalizeListingTitle(listing.title) || "Ilan";
+    const safeDisplayTitle = escapeHtml(displayTitle);
+    const safeFullTitle = escapeHtml(listing.title || displayTitle);
 
     return `
       <article class="${featured ? "featured-card" : "listing-card"} ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}"${getHighlightStyle(listing)}>
@@ -4073,9 +4086,7 @@ if (listingGrid) {
           ${featured ? `<span class="featured-photo-label">${priorityLabel || "Öne çıkan"}</span>` : ""}
         </div>
         <div class="listing-card-copy">
-          <h3>${listing.title}</h3>
-          <p class="listing-description">${listing.details}</p>
-          ${tagBadges}
+          <h3 title="${safeFullTitle}">${safeDisplayTitle}</h3>
         </div>
         <div class="card-action-area">
           <div class="job-meta">
@@ -4256,7 +4267,9 @@ function accountListingCard(listing, passive = false) {
   const status = completed ? "Tamamlandı" : assigned ? "Usta atandı" : passive ? "Pasif" : "Aktif";
   const assignedMaster = listing.assignedMaster || listing.master || {};
   const canComplete = assigned && !completed && isApprovedListing(listing);
-  const tagBadges = renderTagBadges(listing.tags, 5);
+  const displayTitle = normalizeListingTitle(listing.title) || "Ilan";
+  const safeDisplayTitle = escapeHtml(displayTitle);
+  const safeFullTitle = escapeHtml(listing.title || displayTitle);
 
   return `
     <article class="listing-card ${listing.highlighted ? "colored-listing" : ""} ${passive || completed || !isApprovedListing(listing) ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}"${getHighlightStyle(listing)}>
@@ -4271,10 +4284,8 @@ function accountListingCard(listing, passive = false) {
       <div class="listing-photo">
         <img src="${imageSrc}" alt="${listing.title} ilan fotoğrafı" loading="lazy" onerror="this.onerror=null;this.src='assets/listing-placeholder.svg';" />
       </div>
-      <div>
-        <h3>${listing.title}</h3>
-        <p>${listing.details}</p>
-        ${tagBadges}
+      <div class="listing-card-copy">
+        <h3 title="${safeFullTitle}">${safeDisplayTitle}</h3>
       </div>
       <div class="card-action-area">
         <div class="job-meta">

@@ -1433,8 +1433,14 @@ button:disabled,
 
 .featured-card h3,
 .listing-card h3 {
+  display: -webkit-box;
+  min-height: calc(1.25em * 2);
+  margin: 0;
+  overflow: hidden;
   font-size: 1.05rem;
   line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .featured-card h3 {
@@ -1466,14 +1472,17 @@ button:disabled,
 
 .listing-card {
   display: grid;
+  grid-template-rows: auto auto auto 1fr;
   gap: 11px;
+  height: 430px;
   padding: 17px;
 }
 
 .listing-card-copy {
   display: grid;
-  gap: 8px;
+  align-items: start;
   min-width: 0;
+  min-height: 58px;
   padding: 11px;
   border: 1px solid rgba(222, 216, 205, 0.72);
   border-radius: 8px;
@@ -1598,6 +1607,8 @@ button:disabled,
 
 .card-action-area .job-meta {
   gap: 6px;
+  max-height: 62px;
+  overflow: hidden;
 }
 
 .card-action-area .listing-bottom {
@@ -4538,6 +4549,21 @@ textarea:focus {
   .market-page .listing-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .market-page .listing-card {
+    height: 360px;
+  }
+
+  .market-page .listing-photo {
+    aspect-ratio: 16 / 10;
+  }
+
+  .market-page .listing-top,
+  .market-page .listing-bottom,
+  .market-page .card-action-area .listing-bottom {
+    align-items: center;
+    flex-direction: row;
   }
 
   .market-page .all-listings-section .list-section-head {
