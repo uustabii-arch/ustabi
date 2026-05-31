@@ -1415,6 +1415,10 @@ button:disabled,
   transition: transform 0.32s ease;
 }
 
+.listing-card .listing-photo {
+  aspect-ratio: 16 / 8;
+}
+
 .featured-photo-label {
   position: absolute;
   top: 10px;
@@ -1434,7 +1438,6 @@ button:disabled,
 .featured-card h3,
 .listing-card h3 {
   display: -webkit-box;
-  min-height: calc(1.25em * 2);
   margin: 0;
   overflow: hidden;
   font-size: 1.05rem;
@@ -1472,18 +1475,18 @@ button:disabled,
 
 .listing-card {
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
-  gap: 11px;
-  height: 430px;
-  padding: 17px;
+  align-content: start;
+  grid-template-rows: auto auto auto auto;
+  gap: 8px;
+  height: 386px;
+  padding: 13px;
 }
 
 .listing-card-copy {
   display: grid;
   align-items: start;
   min-width: 0;
-  min-height: 58px;
-  padding: 11px;
+  padding: 8px 9px;
   border: 1px solid rgba(222, 216, 205, 0.72);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
@@ -1599,15 +1602,14 @@ button:disabled,
 
 .card-action-area {
   display: grid;
-  gap: 8px;
-  align-self: end;
+  gap: 6px;
+  align-self: start;
   min-width: 0;
-  padding-top: 2px;
 }
 
 .card-action-area .job-meta {
   gap: 6px;
-  max-height: 62px;
+  max-height: 30px;
   overflow: hidden;
 }
 
@@ -4338,6 +4340,10 @@ textarea:focus {
     aspect-ratio: 4 / 3;
   }
 
+  .listing-card .listing-photo {
+    aspect-ratio: 16 / 8;
+  }
+
   .featured-card .listing-photo {
     aspect-ratio: 16 / 9;
   }
@@ -4552,11 +4558,11 @@ textarea:focus {
   }
 
   .market-page .listing-card {
-    height: 360px;
+    height: 324px;
   }
 
   .market-page .listing-photo {
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 16 / 8;
   }
 
   .market-page .listing-top,
