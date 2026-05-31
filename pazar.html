@@ -236,28 +236,77 @@
           </div>
         </div>
 
-        <div class="market-filter-bar" aria-label="İlan filtreleri">
-          <label>
-            Bütçe alt
-            <input id="budgetMinFilter" type="number" min="0" step="100" placeholder="Min" />
-          </label>
-          <label>
-            Bütçe üst
-            <input id="budgetMaxFilter" type="number" min="0" step="100" placeholder="Max" />
-          </label>
-          <label>
-            Çalışma
-            <select id="workModeFilter">
-              <option value="all">Tümü</option>
-              <option value="remote">Uzaktan</option>
-              <option value="onsite">Yakından</option>
-            </select>
-          </label>
-          <label>
-            Konum
-            <input id="locationFilter" type="search" placeholder="İl veya ilçe" />
-          </label>
-          <button class="ghost-action" id="clearMarketFilters" type="button">Temizle</button>
+        <div class="market-filter-panel" aria-label="İlan filtreleri">
+          <div class="market-filter-head">
+            <strong>Filtreler</strong>
+            <button class="ghost-action" id="clearMarketFilters" type="button">Temizle</button>
+          </div>
+          <div class="market-filter-grid">
+            <fieldset>
+              <legend>Bütçe</legend>
+              <div class="market-filter-pair">
+                <label>
+                  Alt
+                  <input id="budgetMinFilter" type="number" min="0" step="100" placeholder="Min" />
+                </label>
+                <label>
+                  Üst
+                  <input id="budgetMaxFilter" type="number" min="0" step="100" placeholder="Max" />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Çalışma ve konum</legend>
+              <div class="market-filter-pair">
+                <label>
+                  Çalışma
+                  <select id="workModeFilter">
+                    <option value="all">Tümü</option>
+                    <option value="remote">Uzaktan</option>
+                    <option value="onsite">Yakından</option>
+                  </select>
+                </label>
+                <label>
+                  İl
+                  <select id="cityFilter">
+                    <option value="">Tümü</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                İlçe
+                <select id="districtFilter" disabled>
+                  <option value="">Önce il seç</option>
+                </select>
+              </label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Teklif ve sıralama</legend>
+              <div class="market-filter-pair">
+                <label>
+                  Teklif sayısı
+                  <select id="offerCountFilter">
+                    <option value="all">Tümü</option>
+                    <option value="none">Teklifsiz</option>
+                    <option value="low">1-3 teklif</option>
+                    <option value="many">4+ teklif</option>
+                  </select>
+                </label>
+                <label>
+                  Sırala
+                  <select id="sortFilter">
+                    <option value="featured">Öne çıkan</option>
+                    <option value="newest">En yeni</option>
+                    <option value="budgetDesc">Bütçe yüksek</option>
+                    <option value="budgetAsc">Bütçe düşük</option>
+                    <option value="offersAsc">Az teklifli</option>
+                  </select>
+                </label>
+              </div>
+            </fieldset>
+          </div>
         </div>
 
         <div class="listing-grid" id="listingGrid"></div>
@@ -266,6 +315,7 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+    <script src="turkey-locations.js"></script>
     <script type="module" src="script.js"></script>
   </body>
 </html>

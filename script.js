@@ -4218,7 +4218,10 @@ if (listingGrid) {
   const budgetMinFilter = document.querySelector("#budgetMinFilter");
   const budgetMaxFilter = document.querySelector("#budgetMaxFilter");
   const workModeFilter = document.querySelector("#workModeFilter");
-  const locationFilter = document.querySelector("#locationFilter");
+  const cityFilter = document.querySelector("#cityFilter");
+  const districtFilter = document.querySelector("#districtFilter");
+  const offerCountFilter = document.querySelector("#offerCountFilter");
+  const sortFilter = document.querySelector("#sortFilter");
   const clearMarketFilters = document.querySelector("#clearMarketFilters");
   const chips = document.querySelectorAll(".chip");
   const profileName = document.querySelector("#profileName");
@@ -4595,13 +4598,46 @@ if (listingGrid) {
     });
   }
 
+  function populateMarketLocationFilters() {
+    if (!cityFilter || !districtFilter || !window.TURKEY_LOCATIONS) return;
+
+    cityFilter.innerHTML = `<option value="">Tümü</option>`;
+    window.TURKEY_LOCATIONS.forEach((city) => {
+      cityFilter.add(new Option(city.name, city.name));
+    });
+
+    const syncDistrictFilter = () => {
+      const city = window.TURKEY_LOCATIONS.find((item) => item.name === cityFilter.value);
+      districtFilter.innerHTML = "";
+      if (!city) {
+        districtFilter.add(new Option("Önce il seç", ""));
+        districtFilter.disabled = true;
+        return;
+      }
+
+      districtFilter.add(new Option("Tümü", ""));
+      city.districts.forEach((district) => {
+        districtFilter.add(new Option(district.name, district.name));
+      });
+      districtFilter.disabled = false;
+    };
+
+    cityFilter.addEventListener("change", () => {
+      syncDistrictFilter();
+      renderListings();
+    });
+    syncDistrictFilter();
+  }
+
   function getFilteredListings() {
     const query = marketSearch.value.trim().toLocaleLowerCase("tr-TR");
     const category = categoryFilter.value;
     const minBudget = Number(budgetMinFilter?.value || 0);
     const maxBudget = Number(budgetMaxFilter?.value || 0);
     const workMode = workModeFilter?.value || "all";
-    const locationQuery = (locationFilter?.value || "").trim().toLocaleLowerCase("tr-TR");
+    const cityValue = cityFilter?.value || "";
+    const districtValue = districtFilter?.value || "";
+    const offerCountValue = offerCountFilter?.value || "all";
 
     return listings.filter((listing) => {
       if (isUnavailableListing(listing)) return false;
@@ -4629,10 +4665,16 @@ if (listingGrid) {
       const matchesMaxBudget = !maxBudget || listingBudget <= maxBudget;
       const listingWorkMode = listing.workLocationMode || "onsite";
       const matchesWorkMode = workMode === "all" || listingWorkMode === workMode;
-      const locationText = [listing.city, listing.district].filter(Boolean).join(" ").toLocaleLowerCase("tr-TR");
-      const matchesLocation = !locationQuery || locationText.includes(locationQuery);
+      const matchesCity = !cityValue || listing.city === cityValue;
+      const matchesDistrict = !districtValue || listing.district === districtValue;
+      const offers = Number(listing.offers || 0);
+      const matchesOfferCount =
+        offerCountValue === "all" ||
+        (offerCountValue === "none" && offers === 0) ||
+        (offerCountValue === "low" && offers >= 1 && offers <= 3) ||
+        (offerCountValue === "many" && offers >= 4);
 
-      return matchesQuery && matchesCategory && matchesTime && matchesMinBudget && matchesMaxBudget && matchesWorkMode && matchesLocation;
+      return matchesQuery && matchesCategory && matchesTime && matchesMinBudget && matchesMaxBudget && matchesWorkMode && matchesCity && matchesDistrict && matchesOfferCount;
     });
   }
 
@@ -4734,8 +4776,16 @@ if (listingGrid) {
     const sortByPromotion = (left, right) =>
       Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
       getRecordTimestamp(right) - getRecordTimestamp(left);
+    const sortBySelectedFilter = (left, right) => {
+      const sortValue = sortFilter?.value || "featured";
+      if (sortValue === "newest") return getRecordTimestamp(right) - getRecordTimestamp(left);
+      if (sortValue === "budgetDesc") return Number(right.budget || 0) - Number(left.budget || 0);
+      if (sortValue === "budgetAsc") return Number(left.budget || 0) - Number(right.budget || 0);
+      if (sortValue === "offersAsc") return Number(left.offers || 0) - Number(right.offers || 0);
+      return sortByPromotion(left, right);
+    };
     const featured = filteredListings.filter((listing) => listing.featured).sort(sortByPromotion);
-    const orderedListings = [...filteredListings].sort(sortByPromotion);
+    const orderedListings = [...filteredListings].sort(sortBySelectedFilter);
 
     currentFeatured = featured;
     featuredIndex = 0;
@@ -4824,7 +4874,8 @@ if (listingGrid) {
 
   marketSearch.addEventListener("input", renderListings);
   categoryFilter.addEventListener("change", renderListings);
-  [budgetMinFilter, budgetMaxFilter, workModeFilter, locationFilter].forEach((input) => {
+  populateMarketLocationFilters();
+  [budgetMinFilter, budgetMaxFilter, workModeFilter, districtFilter, offerCountFilter, sortFilter].forEach((input) => {
     input?.addEventListener("input", renderListings);
     input?.addEventListener("change", renderListings);
   });
@@ -4832,7 +4883,13 @@ if (listingGrid) {
     if (budgetMinFilter) budgetMinFilter.value = "";
     if (budgetMaxFilter) budgetMaxFilter.value = "";
     if (workModeFilter) workModeFilter.value = "all";
-    if (locationFilter) locationFilter.value = "";
+    if (cityFilter) cityFilter.value = "";
+    if (districtFilter) {
+      districtFilter.innerHTML = `<option value="">Önce il seç</option>`;
+      districtFilter.disabled = true;
+    }
+    if (offerCountFilter) offerCountFilter.value = "all";
+    if (sortFilter) sortFilter.value = "featured";
     renderListings();
   });
 
