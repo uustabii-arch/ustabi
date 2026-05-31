@@ -225,21 +225,32 @@
 
       <section class="all-listings-section" aria-label="Tüm işler">
         <div class="list-section-head">
-          <select id="categoryFilter" aria-label="Kategori filtresi">
-            <option value="Tümü">Tümü</option>
-          </select>
-          <div class="chip-row" aria-label="Hızlı filtreler">
-            <button class="chip active" type="button" data-time="Tümü">Tümü</button>
-            <button class="chip" type="button" data-time="Bugün">Bugün</button>
-            <button class="chip" type="button" data-time="Yarın">Yarın</button>
-            <button class="chip" type="button" data-time="Bu hafta">Bu hafta</button>
-          </div>
+          <button
+            class="filter-toggle-button"
+            id="filterToggleButton"
+            type="button"
+            aria-expanded="false"
+            aria-controls="marketFilters"
+          >
+            Filtreler
+          </button>
         </div>
 
-        <div class="market-filter-panel" aria-label="İlan filtreleri">
+        <div class="market-filter-panel" id="marketFilters" aria-label="İlan filtreleri" hidden>
           <div class="market-filter-head">
             <strong>Filtreler</strong>
             <button class="ghost-action" id="clearMarketFilters" type="button">Temizle</button>
+          </div>
+          <div class="market-filter-shortcuts">
+            <select id="categoryFilter" aria-label="Kategori filtresi">
+              <option value="Tümü">Tümü</option>
+            </select>
+            <div class="chip-row" aria-label="Hızlı filtreler">
+              <button class="chip active" type="button" data-time="Tümü">Tümü</button>
+              <button class="chip" type="button" data-time="Bugün">Bugün</button>
+              <button class="chip" type="button" data-time="Yarın">Yarın</button>
+              <button class="chip" type="button" data-time="Bu hafta">Bu hafta</button>
+            </div>
           </div>
           <div class="market-filter-grid">
             <fieldset>

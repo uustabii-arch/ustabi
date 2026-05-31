@@ -4214,6 +4214,8 @@ if (listingGrid) {
   const featuredNext = document.querySelector("#featuredNext");
   const featuredCarousel = document.querySelector(".featured-carousel");
   const marketSearch = document.querySelector("#marketSearch");
+  const filterToggleButton = document.querySelector("#filterToggleButton");
+  const marketFilters = document.querySelector("#marketFilters");
   const categoryFilter = document.querySelector("#categoryFilter");
   const budgetMinFilter = document.querySelector("#budgetMinFilter");
   const budgetMaxFilter = document.querySelector("#budgetMaxFilter");
@@ -4821,6 +4823,11 @@ if (listingGrid) {
   featuredCarousel?.addEventListener("mouseenter", () => window.clearInterval(carouselTimer));
   featuredCarousel?.addEventListener("mouseleave", restartCarousel);
   window.addEventListener("resize", updateFeaturedCarousel);
+  filterToggleButton?.addEventListener("click", () => {
+    const expanded = filterToggleButton.getAttribute("aria-expanded") === "true";
+    filterToggleButton.setAttribute("aria-expanded", String(!expanded));
+    if (marketFilters) marketFilters.hidden = expanded;
+  });
   profileButton.addEventListener("click", openProfileDrawer);
   closeProfileDrawer.addEventListener("click", closeDrawer);
   drawerBackdrop.addEventListener("click", closeDrawer);
