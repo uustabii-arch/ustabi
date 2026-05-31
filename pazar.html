@@ -48,6 +48,31 @@
             </div>
           </div>
         </div>
+
+        <div class="notification-wrap admin-listing-notification-wrap" id="adminListingNotificationWrap" hidden>
+          <button
+            class="notification-button admin-listing-notification-button"
+            id="adminListingNotificationButton"
+            type="button"
+            aria-label="Admin ilan bildirimlerini aç"
+            aria-expanded="false"
+            aria-controls="adminListingNotificationPanel"
+          >
+            <span class="admin-listing-notification-icon" aria-hidden="true">AD</span>
+            <span class="notification-badge" id="adminListingNotificationBadge" hidden>0</span>
+          </button>
+
+          <div class="notification-panel admin-listing-notification-panel" id="adminListingNotificationPanel" hidden>
+            <div class="notification-panel-head">
+              <div>
+                <strong>İlan bildirimleri</strong>
+                <small id="adminListingNotificationCountText">Bekleyen ilanlar</small>
+              </div>
+              <a class="notification-settings-link" href="admin.html">Panele git</a>
+            </div>
+            <ul class="notification-list" id="adminListingNotificationList" aria-live="polite"></ul>
+          </div>
+        </div>
       </div>
 
       <button class="profile-button" id="profileButton" type="button" aria-label="Profil panelini aç">

@@ -330,6 +330,23 @@ button:disabled,
   box-shadow: 0 4px 0 -1px currentColor;
 }
 
+.admin-listing-notification-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff0eb;
+  color: var(--red);
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.admin-listing-notification-panel .notification-settings-link {
+  align-self: center;
+  white-space: nowrap;
+}
+
 .notification-badge {
   position: absolute;
   top: -4px;
@@ -2115,6 +2132,11 @@ body:not(.auth-active) .auth-shell {
   background: #fffdfa;
 }
 
+.admin-moderation-item.focused-admin-listing {
+  border-color: rgba(255, 160, 0, 0.68);
+  box-shadow: 0 0 0 3px rgba(255, 160, 0, 0.16);
+}
+
 .admin-moderation-head {
   display: flex;
   align-items: flex-start;
@@ -2768,6 +2790,31 @@ textarea:focus {
     transform 0.16s ease,
     box-shadow 0.16s ease,
     background 0.16s ease;
+}
+
+.edit-listing-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(49, 94, 159, 0.2);
+  border-radius: 8px;
+  background: #eef3f7;
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-decoration: none;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+
+.edit-listing-action:hover {
+  background: #e4edf6;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(49, 94, 159, 0.12);
 }
 
 .finish-job-action:hover {
@@ -4607,6 +4654,11 @@ textarea:focus {
     order: initial;
     width: min(100%, 258px);
     margin: 0;
+  }
+
+  .market-page.admin-user .market-toolbar {
+    grid-template-columns: minmax(0, 1fr) 40px 40px;
+    width: min(100%, 306px);
   }
 
   .market-page .market-search {

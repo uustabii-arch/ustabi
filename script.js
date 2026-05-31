@@ -125,7 +125,7 @@ function sanitizeFirestoreData(value) {
 }
 
 function getRecordTimestamp(record) {
-  const value = record?.createdAt || record?.respondedAt || record?.updatedAt || record?.time;
+  const value = record?.resubmittedAt || record?.createdAt || record?.respondedAt || record?.updatedAt || record?.time;
   if (!value) return 0;
   if (typeof value === "number") return value;
   if (typeof value === "string") {
@@ -788,6 +788,24 @@ const categoryImageMap = {
     "https://images.unsplash.com/photo-1740657254989-42fe9c3b8cce?auto=format&fit=crop&q=80&w=1200",
   "Haşere ilaçlama":
     "https://images.unsplash.com/photo-1740657254989-42fe9c3b8cce?auto=format&fit=crop&q=80&w=1200",
+  "Web sitesi":
+    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1200",
+  "Mobil uygulama":
+    "https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&q=80&w=1200",
+  "UI/UX tasarım":
+    "https://images.unsplash.com/photo-1559028012-481c04fa702d?auto=format&fit=crop&q=80&w=1200",
+  "Sosyal medya":
+    "https://images.unsplash.com/photo-1611162616475-46b635cb6868?auto=format&fit=crop&q=80&w=1200",
+  Terzi:
+    "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=1200",
+  "Özel ders":
+    "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=1200",
+  Catering:
+    "https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&q=80&w=1200",
+  "Fotoğraf çekimi":
+    "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?auto=format&fit=crop&q=80&w=1200",
+  Kuaför:
+    "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&q=80&w=1200",
   Diğer:
     "https://images.unsplash.com/photo-1683115096447-5d01c11d3ead?auto=format&fit=crop&q=80&w=1200",
 };
@@ -1861,6 +1879,21 @@ function applyListingModerationLocally(listingId, patch) {
   notifySharedListingListeners();
 }
 
+function upsertListingLocally(updatedListing) {
+  const listingId = String(updatedListing.id);
+  const storedListings = getStoredListings();
+  const existsLocally = storedListings.some((listing) => String(listing.id) === listingId);
+  const nextStoredListings = existsLocally
+    ? storedListings.map((listing) => (String(listing.id) === listingId ? updatedListing : listing))
+    : [updatedListing, ...storedListings];
+
+  localStorage.setItem("ustaListings", JSON.stringify(nextStoredListings));
+  remoteListings = remoteListings.some((listing) => String(listing.id) === listingId)
+    ? remoteListings.map((listing) => (String(listing.id) === listingId ? updatedListing : listing))
+    : [updatedListing, ...remoteListings];
+  notifySharedListingListeners();
+}
+
 function removeListingLocally(listingId) {
   const removeListing = (listing) => String(listing.id) !== String(listingId);
   localStorage.setItem("ustaListings", JSON.stringify(getStoredListings().filter(removeListing)));
@@ -1871,6 +1904,11 @@ function removeListingLocally(listingId) {
 async function publishListingModerationToFirestore(listingId, patch) {
   await ensureFirestoreAuth();
   await setDoc(doc(db, "listings", String(listingId)), sanitizeFirestoreData(patch), { merge: true });
+}
+
+async function publishListingUpdateToFirestore(listing) {
+  await ensureFirestoreAuth();
+  await setDoc(doc(db, "listings", String(listing.id)), sanitizeFirestoreData(listing), { merge: true });
 }
 
 async function deleteListingFromFirestore(listingId) {
@@ -3359,6 +3397,8 @@ if (notificationHistoryList) {
 }
 
 if (adminModerationList) {
+  const adminFocusListingId = new URLSearchParams(window.location.search).get("listing");
+
   function renderAdminModerationPanel(listings = getAllListings()) {
     const user = getCurrentUser();
     if (!isAdminUser(user)) {
@@ -3389,7 +3429,7 @@ if (adminModerationList) {
           .map((listing) => {
             const status = getModerationStatus(listing);
             return `
-              <article class="admin-moderation-item" data-admin-listing="${listing.id}">
+              <article class="admin-moderation-item ${String(listing.id) === String(adminFocusListingId) ? "focused-admin-listing" : ""}" data-admin-listing="${listing.id}">
                 <div class="admin-moderation-head">
                   <div>
                     <span class="badge ${status === "pending" ? "hot" : ""}">${getListingStatusLabel(listing)}</span>
@@ -3420,6 +3460,12 @@ if (adminModerationList) {
           })
           .join("")
       : `<article class="admin-moderation-item"><h3>İlan yok</h3></article>`;
+
+    if (adminFocusListingId) {
+      adminModerationList.querySelector(`[data-admin-listing="${CSS.escape(String(adminFocusListingId))}"]`)?.scrollIntoView({
+        block: "center",
+      });
+    }
   }
 
   async function notifyListingModeration(listing, moderationStatus, reason = "") {
@@ -3589,6 +3635,10 @@ if (paymentForm) {
 if (listingCreateForm) {
   const categorySelect = listingCreateForm.elements.category;
   const listingTitleInput = listingCreateForm.elements.title;
+  const listingFormParams = new URLSearchParams(window.location.search);
+  const editListingId = listingFormParams.get("edit");
+  let editListing = null;
+  let editFormHydrated = false;
 
   if (listingTitleInput) {
     listingTitleInput.maxLength = listingTitleMaxLength;
@@ -3611,6 +3661,101 @@ if (listingCreateForm) {
       customCategoryInput.required = Boolean(isOtherCategory);
       if (!isOtherCategory) customCategoryInput.value = "";
     }
+  }
+
+  function setListingWorkDateValue(value) {
+    if (!value || !workDateDay || !workDateMonth || !workDateYear || !workDateInput) return;
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return;
+
+    workDateMonth.value = String(date.getMonth() + 1);
+    workDateMonth.dispatchEvent(new Event("change"));
+    workDateDay.value = String(date.getDate());
+    workDateDay.dispatchEvent(new Event("change"));
+    workDateYear.value = String(date.getFullYear());
+    workDateInput.value = value;
+  }
+
+  function setListingLocationValue(city = "", district = "") {
+    if (!citySelect || !districtSelect) return;
+    citySelect.value = city;
+    citySelect.dispatchEvent(new Event("change"));
+    districtSelect.value = district;
+  }
+
+  function hydrateListingEditForm(listing) {
+    if (!listing || editFormHydrated) return;
+    if (!isListingOwnedByUser(listing)) {
+      showToast("Bu ilanı sadece ilan sahibi güncelleyebilir.");
+      window.setTimeout(() => {
+        window.location.href = "ilanlarim.html";
+      }, 800);
+      return;
+    }
+
+    if (isAssignedListing(listing) || isCompletedListing(listing)) {
+      showToast("Atanmış veya tamamlanmış ilanlar güncellenemez.");
+      window.setTimeout(() => {
+        window.location.href = "ilanlarim.html";
+      }, 800);
+      return;
+    }
+
+    editListing = listing;
+    editFormHydrated = true;
+    listingCreateForm.dataset.mode = "edit";
+
+    const pageTitle = document.querySelector("#post-listing-title");
+    const formTitle = document.querySelector("#listing-form-title");
+    const submitButton = listingCreateForm.querySelector('button[type="submit"]');
+    if (pageTitle) pageTitle.textContent = "İlanını güncelle.";
+    if (formTitle) formTitle.textContent = "İlanı güncelle";
+    if (submitButton) submitButton.textContent = "İlanı güncelle";
+    listingCreateForm.querySelector(".listing-promotion-fieldset")?.setAttribute("hidden", "");
+
+    listingCreateForm.elements.title.value = listing.title || "";
+    if ([...categorySelect.options].some((option) => option.value === listing.category)) {
+      categorySelect.value = listing.category;
+    } else {
+      categorySelect.value = "Diğer";
+      customCategoryInput.value = listing.customCategoryTitle || listing.category || "";
+    }
+    syncCustomCategoryField();
+
+    setListingLocationValue(listing.city || "", listing.district || "");
+    setListingWorkDateValue(listing.workDate || "");
+
+    [
+      "duration",
+      "budget",
+      "materials",
+      "phone",
+      "addressNote",
+      "expectations",
+      "details",
+    ].forEach((name) => {
+      if (listingCreateForm.elements[name]) {
+        listingCreateForm.elements[name].value = listing[name] || "";
+      }
+    });
+    if (listingCreateForm.elements.tags) {
+      listingCreateForm.elements.tags.value = getListingTags(listing).join(", ");
+    }
+    if (highlightColorInput && listing.highlightColor) {
+      highlightColorInput.value = sanitizeHighlightColor(listing.highlightColor);
+    }
+
+    const previewImage = listingImagePreview?.querySelector("img");
+    if (previewImage && listing.image) {
+      previewImage.src = getListingImage(listing);
+      listingImagePreview.hidden = false;
+    }
+  }
+
+  function initListingEditMode() {
+    if (!editListingId) return;
+    const listing = getAllListings().find((item) => String(item.id) === String(editListingId));
+    if (listing) hydrateListingEditForm(listing);
   }
 
   function updateHighlightColorPicker() {
@@ -3660,6 +3805,11 @@ if (listingCreateForm) {
   categorySearchInput?.addEventListener("input", filterListingCategories);
   categorySelect?.addEventListener("change", syncCustomCategoryField);
   syncCustomCategoryField();
+  initListingEditMode();
+  subscribeSharedListings(() => {
+    if (!editListingId || editFormHydrated) return;
+    initListingEditMode();
+  });
 
   listingCreateForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -3698,6 +3848,87 @@ if (listingCreateForm) {
 
     if (selectedCategory === "Diğer" && !customCategoryTitle) {
       showToast("Diğer kategorisi için işe özel başlık yazman gerekiyor.");
+      return;
+    }
+
+    if (editListingId) {
+      const existingListing =
+        editListing || getAllListings().find((item) => String(item.id) === String(editListingId));
+      if (!existingListing) {
+        showToast("Güncellenecek ilan bulunamadı.");
+        return;
+      }
+      if (!isListingOwnedByUser(existingListing, currentUser)) {
+        showToast("Bu ilanı sadece ilan sahibi güncelleyebilir.");
+        return;
+      }
+      if (isAssignedListing(existingListing) || isCompletedListing(existingListing)) {
+        showToast("Atanmış veya tamamlanmış ilanlar güncellenemez.");
+        return;
+      }
+
+      const updatedListing = {
+        ...existingListing,
+        ownerKey: existingListing.ownerKey || getAccountKey(currentUser),
+        ownerUid: existingListing.ownerUid || currentUser.uid || "",
+        ownerEmail: existingListing.ownerEmail || getAccountEmail(currentUser),
+        title: listingTitle,
+        category,
+        categoryGroup,
+        customCategoryTitle,
+        tags,
+        city: formData.get("city"),
+        district: formData.get("district"),
+        workDate,
+        time: getTimeLabel(workDate),
+        duration: formData.get("duration"),
+        budget: Number(formData.get("budget")),
+        materials: formData.get("materials"),
+        phone: formData.get("phone"),
+        addressNote: formData.get("addressNote").trim(),
+        expectations: formData.get("expectations").trim(),
+        details: formData.get("details").trim(),
+        status: existingListing.status === "completed" || existingListing.status === "assigned" ? existingListing.status : "active",
+        moderationStatus: "pending",
+        moderationReason: "",
+        moderatedAt: "",
+        moderatedBy: "",
+        image: image || existingListing.image || "",
+        createdAt: getRecordTimestamp(existingListing) || Date.now(),
+        owner: {
+          ...(existingListing.owner || {}),
+          name: existingListing.owner?.name || currentUser.fullName || "İş veren",
+          key: existingListing.owner?.key || getAccountKey(currentUser),
+          email: existingListing.owner?.email || getAccountEmail(currentUser),
+          rating: Number(existingListing.owner?.rating || 10),
+          reviewCount: Number(existingListing.owner?.reviewCount || 0),
+        },
+        updatedAt: Date.now(),
+        resubmittedAt: new Date().toISOString(),
+      };
+
+      try {
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = "İlan güncelleniyor...";
+        }
+
+        upsertListingLocally(updatedListing);
+        await publishListingUpdateToFirestore(updatedListing);
+        showToast("İlan güncellendi. Admin onayından sonra tekrar yayına alınacak.");
+      } catch (error) {
+        console.warn("İlan güncellemesi Firestore'a yazılamadı:", error);
+        showToast(`İlan yerelde güncellendi. ${getFirestoreErrorMessage(error)}`);
+      } finally {
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = "İlanı güncelle";
+        }
+      }
+
+      window.setTimeout(() => {
+        window.location.href = "ilanlarim.html";
+      }, 800);
       return;
     }
 
@@ -3917,6 +4148,12 @@ if (listingGrid) {
   const notificationBadge = document.querySelector("#notificationBadge");
   const notificationCountText = document.querySelector("#notificationCountText");
   const markAllNotificationsRead = document.querySelector("#markAllNotificationsRead");
+  const adminListingNotificationWrap = document.querySelector("#adminListingNotificationWrap");
+  const adminListingNotificationButton = document.querySelector("#adminListingNotificationButton");
+  const adminListingNotificationPanel = document.querySelector("#adminListingNotificationPanel");
+  const adminListingNotificationList = document.querySelector("#adminListingNotificationList");
+  const adminListingNotificationBadge = document.querySelector("#adminListingNotificationBadge");
+  const adminListingNotificationCountText = document.querySelector("#adminListingNotificationCountText");
 
   let notificationInbox = [];
 
@@ -3968,8 +4205,10 @@ if (listingGrid) {
     const roleLabel = registered
       ? role === "master" ? user.profession || "Hizmet veren hesabı" : "İş veren hesabı"
       : "İlanları keşfet";
+    const adminUser = isAdminUser(user);
 
     document.body.classList.toggle("guest-user", !registered);
+    document.body.classList.toggle("admin-user", adminUser);
     profileButton.setAttribute("aria-label", registered ? "Profil panelini aç" : "Hesap panelini aç");
     profileName.textContent = profileButtonName;
     profileRole.textContent = roleLabel;
@@ -3982,7 +4221,10 @@ if (listingGrid) {
       drawerUpgradeLink.href = registered ? "kredi-yukle.html" : "kayit.html";
     }
     if (adminPanelAction) {
-      adminPanelAction.hidden = !isAdminUser(user);
+      adminPanelAction.hidden = !adminUser;
+    }
+    if (adminListingNotificationWrap) {
+      adminListingNotificationWrap.hidden = !adminUser;
     }
     updateDrawerCreditBalance();
     updateDrawerVerificationState(user);
@@ -4018,18 +4260,41 @@ if (listingGrid) {
     notificationButton.setAttribute("aria-expanded", "false");
   }
 
+  function closeAdminListingNotificationPanel() {
+    if (!adminListingNotificationPanel || !adminListingNotificationButton) return;
+    adminListingNotificationPanel.classList.remove("open");
+    adminListingNotificationPanel.hidden = true;
+    adminListingNotificationButton.setAttribute("aria-expanded", "false");
+  }
+
   function openNotificationPanel() {
     if (!notificationPanel || !notificationButton) return;
     closeDrawer();
+    closeAdminListingNotificationPanel();
     notificationPanel.hidden = false;
     window.requestAnimationFrame(() => notificationPanel.classList.add("open"));
     notificationButton.setAttribute("aria-expanded", "true");
+  }
+
+  function openAdminListingNotificationPanel() {
+    if (!adminListingNotificationPanel || !adminListingNotificationButton) return;
+    closeDrawer();
+    closeNotificationPanel();
+    adminListingNotificationPanel.hidden = false;
+    window.requestAnimationFrame(() => adminListingNotificationPanel.classList.add("open"));
+    adminListingNotificationButton.setAttribute("aria-expanded", "true");
   }
 
   function toggleNotificationPanel() {
     if (!notificationPanel || !notificationButton) return;
     if (notificationPanel.hidden) openNotificationPanel();
     else closeNotificationPanel();
+  }
+
+  function toggleAdminListingNotificationPanel() {
+    if (!adminListingNotificationPanel || !adminListingNotificationButton) return;
+    if (adminListingNotificationPanel.hidden) openAdminListingNotificationPanel();
+    else closeAdminListingNotificationPanel();
   }
 
   function updateNotificationBadge() {
@@ -4083,6 +4348,56 @@ if (listingGrid) {
     }
 
     updateNotificationBadge();
+  }
+
+  function getAdminListingNotifications() {
+    if (!isAdminUser(getUser())) return [];
+    return getAllListings()
+      .filter(isPendingModerationListing)
+      .sort((left, right) => getRecordTimestamp(right) - getRecordTimestamp(left));
+  }
+
+  function renderAdminListingNotifications() {
+    if (!adminListingNotificationWrap || !adminListingNotificationList) return;
+    const adminUser = isAdminUser(getUser());
+    adminListingNotificationWrap.hidden = !adminUser;
+    if (!adminUser) return;
+
+    const pendingListings = getAdminListingNotifications();
+    if (adminListingNotificationBadge) {
+      adminListingNotificationBadge.hidden = pendingListings.length === 0;
+      adminListingNotificationBadge.textContent = pendingListings.length > 9 ? "9+" : String(pendingListings.length);
+    }
+    if (adminListingNotificationCountText) {
+      adminListingNotificationCountText.textContent = pendingListings.length
+        ? `${pendingListings.length} bekleyen ilan`
+        : "Bekleyen ilan yok";
+    }
+
+    adminListingNotificationList.innerHTML = pendingListings.length
+      ? pendingListings
+          .map((listing) => {
+            const listingTime = getRecordTimestamp(listing) || Date.now();
+            const notificationTitle = listing.resubmittedAt ? "Güncellenen ilan" : "Yeni ilan";
+            return `
+              <li>
+                <button
+                  class="notification-item unread"
+                  type="button"
+                  data-admin-listing-notification="${listing.id}"
+                >
+                  <span class="notification-type-mark">İL</span>
+                  <span class="notification-copy">
+                    <strong>${notificationTitle}: ${escapeHtml(listing.title || "Başlıksız ilan")}</strong>
+                    <p>${escapeHtml([listing.category, listing.city, listing.district].filter(Boolean).join(" · "))}</p>
+                  </span>
+                  <time datetime="${new Date(listingTime).toISOString()}">${formatNotificationTime(listingTime)}</time>
+                </button>
+              </li>
+            `;
+          })
+          .join("")
+      : `<li class="notification-empty">Bekleyen ilan yok.</li>`;
   }
 
   function loadNotificationInbox() {
@@ -4161,6 +4476,29 @@ if (listingGrid) {
     document.addEventListener("click", (event) => {
       if (notificationPanel.hidden || event.target.closest(".notification-wrap")) return;
       closeNotificationPanel();
+    });
+  }
+
+  function setupAdminListingNotifications() {
+    if (!adminListingNotificationButton || !adminListingNotificationPanel || !adminListingNotificationList) return;
+
+    renderAdminListingNotifications();
+    subscribeSharedListings(renderAdminListingNotifications);
+
+    adminListingNotificationButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleAdminListingNotificationPanel();
+    });
+
+    adminListingNotificationList.addEventListener("click", (event) => {
+      const item = event.target.closest("[data-admin-listing-notification]");
+      if (!item) return;
+      window.location.href = `admin.html?listing=${encodeURIComponent(item.dataset.adminListingNotification)}`;
+    });
+
+    document.addEventListener("click", (event) => {
+      if (adminListingNotificationPanel.hidden || event.target.closest(".admin-listing-notification-wrap")) return;
+      closeAdminListingNotificationPanel();
     });
   }
 
@@ -4391,6 +4729,7 @@ if (listingGrid) {
 
   setupProfile();
   setupNotifications();
+  setupAdminListingNotifications();
   renderListings();
 }
 
@@ -4401,6 +4740,7 @@ function accountListingCard(listing, passive = false) {
   const status = completed ? "Tamamlandı" : assigned ? "Usta atandı" : passive ? "Pasif" : "Aktif";
   const assignedMaster = listing.assignedMaster || listing.master || {};
   const canComplete = assigned && !completed && isApprovedListing(listing);
+  const canEdit = !assigned && !completed;
   const displayTitle = normalizeListingTitle(listing.title) || "Ilan";
   const safeDisplayTitle = escapeHtml(displayTitle);
   const safeFullTitle = escapeHtml(listing.title || displayTitle);
@@ -4430,6 +4770,7 @@ function accountListingCard(listing, passive = false) {
         </div>
         <div class="listing-bottom">
           <span class="badge">${listing.offers || 0} teklif</span>
+          ${canEdit ? `<a class="edit-listing-action" href="ilan-koy.html?edit=${encodeURIComponent(String(listing.id))}">Düzenle</a>` : ""}
           ${assigned ? `<span class="badge assigned-badge">${assignedMaster.name || "Usta atandı"}</span>` : ""}
           ${canComplete ? `<button class="finish-job-action" type="button" data-complete-listing="${listing.id}">İşi bitir</button>` : ""}
         </div>
@@ -4622,6 +4963,7 @@ if (listingDetail) {
     const canRateListing = isListingAssignedToCurrentUser(listing);
     const registeredUser = isRegisteredUser(getCurrentUser());
     const alreadyOffered = registeredUser && hasAccountOfferedToListing(listing.id);
+    const canEditListing = isListingOwnedByUser(listing) && !assigned && !isCompletedListing(listing);
     lastAlreadyOfferedState = alreadyOffered;
     const tagBadges = renderTagBadges(listing.tags, 8);
 
@@ -4670,6 +5012,7 @@ if (listingDetail) {
             maximumFractionDigits: 0,
           })}</strong>
           <div class="detail-primary-actions">
+            ${canEditListing ? `<a class="ghost-link" href="ilan-koy.html?edit=${encodeURIComponent(String(listing.id))}">İlanı düzenle</a>` : ""}
             ${!inactive && !alreadyOffered ? `<a class="ghost-link" href="${registeredUser ? "#detailOfferForm" : "#registerToOffer"}">${registeredUser ? "Talep alanına git" : "Teklif için kayıt ol"}</a>` : ""}
             ${alreadyOffered ? `<span class="ghost-link disabled-link">Teklifin alındı</span>` : ""}
             ${canRevealListingPhone ? `<a class="ghost-link phone-action" href="tel:${listing.phone}">Ara</a>` : `<span class="ghost-link disabled-link">Telefon gizli</span>`}
