@@ -1477,19 +1477,16 @@ button:disabled,
   display: grid;
   align-content: start;
   grid-template-rows: auto auto auto auto;
-  gap: 8px;
-  height: 386px;
-  padding: 13px;
+  gap: 7px;
+  height: 362px;
+  padding: 12px;
 }
 
 .listing-card-copy {
   display: grid;
   align-items: start;
   min-width: 0;
-  padding: 8px 9px;
-  border: 1px solid rgba(222, 216, 205, 0.72);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  padding: 2px 1px 0;
 }
 
 .listing-description {
@@ -4558,7 +4555,7 @@ textarea:focus {
   }
 
   .market-page .listing-card {
-    height: 324px;
+    height: 304px;
   }
 
   .market-page .listing-photo {
