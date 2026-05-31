@@ -481,6 +481,7 @@ const listingImageInput = document.querySelector("#listingImageInput");
 const listingImagePreview = document.querySelector("#listingImagePreview");
 const listingTitleMaxLength = 72;
 const addressNoteField = document.querySelector("#addressNoteField");
+const locationPickerCard = document.querySelector("#locationPickerCard");
 const customCategoryField = document.querySelector("#customCategoryField");
 const customCategoryInput = document.querySelector("#customCategoryInput");
 const categorySearchInput = document.querySelector("#categorySearchInput");
@@ -3686,6 +3687,30 @@ if (listingCreateForm) {
       addressNoteInput.required = !remote;
       if (remote) addressNoteInput.value = "";
     }
+    if (locationPickerCard) {
+      locationPickerCard.hidden = remote;
+      locationPickerCard.classList.toggle("is-hidden", remote);
+    }
+    if (citySelect && districtSelect) {
+      citySelect.required = !remote;
+      districtSelect.required = !remote;
+      citySelect.disabled = remote;
+      if (remote) {
+        citySelect.value = "";
+        districtSelect.innerHTML = "";
+        districtSelect.add(new Option("Uzaktan çalışma", ""));
+        districtSelect.disabled = true;
+        districtSelect.value = "";
+      } else {
+        citySelect.disabled = false;
+        const hasCity = Boolean(citySelect.value);
+        districtSelect.disabled = !hasCity;
+        if (!hasCity) {
+          districtSelect.innerHTML = "";
+          districtSelect.add(new Option("Önce il seç", ""));
+        }
+      }
+    }
   }
 
   function setListingWorkDateValue(value) {
@@ -3882,6 +3907,8 @@ if (listingCreateForm) {
     const tags = parseListingTags(formData.get("tags"));
     const workLocationMode = getSelectedWorkLocationMode();
     const addressNote = workLocationMode === "remote" ? "" : String(formData.get("addressNote") || "").trim();
+    const city = workLocationMode === "remote" ? "" : formData.get("city");
+    const district = workLocationMode === "remote" ? "" : formData.get("district");
 
     if (selectedCategory === "Diğer" && !customCategoryTitle) {
       showToast("Diğer kategorisi için işe özel başlık yazman gerekiyor.");
@@ -3914,8 +3941,8 @@ if (listingCreateForm) {
         categoryGroup,
         customCategoryTitle,
         tags,
-        city: formData.get("city"),
-        district: formData.get("district"),
+        city,
+        district,
         workDate,
         time: getTimeLabel(workDate),
         duration: formData.get("duration"),
@@ -3993,8 +4020,8 @@ if (listingCreateForm) {
       categoryGroup,
       customCategoryTitle,
       tags,
-      city: formData.get("city"),
-      district: formData.get("district"),
+      city,
+      district,
       workDate,
       time: getTimeLabel(workDate),
       duration: formData.get("duration"),
@@ -4606,7 +4633,8 @@ if (listingGrid) {
             <span class="badge ${timeLabel === "Bugün" ? "hot" : ""}">${timeLabel}</span>
           <span class="badge">${listing.category}</span>
           ${listing.city ? `<span class="badge">${listing.city}</span>` : ""}
-          <span class="badge">${listing.district}</span>
+          ${listing.district ? `<span class="badge">${listing.district}</span>` : ""}
+          ${listing.workLocationMode === "remote" ? `<span class="badge">Uzaktan</span>` : ""}
           <span class="badge">${listing.offers} teklif</span>
           ${promoted ? `<span class="badge promo-badge">Renkli ilan</span>` : ""}
         </div>
@@ -4806,7 +4834,8 @@ function accountListingCard(listing, passive = false) {
         <div class="job-meta">
           <span class="badge">${listing.category}</span>
           ${listing.city ? `<span class="badge">${listing.city}</span>` : ""}
-          <span class="badge">${listing.district}</span>
+          ${listing.district ? `<span class="badge">${listing.district}</span>` : ""}
+          ${listing.workLocationMode === "remote" ? `<span class="badge">Uzaktan</span>` : ""}
           <span class="badge">${getTimeLabel(listing.workDate)}</span>
         </div>
         <div class="listing-bottom">
@@ -5030,7 +5059,8 @@ if (listingDetail) {
             <span class="badge ${getTimeLabel(listing.workDate) === "Bugün" ? "hot" : ""}">${getTimeLabel(listing.workDate)}</span>
             <span class="badge">${listing.category}</span>
             ${listing.city ? `<span class="badge">${listing.city}</span>` : ""}
-            <span class="badge">${listing.district}</span>
+            ${listing.district ? `<span class="badge">${listing.district}</span>` : ""}
+            ${listing.workLocationMode === "remote" ? `<span class="badge">Uzaktan</span>` : ""}
             <span class="badge">${listing.offers || 0} teklif</span>
           </div>
           <div class="rating-strip">
@@ -5073,7 +5103,7 @@ if (listingDetail) {
             }) : "Esnek"}</dd></div>
             <div><dt>Tahmini süre</dt><dd>${listing.duration || "Belirtilmedi"}</dd></div>
             <div><dt>Malzeme</dt><dd>${listing.materials || "Belirtilmedi"}</dd></div>
-            <div><dt>Konum</dt><dd>${[listing.city, listing.district].filter(Boolean).join(" / ")}</dd></div>
+            <div><dt>Konum</dt><dd>${listing.workLocationMode === "remote" ? "Uzaktan çalışma" : [listing.city, listing.district].filter(Boolean).join(" / ") || "Belirtilmedi"}</dd></div>
             <div><dt>Çalışma şekli</dt><dd>${listing.workLocationMode === "remote" ? "Uzaktan çalışma" : "Yakından çalışma"}</dd></div>
             <div><dt>Adres notu</dt><dd>${listing.workLocationMode === "remote" ? "Uzaktan çalışma için adres gerekmiyor" : listing.addressNote || "Paylaşılmadı"}</dd></div>
             <div><dt>Beklentiler</dt><dd>${listing.expectations || "Paylaşılmadı"}</dd></div>
