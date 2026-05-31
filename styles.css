@@ -2742,6 +2742,10 @@ textarea:focus {
   width: auto;
 }
 
+.address-note-field.is-hidden {
+  display: none !important;
+}
+
 .hidden-field:not(.visible) {
   display: none;
 }

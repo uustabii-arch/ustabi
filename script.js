@@ -3671,7 +3671,7 @@ if (listingCreateForm) {
   }
 
   function getSelectedWorkLocationMode() {
-    return listingCreateForm.elements.workLocationMode?.value || "onsite";
+    return listingCreateForm.querySelector('input[name="workLocationMode"]:checked')?.value || "onsite";
   }
 
   function syncAddressNoteField() {
@@ -3679,6 +3679,7 @@ if (listingCreateForm) {
     const addressNoteInput = listingCreateForm.elements.addressNote;
     if (addressNoteField) {
       addressNoteField.hidden = remote;
+      addressNoteField.classList.toggle("is-hidden", remote);
     }
     if (addressNoteInput) {
       addressNoteInput.disabled = remote;

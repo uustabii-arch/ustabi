@@ -32,6 +32,20 @@
             <input name="title" type="text" maxlength="72" placeholder="Örn. e-ticaret sitesi, elbise dikimi, 2+1 boya" required />
           </label>
 
+          <fieldset class="profile-fieldset work-mode-fieldset">
+            <legend>Çalışma şekli</legend>
+            <div class="work-mode-options">
+              <label>
+                <input name="workLocationMode" type="radio" value="onsite" checked />
+                Yakından çalışma
+              </label>
+              <label>
+                <input name="workLocationMode" type="radio" value="remote" />
+                Uzaktan çalışma
+              </label>
+            </div>
+          </fieldset>
+
           <div class="form-grid">
             <label class="category-picker-label">
               Kategori
@@ -178,21 +192,7 @@
             </div>
           </fieldset>
 
-          <fieldset class="profile-fieldset work-mode-fieldset">
-            <legend>Çalışma şekli</legend>
-            <div class="work-mode-options">
-              <label>
-                <input name="workLocationMode" type="radio" value="onsite" checked />
-                Yakından çalışma
-              </label>
-              <label>
-                <input name="workLocationMode" type="radio" value="remote" />
-                Uzaktan çalışma
-              </label>
-            </div>
-          </fieldset>
-
-          <label id="addressNoteField">
+          <label class="address-note-field" id="addressNoteField">
             Adres / ulaşım notu
             <textarea name="addressNote" rows="3" placeholder="Adres, teslimat veya ulaşım notu yaz."></textarea>
           </label>
