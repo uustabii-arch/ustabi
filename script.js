@@ -480,6 +480,7 @@ const listingCreateForm = document.querySelector("#listingCreateForm");
 const listingImageInput = document.querySelector("#listingImageInput");
 const listingImagePreview = document.querySelector("#listingImagePreview");
 const listingTitleMaxLength = 72;
+const addressNoteField = document.querySelector("#addressNoteField");
 const customCategoryField = document.querySelector("#customCategoryField");
 const customCategoryInput = document.querySelector("#customCategoryInput");
 const categorySearchInput = document.querySelector("#categorySearchInput");
@@ -2564,6 +2565,7 @@ const defaultListings = [
     budget: 9000,
     details: "Menü, konum, galeri ve iletişim formu olan hızlı açılan bir site istiyoruz.",
     expectations: "Mobil uyumlu tasarım, temel SEO ve yayına alma desteği gerekiyor.",
+    workLocationMode: "remote",
     tags: ["web", "landing page", "seo", "mobil uyumlu"],
     offers: 4,
     featured: true,
@@ -2581,6 +2583,7 @@ const defaultListings = [
     budget: 12000,
     details: "Rezervasyon uygulaması için 8-10 ekranlık temiz bir arayüz tasarımı gerekiyor.",
     expectations: "Figma dosyası, component düzeni ve kısa kullanıcı akışı bekliyoruz.",
+    workLocationMode: "remote",
     tags: ["figma", "ui", "ux", "mobil"],
     offers: 6,
     featured: true,
@@ -2598,6 +2601,7 @@ const defaultListings = [
     budget: 6500,
     details: "Instagram için 1 aylık post, reels fikri ve kampanya metinleri hazırlanacak.",
     expectations: "Takvim, görsel yönlendirme ve paylaşım metinleri düzenli teslim edilmeli.",
+    workLocationMode: "remote",
     tags: ["instagram", "reels", "içerik", "butik"],
     offers: 5,
     featured: false,
@@ -2632,6 +2636,7 @@ const defaultListings = [
     budget: 3000,
     details: "11. sınıf öğrencisi için haftada iki gün online matematik desteği gerekiyor.",
     expectations: "Konu anlatımı, soru çözümü ve kısa ödev takibi yapılmalı.",
+    workLocationMode: "remote",
     tags: ["matematik", "online", "lise", "özel ders"],
     offers: 7,
     featured: true,
@@ -3446,6 +3451,7 @@ if (adminModerationList) {
                   <span class="badge">${listing.category || "Kategori yok"}</span>
                   ${listing.city ? `<span class="badge">${listing.city}</span>` : ""}
                   ${listing.district ? `<span class="badge">${listing.district}</span>` : ""}
+                  <span class="badge">${listing.workLocationMode === "remote" ? "Uzaktan" : "Yakından"}</span>
                   <span class="badge">${listing.owner?.name || "İlan sahibi"}</span>
                   ${listing.ownerEmail ? `<span class="badge">${listing.ownerEmail}</span>` : ""}
                 </div>
@@ -3639,6 +3645,7 @@ if (listingCreateForm) {
   const editListingId = listingFormParams.get("edit");
   let editListing = null;
   let editFormHydrated = false;
+  const workLocationModeInputs = [...listingCreateForm.querySelectorAll('input[name="workLocationMode"]')];
 
   if (listingTitleInput) {
     listingTitleInput.maxLength = listingTitleMaxLength;
@@ -3660,6 +3667,23 @@ if (listingCreateForm) {
     if (customCategoryInput) {
       customCategoryInput.required = Boolean(isOtherCategory);
       if (!isOtherCategory) customCategoryInput.value = "";
+    }
+  }
+
+  function getSelectedWorkLocationMode() {
+    return listingCreateForm.elements.workLocationMode?.value || "onsite";
+  }
+
+  function syncAddressNoteField() {
+    const remote = getSelectedWorkLocationMode() === "remote";
+    const addressNoteInput = listingCreateForm.elements.addressNote;
+    if (addressNoteField) {
+      addressNoteField.hidden = remote;
+    }
+    if (addressNoteInput) {
+      addressNoteInput.disabled = remote;
+      addressNoteInput.required = !remote;
+      if (remote) addressNoteInput.value = "";
     }
   }
 
@@ -3724,6 +3748,14 @@ if (listingCreateForm) {
 
     setListingLocationValue(listing.city || "", listing.district || "");
     setListingWorkDateValue(listing.workDate || "");
+    const workLocationMode = listing.workLocationMode || (listing.addressNote ? "onsite" : "remote");
+    const workLocationInput = listingCreateForm.querySelector(
+      `input[name="workLocationMode"][value="${workLocationMode}"]`,
+    );
+    if (workLocationInput) {
+      workLocationInput.checked = true;
+      syncAddressNoteField();
+    }
 
     [
       "duration",
@@ -3804,7 +3836,9 @@ if (listingCreateForm) {
   highlightColorInput?.addEventListener("input", updateHighlightColorPicker);
   categorySearchInput?.addEventListener("input", filterListingCategories);
   categorySelect?.addEventListener("change", syncCustomCategoryField);
+  workLocationModeInputs.forEach((input) => input.addEventListener("change", syncAddressNoteField));
   syncCustomCategoryField();
+  syncAddressNoteField();
   initListingEditMode();
   subscribeSharedListings(() => {
     if (!editListingId || editFormHydrated) return;
@@ -3845,6 +3879,8 @@ if (listingCreateForm) {
     const category = selectedCategory === "Diğer" ? customCategoryTitle : selectedCategory;
     const categoryGroup = selectedCategory === "Diğer" ? "Diğer" : getCategoryGroupTitle(selectedCategory);
     const tags = parseListingTags(formData.get("tags"));
+    const workLocationMode = getSelectedWorkLocationMode();
+    const addressNote = workLocationMode === "remote" ? "" : String(formData.get("addressNote") || "").trim();
 
     if (selectedCategory === "Diğer" && !customCategoryTitle) {
       showToast("Diğer kategorisi için işe özel başlık yazman gerekiyor.");
@@ -3885,7 +3921,8 @@ if (listingCreateForm) {
         budget: Number(formData.get("budget")),
         materials: formData.get("materials"),
         phone: formData.get("phone"),
-        addressNote: formData.get("addressNote").trim(),
+        workLocationMode,
+        addressNote,
         expectations: formData.get("expectations").trim(),
         details: formData.get("details").trim(),
         status: existingListing.status === "completed" || existingListing.status === "assigned" ? existingListing.status : "active",
@@ -3963,7 +4000,8 @@ if (listingCreateForm) {
       budget: Number(formData.get("budget")),
       materials: formData.get("materials"),
       phone: formData.get("phone"),
-      addressNote: formData.get("addressNote").trim(),
+      workLocationMode,
+      addressNote,
       expectations: formData.get("expectations").trim(),
       details: formData.get("details").trim(),
       offers: 0,
@@ -4516,6 +4554,8 @@ if (listingGrid) {
         listing.categoryGroup,
         listing.city,
         listing.district,
+        listing.workLocationMode === "remote" ? "uzaktan remote online" : "yakından yerinde adres",
+        listing.addressNote,
         listing.details,
         listing.expectations,
         ...getListingTags(listing),
@@ -5033,7 +5073,8 @@ if (listingDetail) {
             <div><dt>Tahmini süre</dt><dd>${listing.duration || "Belirtilmedi"}</dd></div>
             <div><dt>Malzeme</dt><dd>${listing.materials || "Belirtilmedi"}</dd></div>
             <div><dt>Konum</dt><dd>${[listing.city, listing.district].filter(Boolean).join(" / ")}</dd></div>
-            <div><dt>Adres notu</dt><dd>${listing.addressNote || "Paylaşılmadı"}</dd></div>
+            <div><dt>Çalışma şekli</dt><dd>${listing.workLocationMode === "remote" ? "Uzaktan çalışma" : "Yakından çalışma"}</dd></div>
+            <div><dt>Adres notu</dt><dd>${listing.workLocationMode === "remote" ? "Uzaktan çalışma için adres gerekmiyor" : listing.addressNote || "Paylaşılmadı"}</dd></div>
             <div><dt>Beklentiler</dt><dd>${listing.expectations || "Paylaşılmadı"}</dd></div>
             <div><dt>Durum</dt><dd>${statusLabel}</dd></div>
           </dl>

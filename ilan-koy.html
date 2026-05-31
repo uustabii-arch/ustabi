@@ -178,9 +178,23 @@
             </div>
           </fieldset>
 
-          <label>
+          <fieldset class="profile-fieldset work-mode-fieldset">
+            <legend>Çalışma şekli</legend>
+            <div class="work-mode-options">
+              <label>
+                <input name="workLocationMode" type="radio" value="onsite" checked />
+                Yakından çalışma
+              </label>
+              <label>
+                <input name="workLocationMode" type="radio" value="remote" />
+                Uzaktan çalışma
+              </label>
+            </div>
+          </fieldset>
+
+          <label id="addressNoteField">
             Adres / ulaşım notu
-            <textarea name="addressNote" rows="3" placeholder="Adres, teslimat, online görüşme veya ulaşım notu yaz."></textarea>
+            <textarea name="addressNote" rows="3" placeholder="Adres, teslimat veya ulaşım notu yaz."></textarea>
           </label>
 
           <label>
