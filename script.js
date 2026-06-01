@@ -48,6 +48,8 @@ const db = getFirestore(firebaseApp);
 const DATA_RESET_AT = Date.parse("2026-05-24T15:11:45+03:00");
 const DATA_RESET_STORAGE_KEY = "ustaDataResetAt";
 const ADMIN_EMAIL = "sayedarman1352@gmail.com";
+const IMAGE_UPLOAD_MAX_BYTES = 1024 * 1024;
+const IMAGE_UPLOAD_MIME_TYPE = "image/jpeg";
 
 isAnalyticsSupported().then((supported) => {
   if (supported) getAnalytics(firebaseApp);
@@ -159,6 +161,12 @@ function resetLegacyWorkspaceData() {
 
 resetLegacyWorkspaceData();
 
+function getDataUrlByteSize(dataUrl) {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
 function renderSiteFooter() {
   if (document.querySelector(".site-footer")) return;
 
@@ -194,7 +202,7 @@ function buildSharedListingPayload(listingData, image = "") {
 
   return sanitizeFirestoreData({
     ...listingWithoutLocalMeta,
-    image: safeImage && safeImage.length < 180000 ? safeImage : "",
+    image: safeImage && getDataUrlByteSize(safeImage) <= IMAGE_UPLOAD_MAX_BYTES ? safeImage : "",
     createdAt: Date.now(),
   });
 }
@@ -709,6 +717,10 @@ const professionCategoryGroups = [
 
 const professionCategories = professionCategoryGroups.flatMap((group) => group.items);
 
+function getOtherCategoryValue() {
+  return professionCategoryGroups.at(-1)?.items?.[0] || "Di\u011fer";
+}
+
 function getCategoryGroupTitle(category) {
   return professionCategoryGroups.find((group) => group.items.includes(category))?.title || "Diğer";
 }
@@ -860,6 +872,15 @@ function populateCategorySelect(select, options = {}) {
   const currentValue = select.value;
   select.innerHTML = `<option value="${firstValue}">${firstText}</option>`;
   addGroupedProfessionOptions(select, { searchTerm });
+
+  const selectableValues = [...select.options].map((option) => option.value).filter(Boolean);
+  if (options.includeOtherFallback && String(searchTerm || "").trim() && !selectableValues.length) {
+    const otherCategory = getOtherCategoryValue();
+    const optionGroup = document.createElement("optgroup");
+    optionGroup.label = otherCategory;
+    optionGroup.append(new Option(otherCategory, otherCategory));
+    select.append(optionGroup);
+  }
 
   const allowedValues = [...select.options].map((option) => option.value);
   if (allowedValues.includes(currentValue)) {
@@ -2894,7 +2915,7 @@ function readImageAsDataUrl(file) {
   });
 }
 
-async function compressImageAsDataUrl(file, maxWidth = 960, quality = 0.75) {
+async function compressImageAsDataUrl(file, maxWidth = 1280, quality = 0.82, maxBytes = IMAGE_UPLOAD_MAX_BYTES) {
   if (!file || !file.size) return "";
 
   const originalDataUrl = await readImageAsDataUrl(file);
@@ -2902,15 +2923,14 @@ async function compressImageAsDataUrl(file, maxWidth = 960, quality = 0.75) {
     return originalDataUrl;
   }
 
+  if (getDataUrlByteSize(originalDataUrl) <= maxBytes) {
+    return originalDataUrl;
+  }
+
   return new Promise((resolve) => {
     const image = new Image();
     image.addEventListener("load", () => {
-      const scale = Math.min(1, maxWidth / image.width);
-      const width = Math.max(1, Math.round(image.width * scale));
-      const height = Math.max(1, Math.round(image.height * scale));
       const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
       const context = canvas.getContext("2d");
 
       if (!context) {
@@ -2918,8 +2938,36 @@ async function compressImageAsDataUrl(file, maxWidth = 960, quality = 0.75) {
         return;
       }
 
-      context.drawImage(image, 0, 0, width, height);
-      resolve(canvas.toDataURL("image/jpeg", quality));
+      let targetWidth = Math.min(maxWidth, image.width || maxWidth);
+      let targetQuality = quality;
+      let compressedDataUrl = originalDataUrl;
+
+      for (let attempt = 0; attempt < 14; attempt += 1) {
+        const scale = Math.min(1, targetWidth / image.width);
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+
+        canvas.width = width;
+        canvas.height = height;
+        context.clearRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+
+        compressedDataUrl = canvas.toDataURL(IMAGE_UPLOAD_MIME_TYPE, targetQuality);
+
+        if (getDataUrlByteSize(compressedDataUrl) <= maxBytes) {
+          resolve(compressedDataUrl);
+          return;
+        }
+
+        if (targetQuality > 0.46) {
+          targetQuality = Math.max(0.46, targetQuality - 0.09);
+        } else {
+          targetWidth = Math.max(420, Math.floor(targetWidth * 0.82));
+          targetQuality = 0.72;
+        }
+      }
+
+      resolve(compressedDataUrl);
     });
     image.addEventListener("error", () => resolve(originalDataUrl));
     image.src = originalDataUrl;
@@ -3139,7 +3187,7 @@ if (profileEditForm) {
   }
 
   profilePhotoInput?.addEventListener("change", async () => {
-    const image = await readImageAsDataUrl(profilePhotoInput.files?.[0]);
+    const image = await compressImageAsDataUrl(profilePhotoInput.files?.[0], 720);
     if (image) {
       profilePhotoPreview.innerHTML = `<img src="${image}" alt="Profil fotoğrafı önizleme" />`;
     }
@@ -3147,7 +3195,7 @@ if (profileEditForm) {
 
   portfolioPhotosInput?.addEventListener("change", async () => {
     const files = Array.from(portfolioPhotosInput.files || []).slice(0, 6);
-    const images = await Promise.all(files.map(readImageAsDataUrl));
+    const images = await Promise.all(files.map((file) => compressImageAsDataUrl(file)));
     portfolioPreview.innerHTML = images
       .filter(Boolean)
       .map((src) => `<img src="${src}" alt="İş fotoğrafı önizleme" />`)
@@ -3158,10 +3206,10 @@ if (profileEditForm) {
     event.preventDefault();
     const formData = new FormData(profileEditForm);
     const existingUser = getUser();
-    const profilePhoto = await readImageAsDataUrl(formData.get("profilePhoto"));
+    const profilePhoto = await compressImageAsDataUrl(formData.get("profilePhoto"), 720);
     const portfolioFiles = Array.from(portfolioPhotosInput?.files || []).slice(0, 6);
     const portfolioPhotos = portfolioFiles.length
-      ? (await Promise.all(portfolioFiles.map(readImageAsDataUrl))).filter(Boolean)
+      ? (await Promise.all(portfolioFiles.map((file) => compressImageAsDataUrl(file)))).filter(Boolean)
       : existingUser.portfolioPhotos || [];
 
     const profilePhone = formData.get("phone");
@@ -3676,11 +3724,22 @@ if (listingCreateForm) {
 
   function filterListingCategories() {
     if (!categorySelect) return;
+    const searchTerm = categorySearchInput?.value || "";
     populateCategorySelect(categorySelect, {
       firstValue: "",
       firstText: "Seç",
-      searchTerm: categorySearchInput?.value || "",
+      searchTerm,
+      includeOtherFallback: true,
     });
+    const otherCategory = getOtherCategoryValue();
+    const customCategoryTitle = String(searchTerm).trim();
+    const isFallbackOnly = [...categorySelect.options].every(
+      (option) => !option.value || option.value === otherCategory,
+    );
+    if (customCategoryTitle && isFallbackOnly) {
+      categorySelect.value = otherCategory;
+      if (customCategoryInput) customCategoryInput.value = customCategoryTitle;
+    }
     syncCustomCategoryField();
   }
 
