@@ -828,12 +828,44 @@ const categoryImageMap = {
     "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=1200",
   "Mobil uygulama":
     "https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&q=80&w=1200",
+  "Yazılım geliştirme":
+    "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&q=80&w=1200",
+  "E-ticaret":
+    "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=1200",
+  "Backend API":
+    "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&q=80&w=1200",
+  WordPress:
+    "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&q=80&w=1200",
+  Shopify:
+    "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&q=80&w=1200",
+  "Oyun geliştirme":
+    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=1200",
   "UI/UX tasarım":
     "https://images.unsplash.com/photo-1559028012-481c04fa702d?auto=format&fit=crop&q=80&w=1200",
+  "Grafik tasarım":
+    "https://images.unsplash.com/photo-1626785774625-0b1c2c4c4a9f?auto=format&fit=crop&q=80&w=1200",
+  "Logo ve marka":
+    "https://images.unsplash.com/photo-1609921212029-bb5a28e60960?auto=format&fit=crop&q=80&w=1200",
+  "Video kurgu":
+    "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&q=80&w=1200",
   "Sosyal medya":
     "https://images.unsplash.com/photo-1611162616475-46b635cb6868?auto=format&fit=crop&q=80&w=1200",
+  "Dijital pazarlama":
+    "https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?auto=format&fit=crop&q=80&w=1200",
+  SEO:
+    "https://images.unsplash.com/photo-1562577309-4932fdd64cd1?auto=format&fit=crop&q=80&w=1200",
+  "Reklam yönetimi":
+    "https://images.unsplash.com/photo-1557838923-2985c318be48?auto=format&fit=crop&q=80&w=1200",
+  "İçerik yazarlığı":
+    "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&q=80&w=1200",
   Terzi:
     "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=1200",
+  "Giyim dikim":
+    "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&q=80&w=1200",
+  "Tekstil üretim":
+    "https://images.unsplash.com/photo-1590736704728-f4730bb30770?auto=format&fit=crop&q=80&w=1200",
+  "Moda tasarım":
+    "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&q=80&w=1200",
   "Özel ders":
     "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=1200",
   Catering:
@@ -2752,7 +2784,7 @@ const defaultListings = [
     tags: ["yazılım", "sipariş", "panel", "restoran"],
     offers: 6,
     featured: true,
-    image: categoryImageMap["Web sitesi"],
+    image: categoryImageMap["Yazılım geliştirme"],
     owner: { name: "Kerem O.", rating: 9.0, reviewCount: 15 },
     master: { name: "Kod Atölyesi", rating: 9.5, reviewCount: 38 },
   },
@@ -2770,7 +2802,7 @@ const defaultListings = [
     tags: ["e-ticaret", "ürün girişi", "stok", "butik"],
     offers: 8,
     featured: false,
-    image: categoryImageMap["Web sitesi"],
+    image: categoryImageMap["E-ticaret"],
     owner: { name: "Aylin C.", rating: 9.1, reviewCount: 19 },
     master: { name: "Mağaza Destek", rating: 9.2, reviewCount: 26 },
   },
@@ -2788,7 +2820,7 @@ const defaultListings = [
     tags: ["api", "backend", "mobil", "dokümantasyon"],
     offers: 5,
     featured: true,
-    image: categoryImageMap["Mobil uygulama"],
+    image: categoryImageMap["Backend API"],
     owner: { name: "Tolga M.", rating: 8.8, reviewCount: 11 },
     master: { name: "API Laboratuvarı", rating: 9.4, reviewCount: 22 },
   },
@@ -2806,7 +2838,7 @@ const defaultListings = [
     tags: ["wordpress", "hız", "güvenlik", "bakım"],
     offers: 7,
     featured: false,
-    image: categoryImageMap["Web sitesi"],
+    image: categoryImageMap.WordPress,
     owner: { name: "Seda İ.", rating: 9.3, reviewCount: 21 },
     master: { name: "WP Klinik", rating: 9.1, reviewCount: 30 },
   },
@@ -2824,7 +2856,7 @@ const defaultListings = [
     tags: ["shopify", "tema", "mağaza", "tasarım"],
     offers: 4,
     featured: true,
-    image: categoryImageMap["Web sitesi"],
+    image: categoryImageMap.Shopify,
     owner: { name: "Rana G.", rating: 8.9, reviewCount: 14 },
     master: { name: "Shop Studio", rating: 9.3, reviewCount: 25 },
   },
@@ -2842,7 +2874,7 @@ const defaultListings = [
     tags: ["oyun", "animasyon", "2d", "sprite"],
     offers: 3,
     featured: false,
-    image: categoryImageMap["UI/UX tasarım"],
+    image: categoryImageMap["Oyun geliştirme"],
     owner: { name: "Emirhan D.", rating: 8.7, reviewCount: 10 },
     master: { name: "Pixel Oda", rating: 9.0, reviewCount: 18 },
   },
@@ -2860,7 +2892,7 @@ const defaultListings = [
     tags: ["logo", "marka", "kahve", "kurumsal"],
     offers: 9,
     featured: true,
-    image: categoryImageMap["UI/UX tasarım"],
+    image: categoryImageMap["Logo ve marka"],
     owner: { name: "Melis U.", rating: 9.5, reviewCount: 27 },
     master: { name: "Marka Çizgi", rating: 9.4, reviewCount: 33 },
   },
@@ -2878,7 +2910,7 @@ const defaultListings = [
     tags: ["afiş", "post", "konser", "grafik"],
     offers: 6,
     featured: false,
-    image: categoryImageMap["UI/UX tasarım"],
+    image: categoryImageMap["Grafik tasarım"],
     owner: { name: "Bora Ş.", rating: 8.8, reviewCount: 12 },
     master: { name: "Posterhane", rating: 9.2, reviewCount: 24 },
   },
@@ -2896,7 +2928,7 @@ const defaultListings = [
     tags: ["video", "kurgu", "reels", "altyazı"],
     offers: 7,
     featured: true,
-    image: categoryImageMap["Fotoğraf çekimi"],
+    image: categoryImageMap["Video kurgu"],
     owner: { name: "İpek V.", rating: 9.0, reviewCount: 16 },
     master: { name: "Kurgu Masası", rating: 9.3, reviewCount: 28 },
   },
@@ -2914,7 +2946,7 @@ const defaultListings = [
     tags: ["seo", "içerik", "klinik", "anahtar kelime"],
     offers: 5,
     featured: false,
-    image: categoryImageMap["Sosyal medya"],
+    image: categoryImageMap.SEO,
     owner: { name: "Dr. Elif T.", rating: 9.4, reviewCount: 22 },
     master: { name: "SEO Rota", rating: 9.1, reviewCount: 31 },
   },
@@ -2932,7 +2964,7 @@ const defaultListings = [
     tags: ["google ads", "reklam", "kampanya", "dönüşüm"],
     offers: 4,
     featured: true,
-    image: categoryImageMap["Sosyal medya"],
+    image: categoryImageMap["Reklam yönetimi"],
     owner: { name: "Cenk P.", rating: 8.6, reviewCount: 9 },
     master: { name: "Reklam Noktası", rating: 9.0, reviewCount: 20 },
   },
@@ -2950,7 +2982,7 @@ const defaultListings = [
     tags: ["blog", "metin", "editör", "turizm"],
     offers: 6,
     featured: false,
-    image: categoryImageMap["Sosyal medya"],
+    image: categoryImageMap["İçerik yazarlığı"],
     owner: { name: "Fırat N.", rating: 9.2, reviewCount: 17 },
     master: { name: "Metin Odası", rating: 9.4, reviewCount: 29 },
   },
@@ -2968,7 +3000,7 @@ const defaultListings = [
     tags: ["pazarlama", "restoran", "kampanya", "sezon"],
     offers: 5,
     featured: true,
-    image: categoryImageMap["Sosyal medya"],
+    image: categoryImageMap["Dijital pazarlama"],
     owner: { name: "Sarp E.", rating: 9.1, reviewCount: 13 },
     master: { name: "Büyüme Ekibi", rating: 9.2, reviewCount: 23 },
   },
@@ -2985,7 +3017,7 @@ const defaultListings = [
     tags: ["gelinlik", "dikim", "prova", "tadilat"],
     offers: 4,
     featured: true,
-    image: categoryImageMap.Terzi,
+    image: categoryImageMap["Giyim dikim"],
     owner: { name: "Nisa A.", rating: 9.6, reviewCount: 30 },
     master: { name: "Dikiş Evi", rating: 9.5, reviewCount: 41 },
   },
@@ -3002,7 +3034,7 @@ const defaultListings = [
     tags: ["tekstil", "tişört", "üretim", "baskı"],
     offers: 3,
     featured: false,
-    image: categoryImageMap.Terzi,
+    image: categoryImageMap["Tekstil üretim"],
     owner: { name: "Umut K.", rating: 8.9, reviewCount: 15 },
     master: { name: "Tekstil Ustası", rating: 9.0, reviewCount: 22 },
   },
@@ -3020,7 +3052,7 @@ const defaultListings = [
     tags: ["moda", "koleksiyon", "teknik çizim", "kumaş"],
     offers: 4,
     featured: true,
-    image: categoryImageMap.Terzi,
+    image: categoryImageMap["Moda tasarım"],
     owner: { name: "Lara H.", rating: 9.3, reviewCount: 18 },
     master: { name: "Moda Çizgi", rating: 9.4, reviewCount: 26 },
   },
