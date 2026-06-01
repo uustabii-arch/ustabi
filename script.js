@@ -30,6 +30,12 @@ import {
   getAnalytics,
   isSupported as isAnalyticsSupported,
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+import {
+  getDownloadURL,
+  getStorage,
+  ref,
+  uploadString,
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDwp9YGeVKFQwi2FuVPCILzTkqvi87xAFw",
@@ -45,6 +51,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 auth.languageCode = "tr";
 const db = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
 const DATA_RESET_AT = Date.parse("2026-05-24T15:11:45+03:00");
 const DATA_RESET_STORAGE_KEY = "ustaDataResetAt";
 const ADMIN_EMAIL = "sayedarman1352@gmail.com";
@@ -167,6 +174,15 @@ function getDataUrlByteSize(dataUrl) {
   return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
 }
 
+function isDataImageUrl(value) {
+  return String(value || "").startsWith("data:image/");
+}
+
+function getShareableImageValue(value) {
+  const image = String(value || "").trim();
+  return image && !isDataImageUrl(image) ? image : "";
+}
+
 function renderSiteFooter() {
   if (document.querySelector(".site-footer")) return;
 
@@ -202,7 +218,7 @@ function buildSharedListingPayload(listingData, image = "") {
 
   return sanitizeFirestoreData({
     ...listingWithoutLocalMeta,
-    image: safeImage && getDataUrlByteSize(safeImage) <= IMAGE_UPLOAD_MAX_BYTES ? safeImage : "",
+    image: getShareableImageValue(safeImage),
     createdAt: Date.now(),
   });
 }
@@ -3874,6 +3890,54 @@ async function compressImageAsDataUrl(file, maxWidth = 1280, quality = 0.82, max
   });
 }
 
+function getStorageOwnerPath(user = getCurrentUser(), authUser = auth.currentUser) {
+  return getFirestoreSafeId(authUser?.uid || user?.uid || getAccountKey(user) || getAccountEmail(user) || "guest");
+}
+
+async function uploadImageDataUrlToStorage(dataUrl, storagePath) {
+  if (!isDataImageUrl(dataUrl)) return getShareableImageValue(dataUrl);
+
+  const storageRef = ref(storage, storagePath);
+  await ensureFirestoreAuth();
+  await withTimeout(
+    uploadString(storageRef, dataUrl, "data_url", {
+      contentType: IMAGE_UPLOAD_MIME_TYPE,
+      customMetadata: { source: "ustabi-web" },
+    }),
+    25000,
+  );
+  return withTimeout(getDownloadURL(storageRef), 10000);
+}
+
+async function uploadListingImage(dataUrl, user, listingId) {
+  if (!isDataImageUrl(dataUrl)) return getShareableImageValue(dataUrl);
+
+  const authUser = await ensureFirestoreAuth();
+  const ownerPath = getStorageOwnerPath(user, authUser);
+  const listingPath = getFirestoreSafeId(listingId || Date.now());
+  return uploadImageDataUrlToStorage(dataUrl, `listings/${ownerPath}/${listingPath}/cover.jpg`);
+}
+
+async function uploadProfilePhoto(dataUrl, user) {
+  if (!isDataImageUrl(dataUrl)) return getShareableImageValue(dataUrl);
+
+  const authUser = await ensureFirestoreAuth();
+  const ownerPath = getStorageOwnerPath(user, authUser);
+  return uploadImageDataUrlToStorage(dataUrl, `users/${ownerPath}/profile.jpg`);
+}
+
+async function uploadPortfolioPhotos(dataUrls, user) {
+  const authUser = await ensureFirestoreAuth();
+  const ownerPath = getStorageOwnerPath(user, authUser);
+  const timestamp = Date.now();
+  const uploads = dataUrls.map((dataUrl, index) => {
+    if (!isDataImageUrl(dataUrl)) return Promise.resolve(getShareableImageValue(dataUrl));
+    return uploadImageDataUrlToStorage(dataUrl, `users/${ownerPath}/portfolio/${timestamp}-${index}.jpg`);
+  });
+
+  return (await Promise.all(uploads)).filter(Boolean);
+}
+
 function getStoredListings() {
   try {
     return (JSON.parse(localStorage.getItem("ustaListings")) || []).filter(isAfterDataReset);
@@ -4106,11 +4170,25 @@ if (profileEditForm) {
     event.preventDefault();
     const formData = new FormData(profileEditForm);
     const existingUser = getUser();
-    const profilePhoto = await compressImageAsDataUrl(formData.get("profilePhoto"), 720);
+    const profilePhotoDataUrl = await compressImageAsDataUrl(formData.get("profilePhoto"), 720);
     const portfolioFiles = Array.from(portfolioPhotosInput?.files || []).slice(0, 6);
-    const portfolioPhotos = portfolioFiles.length
+    const portfolioPhotoDataUrls = portfolioFiles.length
       ? (await Promise.all(portfolioFiles.map((file) => compressImageAsDataUrl(file)))).filter(Boolean)
-      : existingUser.portfolioPhotos || [];
+      : [];
+    let profilePhoto = existingUser.profilePhoto || "";
+    let portfolioPhotos = existingUser.portfolioPhotos || [];
+
+    try {
+      if (profilePhotoDataUrl) {
+        profilePhoto = await uploadProfilePhoto(profilePhotoDataUrl, existingUser);
+      }
+      if (portfolioPhotoDataUrls.length) {
+        portfolioPhotos = await uploadPortfolioPhotos(portfolioPhotoDataUrls, existingUser);
+      }
+    } catch (error) {
+      console.warn("Profil fotoÄŸraflarÄ± Storage'a yÃ¼klenemedi:", error);
+      showToast("FotoÄŸraflar CDN'e yÃ¼klenemedi, mevcut fotoÄŸraflar korunuyor.");
+    }
 
     const profilePhone = formData.get("phone");
     const securityState = getSecurityState();
@@ -4135,11 +4213,28 @@ if (profileEditForm) {
       services: formData.getAll("services"),
       trust: formData.getAll("trust"),
       contactPreference: formData.get("contactPreference"),
-      profilePhoto: profilePhoto || existingUser.profilePhoto || "",
+      profilePhoto,
       portfolioPhotos,
     };
 
     localStorage.setItem("ustaUser", JSON.stringify(updatedUser));
+    try {
+      const authUser = await ensureFirestoreAuth();
+      await withTimeout(
+        setDoc(
+          doc(db, "users", authUser.uid),
+          {
+            ...sanitizeFirestoreData(updatedUser),
+            uid: authUser.uid,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        ),
+        8000,
+      );
+    } catch (error) {
+      console.warn("Profil Firestore'a yazılamadı:", error);
+    }
     showToast("Profil kaydedildi. Panele yönlendiriliyorsun.");
     window.setTimeout(() => {
       window.location.href = "pazar.html";
@@ -4856,7 +4951,7 @@ if (listingCreateForm) {
     event.preventDefault();
     const formData = new FormData(listingCreateForm);
     const submitButton = listingCreateForm.querySelector('button[type="submit"]');
-    const image = await compressImageAsDataUrl(formData.get("image"));
+    const imageDataUrl = await compressImageAsDataUrl(formData.get("image"));
     const workDate = formData.get("workDate");
     const listings = getStoredListings();
     let currentUser = {};
@@ -4939,7 +5034,7 @@ if (listingCreateForm) {
         moderationReason: "",
         moderatedAt: "",
         moderatedBy: "",
-        image: image || existingListing.image || "",
+        image: existingListing.image || "",
         createdAt: getRecordTimestamp(existingListing) || Date.now(),
         owner: {
           ...(existingListing.owner || {}),
@@ -4957,6 +5052,21 @@ if (listingCreateForm) {
         if (submitButton) {
           submitButton.disabled = true;
           submitButton.textContent = "İlan güncelleniyor...";
+        }
+
+        if (imageDataUrl) {
+          try {
+            const authUser = await ensureFirestoreAuth();
+            if (!updatedListing.ownerUid) updatedListing.ownerUid = authUser.uid;
+            updatedListing.image = await uploadListingImage(
+              imageDataUrl,
+              { ...currentUser, uid: updatedListing.ownerUid },
+              updatedListing.id,
+            );
+          } catch (uploadError) {
+            console.warn("Ä°lan fotoÄŸrafÄ± Storage'a yÃ¼klenemedi:", uploadError);
+            showToast("FotoÄŸraf CDN'e yÃ¼klenemedi, mevcut fotoÄŸraf korunuyor.");
+          }
         }
 
         upsertListingLocally(updatedListing);
@@ -5026,7 +5136,7 @@ if (listingCreateForm) {
       carouselPriorityLabel: listingPromotion.carouselPriorityLabel,
       promotionSource: listingPromotion.promotionSource,
       promotionCreditCost: listingPromotion.creditCost,
-      image,
+      image: "",
       owner: {
         name: currentUser.fullName || "İş veren",
         key: getAccountKey(currentUser),
@@ -5055,12 +5165,19 @@ if (listingCreateForm) {
         if (!listingData.ownerUid) {
           listingData.ownerUid = authUser.uid;
         }
+        if (imageDataUrl) {
+          listingData.image = await uploadListingImage(
+            imageDataUrl,
+            { ...currentUser, uid: listingData.ownerUid },
+            listingData.id,
+          );
+        }
       } catch (authError) {
         console.warn("Firebase oturumu açılamadı, ilan yine de deneniyor:", authError);
       }
 
-      const listingRef = await publishSharedListing(listingData, image);
-      const sharedListing = buildSharedListingPayload(listingData, image);
+      const listingRef = await publishSharedListing(listingData, listingData.image);
+      const sharedListing = buildSharedListingPayload(listingData, listingData.image);
       listingData.id = listingRef.id;
       listingData.createdAt = sharedListing.createdAt;
       listingData.image = sharedListing.image || "";
