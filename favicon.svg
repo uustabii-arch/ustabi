@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>ustabii U logo</title>
+  <rect width="512" height="512" rx="96" fill="#050505"/>
+  <circle cx="256" cy="540" r="260" fill="#ffa000" opacity=".18"/>
+  <rect x="38" y="38" width="436" height="436" rx="76" fill="none" stroke="#ffa000" stroke-opacity=".22" stroke-width="10"/>
+  <path
+    d="M149 137h74v193c0 42 23 67 65 67s65-25 65-67V137h74v199c0 83-55 136-139 136s-139-53-139-136V137Z"
+    fill="#ffa000"
+  />
+</svg>
