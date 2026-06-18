@@ -57,6 +57,7 @@ const DATA_RESET_STORAGE_KEY = "ustaDataResetAt";
 const ADMIN_EMAIL = "sayedarman1352@gmail.com";
 const IMAGE_UPLOAD_MAX_BYTES = 1024 * 1024;
 const IMAGE_UPLOAD_MIME_TYPE = "image/jpeg";
+const CREDIT_TOPUP_ENABLED = false;
 
 isAnalyticsSupported().then((supported) => {
   if (supported) getAnalytics(firebaseApp);
@@ -4632,6 +4633,13 @@ if (adminModerationList) {
 
 function renderCreditTopupPage() {
   if (!creditTopupGrid) return;
+  if (!CREDIT_TOPUP_ENABLED) {
+    showToast("Kredi yükleme şimdilik kapalı.");
+    window.setTimeout(() => {
+      window.location.href = "pazar.html";
+    }, 500);
+    return;
+  }
 
   const balance = getCreditBalance();
   if (creditBalanceText) {
@@ -5358,7 +5366,7 @@ if (listingGrid) {
 
   function updateDrawerCreditBalance() {
     if (drawerCreditBalance) {
-      drawerCreditBalance.hidden = !isRegisteredUser(getUser());
+      drawerCreditBalance.hidden = !CREDIT_TOPUP_ENABLED || !isRegisteredUser(getUser());
       drawerCreditBalance.textContent = `Bakiyen: ${formatCredits(getCreditBalance())}`;
     }
   }
@@ -5402,6 +5410,7 @@ if (listingGrid) {
     drawerRole.textContent = roleLabel;
     setAvatarElement(drawerAvatar, registered ? user : { fullName: "Misafir" });
     if (drawerUpgradeLink) {
+      drawerUpgradeLink.hidden = registered && !CREDIT_TOPUP_ENABLED;
       drawerUpgradeLink.textContent = registered ? "Kredi yükle" : "Kayıt ol";
       drawerUpgradeLink.href = registered ? "kredi-yukle.html" : "kayit.html";
     }
