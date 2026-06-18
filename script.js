@@ -343,6 +343,7 @@ function handleRegister(form, role) {
         email,
         phone: formData.get("phone")?.trim() || "",
         profession,
+        city: formData.get("city") || "",
         district: formData.get("district") || "",
         experience: formData.get("experience") || "",
         dailyRate: Number(formData.get("dailyRate") || 0),
@@ -4115,6 +4116,16 @@ function populateLocationSelects(cityEl, districtEl, selectedCity = "", selected
     syncDistricts();
   });
 }
+
+[
+  ["#masterCitySelect", "#masterDistrictSelect"],
+  ["#employerCitySelect", "#employerDistrictSelect"],
+].forEach(([citySelector, districtSelector]) => {
+  populateLocationSelects(
+    document.querySelector(citySelector),
+    document.querySelector(districtSelector),
+  );
+});
 
 if (profileEditForm) {
   const user = getUser();

@@ -41,6 +41,22 @@
             <input name="email" type="email" placeholder="ornek@mail.com" autocomplete="email" required />
           </label>
 
+          <div class="form-grid">
+            <label>
+              İl
+              <select name="city" id="employerCitySelect" required>
+                <option value="">İl seç</option>
+              </select>
+            </label>
+
+            <label>
+              İlçe
+              <select name="district" id="employerDistrictSelect" required disabled>
+                <option value="">Önce il seç</option>
+              </select>
+            </label>
+          </div>
+
           <label>
             Şifre
             <input name="password" type="password" minlength="6" placeholder="En az 6 karakter" autocomplete="new-password" required />
@@ -67,6 +83,7 @@
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="turkey-locations.js"></script>
     <script type="module" src="script.js"></script>
   </body>
 </html>

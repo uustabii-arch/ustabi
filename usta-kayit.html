@@ -94,14 +94,16 @@
 
           <div class="form-grid">
             <label>
+              İl
+              <select name="city" id="masterCitySelect" required>
+                <option value="">İl seç</option>
+              </select>
+            </label>
+
+            <label>
               İlçe
-              <select name="district" required>
-                <option value="">Seç</option>
-                <option value="Kadıköy">Kadıköy</option>
-                <option value="Üsküdar">Üsküdar</option>
-                <option value="Şişli">Şişli</option>
-                <option value="Ataşehir">Ataşehir</option>
-                <option value="Bakırköy">Bakırköy</option>
+              <select name="district" id="masterDistrictSelect" required disabled>
+                <option value="">Önce il seç</option>
               </select>
             </label>
 
@@ -155,6 +157,7 @@
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="turkey-locations.js"></script>
     <script type="module" src="script.js"></script>
   </body>
 </html>
