@@ -58,6 +58,7 @@ const ADMIN_EMAIL = "sayedarman1352@gmail.com";
 const IMAGE_UPLOAD_MAX_BYTES = 1024 * 1024;
 const IMAGE_UPLOAD_MIME_TYPE = "image/jpeg";
 const CREDIT_TOPUP_ENABLED = false;
+const AUTO_MODERATOR_NAME = "ustabii-auto-moderator";
 
 isAnalyticsSupported().then((supported) => {
   if (supported) getAnalytics(firebaseApp);
@@ -195,6 +196,9 @@ function renderSiteFooter() {
       <span>© ${new Date().getFullYear()} Tüm hakları saklıdır.</span>
     </div>
     <nav aria-label="Site politikaları">
+      <a href="kullanim-kosullari.html">Kullanım koşulları</a>
+      <a href="topluluk-kurallari.html">Topluluk kuralları</a>
+      <a href="gizlilik-politikasi.html">Gizlilik politikası</a>
       <a href="odeme-guvence.html">Güvenli ödeme</a>
       <a href="guvenlik.html">Güvenlik</a>
       <a href="bildirim-ayarlari.html">Bildirim tercihleri</a>
@@ -1054,6 +1058,98 @@ function getListingStatusLabel(listing) {
   return "Aktif ilan";
 }
 
+const listingAutoModerationRules = [
+  {
+    reason: "Yasa dışı ürün, hizmet veya işlem talebi",
+    patterns: [
+      /\b(uyusturucu|uyuşturucu|esrar|kokain|metamfetamin|bonzai|sahte\s*(kimlik|pasaport|ehliyet|fatura|diploma)|kimlik\s*(sat|kirala|kiralık)|banka\s*hesabı\s*(kirala|sat)|kredi\s*kartı\s*(sat|kopya)|kara\s*para)\b/,
+    ],
+  },
+  {
+    reason: "Silah, şiddet veya zarar verme içeriği",
+    patterns: [
+      /\b(silah|tabanca|tüfek|tufek|bıçakla|bicakla|patlayıcı|patlayici|bomba|darp\s*et|öldür|oldur|yarala|tehdit\s*et)\b/,
+    ],
+  },
+  {
+    reason: "Yetişkin/cinsel hizmet veya çıplaklık içeriği",
+    patterns: [
+      /\b(escort|eskort|fuhuş|fuhus|cinsel\s*hizmet|porno|pornografik|çıplak|ciplak|nude|mutlu\s*son)\b/,
+    ],
+  },
+  {
+    reason: "Kumar, bahis veya benzeri riskli işlem",
+    patterns: [
+      /\b(kumar|bahis|casino|iddaa\s*kupon|kaçak\s*bahis|kacak\s*bahis|slot\s*hesabı|slot\s*hesabi)\b/,
+    ],
+  },
+  {
+    reason: "Nefret, hakaret veya ağır küfür içeriği",
+    patterns: [
+      /\b(orospu|pezevenk|siktir|amk|ırkçı|irkci|nefret\s*söylemi|nefret\s*soylemi|linç\s*et|linc\s*et)\b/,
+    ],
+  },
+  {
+    reason: "Dolandırıcılık veya platform güvenliğini aşma girişimi",
+    patterns: [
+      /\b(dolandır|dolandir|sahte\s*yorum|sahte\s*hesap|hesap\s*çal|hesap\s*cal|şifre\s*kır|sifre\s*kir|hackle|phishing|oltalama)\b/,
+    ],
+  },
+];
+
+function normalizeModerationText(value) {
+  return String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s+]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getListingModerationText(listing = {}) {
+  return [
+    listing.title,
+    listing.category,
+    listing.customCategoryTitle,
+    listing.details,
+    listing.expectations,
+    listing.materials,
+    listing.addressNote,
+    Array.isArray(listing.tags) ? listing.tags.join(" ") : listing.tags,
+  ].join(" ");
+}
+
+function moderateListingContent(listing = {}) {
+  const text = normalizeModerationText(getListingModerationText(listing));
+  const matchedReasons = listingAutoModerationRules
+    .filter((rule) => rule.patterns.some((pattern) => pattern.test(text)))
+    .map((rule) => rule.reason);
+
+  if (matchedReasons.length) {
+    return {
+      moderationStatus: "rejected",
+      moderationReason: `Otomatik moderasyon: ${[...new Set(matchedReasons)].join("; ")}.`,
+      moderatedAt: new Date().toISOString(),
+      moderatedBy: AUTO_MODERATOR_NAME,
+    };
+  }
+
+  return {
+    moderationStatus: "approved",
+    moderationReason: "",
+    moderatedAt: new Date().toISOString(),
+    moderatedBy: AUTO_MODERATOR_NAME,
+  };
+}
+
+function applyAutoModeration(listing = {}) {
+  return {
+    ...listing,
+    ...moderateListingContent(listing),
+  };
+}
+
 function isAllowedWorkDate(workDate) {
   if (!workDate) return false;
   const year = workDate.slice(0, 4);
@@ -1626,14 +1722,15 @@ async function publishOwnerNotification(notification, listing) {
 function buildListingModerationNotification(listing, moderationStatus, reason = "") {
   const approved = moderationStatus === "approved";
   const recipientKeys = getOwnerRecipientKeys(listing);
+  const moderatorLabel = listing.moderatedBy === AUTO_MODERATOR_NAME ? "otomatik kontrol" : "admin";
 
   return {
     id: `listing-moderation-${listing.id}-${moderationStatus}-${Date.now()}`,
     type: approved ? "approved" : "rejected",
     title: approved ? "İlanın onaylandı" : "İlanın reddedildi",
     body: approved
-      ? `"${listing.title}" ilanı admin onayından geçti ve ana akışta yayınlandı.`
-      : `"${listing.title}" ilanı admin tarafından reddedildi.${reason ? ` Sebep: ${reason}` : ""}`,
+      ? `"${listing.title}" ilanı ${moderatorLabel} tarafından onaylandı ve ana akışta yayınlandı.`
+      : `"${listing.title}" ilanı ${moderatorLabel} tarafından reddedildi.${reason ? ` Sebep: ${reason}` : ""}`,
     time: new Date().toISOString(),
     read: false,
     href: "ilanlarim.html",
@@ -5026,7 +5123,7 @@ if (listingCreateForm) {
         return;
       }
 
-      const updatedListing = {
+      let updatedListing = {
         ...existingListing,
         ownerKey: existingListing.ownerKey || getAccountKey(currentUser),
         ownerUid: existingListing.ownerUid || currentUser.uid || "",
@@ -5066,6 +5163,7 @@ if (listingCreateForm) {
         updatedAt: Date.now(),
         resubmittedAt: new Date().toISOString(),
       };
+      updatedListing = applyAutoModeration(updatedListing);
 
       try {
         if (submitButton) {
