@@ -2516,6 +2516,55 @@ function getAssignedMasterInfo(listing = {}) {
   };
 }
 
+function getCompletedMasterStats(masterSource = {}) {
+  const masterKey = getMasterStatKey(masterSource);
+  const strongAliases = [
+    masterKey,
+    masterSource.requesterKey,
+    masterSource.assignedMasterKey,
+    masterSource.key,
+    masterSource.requesterUid,
+    masterSource.assignedMasterUid,
+    masterSource.uid,
+    masterSource.requesterEmail,
+    masterSource.assignedMasterEmail,
+    masterSource.email,
+  ]
+    .map(normalizeAccountValue)
+    .filter(Boolean);
+  const nameAliases = [masterSource.requesterName, masterSource.name].map(normalizeAccountValue).filter(Boolean);
+  const aliases = new Set(strongAliases.length ? strongAliases : nameAliases);
+  const allowNameMatch = !strongAliases.length;
+
+  if (!aliases.size) {
+    return { rating: 0, reviewCount: 0, completedJobs: 0 };
+  }
+
+  const completedListings = getAllListings().filter((listing) => {
+    if (!isCompletedListing(listing)) return false;
+
+    const master = listing.assignedMaster || listing.master || {};
+    return [
+      listing.assignedMasterKey,
+      listing.assignedMasterUid,
+      listing.assignedMasterEmail,
+      master.key,
+      master.uid,
+      master.email,
+      allowNameMatch ? master.name : "",
+    ].some((value) => aliases.has(normalizeAccountValue(value)));
+  });
+  const scores = completedListings
+    .map((listing) => Number(listing.completionRating?.score || 0))
+    .filter((score) => score > 0);
+
+  return {
+    rating: scores.length ? scores.reduce((total, score) => total + score, 0) / scores.length : 0,
+    reviewCount: scores.length,
+    completedJobs: completedListings.length,
+  };
+}
+
 function getLocalMasterFavoriteCount(masterKey) {
   const key = normalizeAccountValue(masterKey);
   if (!key) return 0;
@@ -6702,6 +6751,12 @@ if (listingDetail) {
           email: user.email,
           name: requesterName,
         });
+        const requesterWorkStats = getCompletedMasterStats({
+          requesterKey,
+          requesterUid: user.uid,
+          requesterEmail: user.email,
+          requesterName,
+        });
 
         const sentOffer = {
           id: `${offerId}-sent`,
@@ -6723,8 +6778,10 @@ if (listingDetail) {
           requesterPhone: user.phone || "",
           requesterCity: user.city || activeListing.city || "",
           requesterDistrict: user.district || activeListing.district || "",
-          requesterRating: Number(user.rating || 9.1),
-          requesterReviewCount: Number(user.reviewCount || 12),
+          requesterRating: requesterWorkStats.rating,
+          requesterReviewCount: requesterWorkStats.reviewCount,
+          requesterCompletedJobs: requesterWorkStats.completedJobs,
+          requesterStatsSource: "completedListings",
           createdAt,
           requesterFavoriteCount,
         };
@@ -6847,14 +6904,30 @@ if (listingDetail) {
 function getOfferMasterProfile(offer) {
   const listing = getAllListings().find((item) => String(item.id) === String(offer.listingId)) || {};
   const listingMaster = listing.master || {};
-  const rating = Number(offer.requesterRating || listingMaster.rating || 9.1);
-  const reviewCount = Number(offer.requesterReviewCount || listingMaster.reviewCount || 12);
   const masterKey = getMasterStatKey({
     requesterKey: offer.requesterKey,
     requesterUid: offer.requesterUid,
     requesterEmail: offer.requesterEmail,
     requesterName: offer.requesterName,
   });
+  const hasRequesterIdentity = Boolean(offer.requesterKey || offer.requesterUid || offer.requesterEmail);
+  const completedStats = hasRequesterIdentity
+    ? getCompletedMasterStats({
+        requesterKey: offer.requesterKey,
+        requesterUid: offer.requesterUid,
+        requesterEmail: offer.requesterEmail,
+        requesterName: offer.requesterName,
+      })
+    : null;
+  const rating = hasRequesterIdentity
+    ? completedStats.rating
+    : Number(offer.requesterRating || listingMaster.rating || 0);
+  const reviewCount = hasRequesterIdentity
+    ? completedStats.reviewCount
+    : Number(offer.requesterReviewCount || listingMaster.reviewCount || 0);
+  const completedJobs = hasRequesterIdentity
+    ? completedStats.completedJobs
+    : Number(offer.requesterCompletedJobs || listingMaster.completedJobs || 0);
 
   return {
     name: offer.requesterName || listingMaster.name || "Usta profili",
@@ -6866,7 +6939,7 @@ function getOfferMasterProfile(offer) {
     location: [offer.requesterCity, offer.requesterDistrict].filter(Boolean).join(" / ") ||
       [listing.city, listing.district].filter(Boolean).join(" / ") ||
       "Konum paylaşılmadı",
-    completedJobs: Number(offer.requesterCompletedJobs || Math.max(4, reviewCount + 3)),
+    completedJobs,
     verified: offer.requesterVerified !== false,
   };
 }
