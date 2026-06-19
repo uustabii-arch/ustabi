@@ -5560,6 +5560,10 @@ if (listingGrid) {
   const marketSearch = document.querySelector("#marketSearch");
   const filterToggleButton = document.querySelector("#filterToggleButton");
   const marketFilters = document.querySelector("#marketFilters");
+  const marketFilterBackdrop = document.querySelector("#marketFilterBackdrop");
+  const closeMarketFilters = document.querySelector("#closeMarketFilters");
+  const applyMarketFilters = document.querySelector("#applyMarketFilters");
+  const activeFilterSummary = document.querySelector("#activeFilterSummary");
   const categoryFilter = document.querySelector("#categoryFilter");
   const budgetMinFilter = document.querySelector("#budgetMinFilter");
   const budgetMaxFilter = document.querySelector("#budgetMaxFilter");
@@ -5976,6 +5980,77 @@ if (listingGrid) {
     syncDistrictFilter();
   }
 
+  function getActiveFilterLabels() {
+    const labels = [];
+    const query = marketSearch.value.trim();
+    const category = categoryFilter?.value || "Tümü";
+    const minBudget = budgetMinFilter?.value || "";
+    const maxBudget = budgetMaxFilter?.value || "";
+    const workMode = workModeFilter?.value || "all";
+    const cityValue = cityFilter?.value || "";
+    const districtValue = districtFilter?.value || "";
+    const offerCountValue = offerCountFilter?.value || "all";
+    const sortValue = sortFilter?.value || "featured";
+
+    if (query) labels.push(`Arama: ${query}`);
+    if (category !== "Tümü") labels.push(`Kategori: ${category}`);
+    if (selectedTime !== "Tümü") labels.push(`Zaman: ${selectedTime}`);
+    if (minBudget) labels.push(`Min: ${Number(minBudget).toLocaleString("tr-TR")} TL`);
+    if (maxBudget) labels.push(`Max: ${Number(maxBudget).toLocaleString("tr-TR")} TL`);
+    if (workMode === "remote") labels.push("Uzaktan");
+    if (workMode === "onsite") labels.push("Yakından");
+    if (cityValue) labels.push(`İl: ${cityValue}`);
+    if (districtValue) labels.push(`İlçe: ${districtValue}`);
+    if (offerCountValue === "none") labels.push("Teklifsiz");
+    if (offerCountValue === "low") labels.push("1-3 teklif");
+    if (offerCountValue === "many") labels.push("4+ teklif");
+    if (sortValue === "newest") labels.push("En yeni");
+    if (sortValue === "budgetDesc") labels.push("Bütçe yüksek");
+    if (sortValue === "budgetAsc") labels.push("Bütçe düşük");
+    if (sortValue === "offersAsc") labels.push("Az teklifli");
+
+    return labels;
+  }
+
+  function updateActiveFilterSummary() {
+    if (!activeFilterSummary) return;
+
+    const labels = getActiveFilterLabels();
+    activeFilterSummary.hidden = !labels.length;
+    activeFilterSummary.innerHTML = labels.length
+      ? `<strong>Kriterler</strong>${labels
+          .map((label) => `<span class="active-filter-pill">${escapeHtml(label)}</span>`)
+          .join("")}`
+      : "";
+  }
+
+  function openMarketFilters() {
+    if (!marketFilters || !filterToggleButton) return;
+    closeDrawer();
+    closeNotificationPanel();
+    closeAdminListingNotificationPanel();
+    marketFilters.hidden = false;
+    if (marketFilterBackdrop) marketFilterBackdrop.hidden = false;
+    document.body.classList.add("filter-panel-open");
+    filterToggleButton.setAttribute("aria-expanded", "true");
+    window.requestAnimationFrame(() => {
+      marketFilters.classList.add("open");
+      marketFilterBackdrop?.classList.add("open");
+    });
+  }
+
+  function closeMarketFilterPanel() {
+    if (!marketFilters || !filterToggleButton) return;
+    marketFilters.classList.remove("open");
+    marketFilterBackdrop?.classList.remove("open");
+    document.body.classList.remove("filter-panel-open");
+    filterToggleButton.setAttribute("aria-expanded", "false");
+    window.setTimeout(() => {
+      marketFilters.hidden = true;
+      if (marketFilterBackdrop) marketFilterBackdrop.hidden = true;
+    }, 180);
+  }
+
   function getFilteredListings() {
     const query = marketSearch.value.trim().toLocaleLowerCase("tr-TR");
     const category = categoryFilter.value;
@@ -6147,6 +6222,7 @@ if (listingGrid) {
     listingGrid.innerHTML = orderedListings.length
       ? orderedListings.map((listing) => listingCard(listing)).join("")
       : `<article class="listing-card"><h3>Sonuç bulunamadı</h3></article>`;
+    updateActiveFilterSummary();
   }
 
   subscribeSharedListings((allListings) => {
@@ -6169,8 +6245,15 @@ if (listingGrid) {
   window.addEventListener("resize", updateFeaturedCarousel);
   filterToggleButton?.addEventListener("click", () => {
     const expanded = filterToggleButton.getAttribute("aria-expanded") === "true";
-    filterToggleButton.setAttribute("aria-expanded", String(!expanded));
-    if (marketFilters) marketFilters.hidden = expanded;
+    if (expanded) closeMarketFilterPanel();
+    else openMarketFilters();
+  });
+  closeMarketFilters?.addEventListener("click", closeMarketFilterPanel);
+  marketFilterBackdrop?.addEventListener("click", closeMarketFilterPanel);
+  applyMarketFilters?.addEventListener("click", () => {
+    renderListings();
+    closeMarketFilterPanel();
+    activeFilterSummary?.scrollIntoView({ block: "nearest" });
   });
   profileButton.addEventListener("click", openProfileDrawer);
   closeProfileDrawer.addEventListener("click", closeDrawer);
@@ -6220,6 +6303,11 @@ if (listingGrid) {
 
     if (notificationPanel && !notificationPanel.hidden) {
       closeNotificationPanel();
+      return;
+    }
+
+    if (marketFilters && !marketFilters.hidden) {
+      closeMarketFilterPanel();
     }
   });
 
@@ -6231,6 +6319,7 @@ if (listingGrid) {
     input?.addEventListener("change", renderListings);
   });
   clearMarketFilters?.addEventListener("click", () => {
+    if (categoryFilter) categoryFilter.value = "Tümü";
     if (budgetMinFilter) budgetMinFilter.value = "";
     if (budgetMaxFilter) budgetMaxFilter.value = "";
     if (workModeFilter) workModeFilter.value = "all";
@@ -6241,6 +6330,8 @@ if (listingGrid) {
     }
     if (offerCountFilter) offerCountFilter.value = "all";
     if (sortFilter) sortFilter.value = "featured";
+    selectedTime = "Tümü";
+    chips.forEach((chip) => chip.classList.toggle("active", chip.dataset.time === "Tümü"));
     renderListings();
   });
 

@@ -226,32 +226,46 @@
 
       <section class="all-listings-section" aria-label="Tüm işler">
         <div class="list-section-head">
-          <select id="categoryFilter" aria-label="Kategori filtresi">
-            <option value="Tümü">Tümü</option>
-          </select>
-          <div class="chip-row" aria-label="Hızlı filtreler">
-            <button class="chip active" type="button" data-time="Tümü">Tümü</button>
-            <button class="chip" type="button" data-time="Bugün">Bugün</button>
-            <button class="chip" type="button" data-time="Yarın">Yarın</button>
-            <button class="chip" type="button" data-time="Bu hafta">Bu hafta</button>
+          <div class="quick-filter-row">
+            <button
+              class="filter-toggle-button"
+              id="filterToggleButton"
+              type="button"
+              aria-expanded="false"
+              aria-controls="marketFilters"
+            >
+              Filtreler
+            </button>
+            <div class="chip-row" aria-label="Hızlı filtreler">
+              <button class="chip active" type="button" data-time="Tümü">Tümü</button>
+              <button class="chip" type="button" data-time="Bugün">Bugün</button>
+              <button class="chip" type="button" data-time="Yarın">Yarın</button>
+              <button class="chip" type="button" data-time="Bu hafta">Bu hafta</button>
+            </div>
           </div>
-          <button
-            class="filter-toggle-button"
-            id="filterToggleButton"
-            type="button"
-            aria-expanded="false"
-            aria-controls="marketFilters"
-          >
-            Filtreler
-          </button>
         </div>
 
+        <div class="active-filter-summary" id="activeFilterSummary" hidden aria-live="polite"></div>
+        <div class="market-filter-backdrop" id="marketFilterBackdrop" hidden></div>
         <div class="market-filter-panel" id="marketFilters" aria-label="İlan filtreleri" hidden>
           <div class="market-filter-head">
-            <strong>Filtreler</strong>
-            <button class="ghost-action" id="clearMarketFilters" type="button">Temizle</button>
+            <div>
+              <strong>Filtreler</strong>
+              <small>İlanları aradığın işe göre daralt</small>
+            </div>
+            <button class="close-button" id="closeMarketFilters" type="button" aria-label="Filtreleri kapat">×</button>
           </div>
           <div class="market-filter-grid">
+            <fieldset>
+              <legend>Kategori</legend>
+              <label>
+                İş alanı
+                <select id="categoryFilter" aria-label="Kategori filtresi">
+                  <option value="Tümü">Tümü</option>
+                </select>
+              </label>
+            </fieldset>
+
             <fieldset>
               <legend>Bütçe</legend>
               <div class="market-filter-pair">
@@ -316,6 +330,10 @@
                 </label>
               </div>
             </fieldset>
+          </div>
+          <div class="market-filter-actions">
+            <button class="ghost-action" id="clearMarketFilters" type="button">Temizle</button>
+            <button class="primary-action" id="applyMarketFilters" type="button">Ara</button>
           </div>
         </div>
 
