@@ -966,6 +966,12 @@ function getListingImage(listing) {
   return categoryImageMap[listing.category] || categoryImageMap.Diğer || "assets/listing-placeholder.svg";
 }
 
+function getListingRoleLabel(listing = {}) {
+  return listing.listingRole === "master" || listing.role === "master" || listing.ownerRole === "master"
+    ? "Hizmet veren"
+    : "İş veren";
+}
+
 populateProfessionSelects();
 
 function toDateInputValue(date) {
@@ -3755,6 +3761,102 @@ const defaultListings = [
   },
 ];
 
+const additionalDefaultListingSeeds = [
+  { listingRole: "master", title: "Drone ile arsa ve mekan çekimi yapıyorum", category: "Fotoğraf çekimi", city: "İstanbul", district: "Sarıyer", budget: 5500, details: "Arsa, villa ve işletmeler için 4K drone çekimi ve kısa tanıtım videosu hazırlıyorum.", workLocationMode: "onsite", tags: ["drone", "video", "emlak", "4k"] },
+  { listingRole: "master", title: "Evcil hayvan gezdirme ve mama takibi", category: "Diğer", city: "İstanbul", district: "Kadıköy", budget: 900, details: "Kedi ve köpekler için günlük gezdirme, mama-su kontrolü ve kısa durum bildirimi yapıyorum.", imageCategory: "Bahçe", tags: ["evcil hayvan", "köpek", "kedi", "gezdirme"] },
+  { listingRole: "master", title: "Gündüz yaşlı refakat hizmeti veriyorum", category: "Gündelik yardımcı", city: "Ankara", district: "Çankaya", budget: 2400, details: "Gündüz saatlerinde ilaç hatırlatma, yemek hazırlığı ve temel refakat desteği sağlıyorum.", tags: ["refakat", "yaşlı bakım", "gündüz", "destek"] },
+  { listingRole: "master", title: "Hafta sonu çocuk bakıcılığı desteği", category: "Gündelik yardımcı", city: "İzmir", district: "Karşıyaka", budget: 1800, details: "Hafta sonu birkaç saatlik çocuk bakımı, oyun ve günlük rutin desteği veriyorum.", tags: ["çocuk bakımı", "hafta sonu", "oyun", "bakıcı"] },
+  { listingRole: "employer", title: "Oto detaylı iç temizlik yaptırılacak", category: "Temizlik", city: "Bursa", district: "Nilüfer", budget: 2200, details: "Binek araç için koltuk, tavan, bagaj ve torpido detaylı temizlik hizmeti aranıyor.", tags: ["oto", "detaylı temizlik", "koltuk", "araç"] },
+  { listingRole: "master", title: "İkinci el araç ön kontrol hizmeti", category: "Diğer", city: "İstanbul", district: "Ümraniye", budget: 3000, details: "Araç almadan önce kaporta, boya, lastik ve genel durum kontrolü yapıyorum.", imageCategory: "Elektrik", tags: ["oto kontrol", "ekspertiz", "araç", "ikinci el"] },
+  { listingRole: "master", title: "Düğün günü organizasyon koordinatörü", category: "Catering", city: "Antalya", district: "Muratpaşa", budget: 9000, details: "Düğün günü akış takibi, ekip koordinasyonu ve misafir yönlendirme hizmeti veriyorum.", tags: ["düğün", "organizasyon", "koordinasyon", "etkinlik"] },
+  { listingRole: "master", title: "Ses sistemi ve mikrofon kurulumu", category: "Montaj", city: "İstanbul", district: "Şişli", budget: 6500, details: "Toplantı, seminer ve küçük etkinlikler için ses sistemi kurulumu ve teknik destek sağlıyorum.", tags: ["ses sistemi", "mikrofon", "etkinlik", "kurulum"] },
+  { listingRole: "master", title: "Çocuk partileri için animatör hizmeti", category: "Diğer", city: "Ankara", district: "Gölbaşı", budget: 4500, details: "Doğum günü ve okul etkinlikleri için oyun, yarışma ve yüz boyama programı yapıyorum.", imageCategory: "Catering", tags: ["animatör", "çocuk", "parti", "oyun"] },
+  { listingRole: "master", title: "Online pilates ve esneme dersi", category: "Özel ders", city: "İstanbul", district: "Beşiktaş", budget: 2600, details: "Başlangıç seviyesi için online pilates, esneme ve duruş çalışması yaptırıyorum.", workLocationMode: "remote", tags: ["pilates", "online", "spor", "esneme"] },
+  { listingRole: "master", title: "Online beslenme takip danışmanlığı", category: "Özel ders", city: "İzmir", district: "Konak", budget: 4200, details: "Haftalık öğün planı, alışveriş listesi ve takip görüşmesi hazırlıyorum.", workLocationMode: "remote", tags: ["beslenme", "danışmanlık", "online", "takip"] },
+  { listingRole: "employer", title: "Restoran menüsü İngilizceye çevrilecek", category: "İçerik yazarlığı", city: "Muğla", district: "Bodrum", budget: 2500, details: "Türkçe restoran menüsünün İngilizceye doğal ve anlaşılır şekilde çevrilmesi gerekiyor.", workLocationMode: "remote", tags: ["çeviri", "menü", "ingilizce", "restoran"] },
+  { listingRole: "master", title: "CV ve LinkedIn profil düzenleme", category: "İçerik yazarlığı", city: "Ankara", district: "Yenimahalle", budget: 1800, details: "CV, ön yazı ve LinkedIn özet alanlarını başvuruya uygun hale getiriyorum.", workLocationMode: "remote", tags: ["cv", "linkedin", "kariyer", "metin"] },
+  { listingRole: "master", title: "Küçük işletme muhasebe evrak düzeni", category: "Diğer", city: "İstanbul", district: "Fatih", budget: 5000, details: "Fatura, gider evrakı ve aylık klasör düzeni için ön muhasebe desteği veriyorum.", imageCategory: "Backend API", tags: ["muhasebe", "evrak", "işletme", "fatura"] },
+  { listingRole: "employer", title: "Kira sözleşmesi için dilekçe taslağı", category: "İçerik yazarlığı", city: "İstanbul", district: "Bakırköy", budget: 2000, details: "Kira süreciyle ilgili resmi dilekçe taslağı ve düzenli metin hazırlığı gerekiyor.", workLocationMode: "remote", tags: ["dilekçe", "metin", "kira", "taslak"] },
+  { listingRole: "master", title: "Başlangıç seviyesi keman dersi", category: "Özel ders", city: "Eskişehir", district: "Tepebaşı", budget: 3200, details: "Çocuk ve yetişkinler için temel nota, duruş ve parça çalışması yaptırıyorum.", tags: ["keman", "müzik", "özel ders", "nota"] },
+  { listingRole: "master", title: "Reklam ve video için seslendirme", category: "Video kurgu", city: "İstanbul", district: "Beyoğlu", budget: 3500, details: "Tanıtım filmi, sosyal medya videosu ve IVR metinleri için seslendirme yapıyorum.", workLocationMode: "remote", tags: ["seslendirme", "reklam", "video", "stüdyo"] },
+  { listingRole: "master", title: "Podcast kurgu ve ses temizleme", category: "Video kurgu", city: "İzmir", district: "Bornova", budget: 4800, details: "Podcast bölümlerinde nefes, gürültü ve boşluk temizliğiyle yayın formatı hazırlıyorum.", workLocationMode: "remote", tags: ["podcast", "kurgu", "ses", "edit"] },
+  { listingRole: "master", title: "3D ürün modelleme ve render", category: "Grafik tasarım", city: "İstanbul", district: "Kağıthane", budget: 12000, details: "Mobilya, ambalaj ve küçük ürünler için 3D modelleme ve render görseli hazırlıyorum.", workLocationMode: "remote", tags: ["3d", "render", "ürün", "modelleme"] },
+  { listingRole: "employer", title: "Kafe iç mimari render görseli", category: "UI/UX tasarım", city: "Ankara", district: "Çankaya", budget: 15000, details: "Yeni açılacak kafe için oturma düzeni ve iç mekan render görselleri gerekiyor.", workLocationMode: "remote", tags: ["render", "kafe", "iç mekan", "tasarım"] },
+  { listingRole: "employer", title: "Arsa sınır krokisi için ölçüm desteği", category: "Diğer", city: "Balıkesir", district: "Edremit", budget: 8500, details: "Arsa çevresi için temel ölçüm, işaretleme ve kroki desteği alınacak.", imageCategory: "İnşaat işçisi", tags: ["arsa", "ölçüm", "kroki", "işaretleme"] },
+  { listingRole: "employer", title: "Gece çelik kapı kilidi değişecek", category: "Anahtarcı", city: "İstanbul", district: "Esenler", budget: 1800, details: "Taşınma sonrası gece saatinde çelik kapı göbek kilidi değişimi gerekiyor.", tags: ["anahtarcı", "kilit", "gece", "kapı"] },
+  { listingRole: "master", title: "Havuz bakım ve kimyasal denge kontrolü", category: "Tesisat", city: "Antalya", district: "Konyaaltı", budget: 3800, details: "Site ve villa havuzları için filtre, seviye ve kimyasal denge kontrolü yapıyorum.", tags: ["havuz", "bakım", "filtre", "villa"] },
+  { listingRole: "master", title: "Kişiye özel fitness programı", category: "Özel ders", city: "İstanbul", district: "Ataşehir", budget: 3600, details: "Hedefe göre haftalık antrenman planı, hareket anlatımı ve takip desteği veriyorum.", workLocationMode: "remote", tags: ["fitness", "program", "online", "antrenman"] },
+  { listingRole: "master", title: "Evde protez tırnak ve bakım", category: "Kuaför", city: "İzmir", district: "Alsancak", budget: 1900, details: "Evde protez tırnak, kalıcı oje ve basit el bakım hizmeti veriyorum.", tags: ["tırnak", "bakım", "kalıcı oje", "güzellik"] },
+  { listingRole: "master", title: "Kaş laminasyon ve kirpik lifting", category: "Kuaför", city: "Bursa", district: "Nilüfer", budget: 1700, details: "Randevulu şekilde kaş laminasyon, kirpik lifting ve bakım uygulaması yapıyorum.", tags: ["kaş", "kirpik", "laminasyon", "güzellik"] },
+  { listingRole: "master", title: "Çanta fermuar ve astar tamiri", category: "Terzi", city: "İstanbul", district: "Kadıköy", budget: 1200, details: "Deri ve kumaş çantalarda fermuar, astar ve dikiş tamiri yapıyorum.", tags: ["çanta", "tamir", "fermuar", "dikiş"] },
+  { listingRole: "master", title: "Ayakkabı taban ve boya yenileme", category: "Terzi", city: "Ankara", district: "Kızılay", budget: 1400, details: "Ayakkabı taban, topuk, boya ve küçük dikiş yenileme hizmeti veriyorum.", tags: ["ayakkabı", "tamir", "boya", "taban"] },
+  { listingRole: "master", title: "Saat pil değişimi ve kordon ayarı", category: "Diğer", city: "İstanbul", district: "Üsküdar", budget: 700, details: "Kol saati pil değişimi, kordon kısaltma ve basit temizlik işlemleri yapıyorum.", imageCategory: "Elektrik", tags: ["saat", "pil", "kordon", "tamir"] },
+  { listingRole: "master", title: "Telefon ekran koruyucu ve küçük tamir", category: "Elektrik", city: "İzmir", district: "Buca", budget: 900, details: "Telefon ekran koruyucu, şarj soketi temizliği ve küçük aksesuar montajı yapıyorum.", tags: ["telefon", "ekran", "aksesuar", "tamir"] },
+  { listingRole: "master", title: "Laptop bakım ve termal macun değişimi", category: "Elektrik", city: "İstanbul", district: "Maltepe", budget: 1600, details: "Laptop fan temizliği, termal macun değişimi ve genel performans kontrolü yapıyorum.", tags: ["laptop", "bakım", "termal macun", "fan"] },
+  { listingRole: "master", title: "Harici disk veri kurtarma ön kontrolü", category: "Backend API", city: "Ankara", district: "Etimesgut", budget: 3500, details: "Harici disk ve USB belleklerde ilk seviye veri kurtarma analizi yapıyorum.", tags: ["veri kurtarma", "disk", "usb", "teknik"] },
+  { listingRole: "employer", title: "Küçük ofis network kurulumu", category: "Kamera güvenlik", city: "İstanbul", district: "Maslak", budget: 9500, details: "8 kişilik ofis için modem, access point ve kablolama düzeni kurulacak.", tags: ["network", "ofis", "modem", "kablolama"] },
+  { listingRole: "master", title: "POS cihazı kurulum ve eğitim desteği", category: "Elektrik", city: "Antalya", district: "Lara", budget: 2200, details: "Kafe ve mağazalar için POS cihazı kurulum, fiş testi ve kısa kullanım eğitimi veriyorum.", tags: ["pos", "mağaza", "kurulum", "eğitim"] },
+  { listingRole: "employer", title: "E-ticaret kargo paketleme elemanı", category: "Gündelik yardımcı", city: "İstanbul", district: "Bağcılar", budget: 2600, details: "Bir günlük ürün paketleme, etiket basma ve kargo poşeti hazırlama desteği aranıyor.", tags: ["paketleme", "kargo", "e-ticaret", "günlük"] },
+  { listingRole: "employer", title: "Depo sayımı için iki kişilik ekip", category: "Gündelik yardımcı", city: "Kocaeli", district: "Gebze", budget: 5000, details: "Depoda raf sayımı, barkod kontrolü ve Excel listeye işleme desteği gerekiyor.", tags: ["depo", "sayım", "barkod", "ekip"] },
+  { listingRole: "employer", title: "Kozmetik ürün etiketleme işi", category: "Gündelik yardımcı", city: "İstanbul", district: "Başakşehir", budget: 3200, details: "Kozmetik kutularına barkod ve içerik etiketi yapıştırma işi için destek aranıyor.", tags: ["etiketleme", "kozmetik", "barkod", "paket"] },
+  { listingRole: "employer", title: "Fuar standı için karşılama personeli", category: "Diğer", city: "İzmir", district: "Gaziemir", budget: 6000, details: "Fuar alanında ziyaretçi karşılama, broşür verme ve yönlendirme desteği gerekiyor.", imageCategory: "Dijital pazarlama", tags: ["fuar", "stand", "karşılama", "personel"] },
+  { listingRole: "employer", title: "Mahalle tanıtımı için broşür dağıtımı", category: "Dijital pazarlama", city: "Ankara", district: "Mamak", budget: 2200, details: "Yeni açılan işletme için belirlenen sokaklarda broşür dağıtımı yapılacak.", tags: ["broşür", "tanıtım", "saha", "dağıtım"] },
+  { listingRole: "employer", title: "Dükkan tabelası montajı", category: "Montaj", city: "İstanbul", district: "Pendik", budget: 4800, details: "Hazır pleksi tabela dükkan girişine monte edilecek, elektrik bağlantısı kontrol edilecek.", tags: ["tabela", "montaj", "dükkan", "pleksi"] },
+  { listingRole: "employer", title: "Reklam filmi için figüran aranıyor", category: "Fotoğraf çekimi", city: "İstanbul", district: "Beyoğlu", budget: 3000, details: "Kısa sosyal medya reklamı çekimi için yarım günlük figüran desteği aranıyor.", tags: ["figüran", "çekim", "reklam", "video"] },
+  { listingRole: "employer", title: "Fuar standı görsel tasarımı", category: "Grafik tasarım", city: "İstanbul", district: "Tuzla", budget: 11000, details: "3x3 fuar standı için pano, masa giydirme ve yönlendirme görselleri hazırlanacak.", workLocationMode: "remote", tags: ["fuar", "stand", "grafik", "pano"] },
+  { listingRole: "employer", title: "Çocuk odasına duvar resmi yapılacak", category: "Boya", city: "Bursa", district: "Mudanya", budget: 7000, details: "Çocuk odasında bir duvara sade orman temalı mural çizimi ve boya uygulaması yapılacak.", tags: ["mural", "duvar resmi", "çocuk odası", "boya"] },
+  { listingRole: "master", title: "Akvaryum temizlik ve su değişimi", category: "Diğer", city: "İstanbul", district: "Bakırköy", budget: 1300, details: "Ev akvaryumlarında cam temizliği, filtre kontrolü ve su değişimi yapıyorum.", imageCategory: "Temizlik", tags: ["akvaryum", "temizlik", "filtre", "bakım"] },
+  { listingRole: "master", title: "Ofis bitkileri bakım ve saksı değişimi", category: "Bahçe", city: "İstanbul", district: "Levent", budget: 2500, details: "Ofis bitkileri için budama, toprak yenileme, saksı değişimi ve bakım planı hazırlıyorum.", tags: ["bitki", "ofis", "saksı", "bakım"] },
+  { listingRole: "master", title: "Haftalık ev yemeği hazırlığı", category: "Catering", city: "Ankara", district: "Çankaya", budget: 4200, details: "Haftalık ev yemeği, çorba ve salata hazırlığı yapıp porsiyonlu teslim ediyorum.", tags: ["ev yemeği", "haftalık", "catering", "porsiyon"] },
+  { listingRole: "master", title: "Sosyal medya canlı yayın moderatörü", category: "Sosyal medya", city: "İstanbul", district: "Kadıköy", budget: 3800, details: "Canlı yayınlarda yorum takibi, soru seçimi ve yayın sonrası kısa rapor hazırlıyorum.", workLocationMode: "remote", tags: ["canlı yayın", "moderasyon", "sosyal medya", "rapor"] },
+  { listingRole: "employer", title: "Online toplantı notları yazıya dökülecek", category: "İçerik yazarlığı", city: "İstanbul", district: "Üsküdar", budget: 2800, details: "Yaklaşık iki saatlik toplantı kaydı temiz başlıklarla yazıya dönüştürülecek.", workLocationMode: "remote", tags: ["transkript", "toplantı", "not", "metin"] },
+  { listingRole: "master", title: "Airbnb daire karşılama ve anahtar teslimi", category: "Gündelik yardımcı", city: "İstanbul", district: "Galata", budget: 1600, details: "Kısa dönem kiralık dairelerde misafir karşılama, anahtar teslimi ve kısa kontrol yapıyorum.", tags: ["airbnb", "karşılama", "anahtar", "misafir"] },
+  { listingRole: "master", title: "Koleksiyon plak ve kitap kataloglama", category: "Diğer", city: "İzmir", district: "Karşıyaka", budget: 3000, details: "Plak, kitap ve arşiv ürünlerini kategori, kondisyon ve raf koduyla listeleyip düzenliyorum.", imageCategory: "İçerik yazarlığı", tags: ["arşiv", "kitap", "plak", "katalog"] },
+];
+
+const additionalOwnerNames = [
+  "Rota Ajans", "Lina A.", "Atlas Yaşam", "Mina K.", "Oto Garaj", "Vizyon Araç", "Düğün Evi",
+  "Ses Atölyesi", "Minik Parti", "Duru Studio", "Form Beslenme", "Marina Restoran", "Kariyer Masası",
+  "Defter Ofis", "Vergi Düzeni", "Kaya Apartmanı", "Ezgi Müzik", "Ses Kabini", "PodLab", "Render Noktası",
+];
+const additionalMasterNames = [
+  "Drone Studio", "Pati Dostu", "Refakat Destek", "Oyun Ablası", "Detay Oto", "Araç Kontrol",
+  "Etkinlik Koçu", "Teknik Ses", "Parti Ekibi", "Pilates Koçu", "Beslenme Plan", "Çeviri Masası",
+  "CV Atölyesi", "Ön Muhasebe", "Evrak Destek", "Metin Ofisi", "Keman Dersi", "Seslendirme Pro",
+  "Podcast Edit", "3D Studio",
+];
+
+defaultListings.push(
+  ...additionalDefaultListingSeeds.map((listing, index) => {
+    const workDate = addDays(listing.day ?? index % 11);
+    const ownerName = listing.ownerName || additionalOwnerNames[index % additionalOwnerNames.length];
+    const masterName = listing.masterName || additionalMasterNames[index % additionalMasterNames.length];
+
+    return {
+      id: 67 + index,
+      title: listing.title,
+      category: listing.category,
+      categoryGroup: getCategoryGroupTitle(listing.category),
+      customCategoryTitle: professionCategories.includes(listing.category) ? "" : listing.category,
+      listingRole: listing.listingRole || "employer",
+      city: listing.city,
+      district: listing.district,
+      workDate,
+      time: getTimeLabel(workDate),
+      budget: listing.budget,
+      details: listing.details,
+      expectations: listing.expectations || "Detaylar teklif veren kişiyle mesaj veya telefon üzerinden netleştirilecek.",
+      workLocationMode: listing.workLocationMode || "onsite",
+      tags: listing.tags || [],
+      offers: listing.offers ?? ((index * 2) % 9) + 1,
+      featured: index % 8 === 0,
+      image: listing.image || categoryImageMap[listing.imageCategory || listing.category] || categoryImageMap.Diğer,
+      owner: { name: ownerName, rating: 8.6 + ((index % 9) / 10), reviewCount: 8 + (index % 28) },
+      master: { name: masterName, rating: 8.8 + ((index % 8) / 10), reviewCount: 12 + (index % 34) },
+    };
+  }),
+);
+
 function getAllListings() {
   const listingMap = new Map();
   [...defaultListings, ...getStoredListings(), ...remoteListings.filter(isAfterDataReset)].forEach((listing) => {
@@ -5890,6 +5992,7 @@ if (listingGrid) {
     const displayTitle = normalizeListingTitle(listing.title) || "Ilan";
     const safeDisplayTitle = escapeHtml(displayTitle);
     const safeFullTitle = escapeHtml(listing.title || displayTitle);
+    const roleLabel = getListingRoleLabel(listing);
 
     return `
       <article class="${featured ? "featured-card" : "listing-card"} ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}"${getHighlightStyle(listing)}>
@@ -5899,6 +6002,7 @@ if (listingGrid) {
         </div>
         <div class="listing-photo">
           <img src="${imageSrc}" alt="${listing.title} ilan fotoğrafı" loading="lazy" onerror="this.onerror=null;this.src='assets/listing-placeholder.svg';" />
+          <span class="listing-role-label">${roleLabel}</span>
           ${featured ? `<span class="featured-photo-label">${priorityLabel || "Öne çıkan"}</span>` : ""}
         </div>
         <div class="listing-card-copy">
@@ -6120,6 +6224,7 @@ function accountListingCard(listing, passive = false) {
   const displayTitle = normalizeListingTitle(listing.title) || "Ilan";
   const safeDisplayTitle = escapeHtml(displayTitle);
   const safeFullTitle = escapeHtml(listing.title || displayTitle);
+  const roleLabel = getListingRoleLabel(listing);
 
   return `
     <article class="listing-card ${listing.highlighted ? "colored-listing" : ""} ${passive || completed || !isApprovedListing(listing) ? "passive-listing" : ""} ${assigned ? "assigned-listing" : ""}"${getHighlightStyle(listing)}>
@@ -6133,6 +6238,7 @@ function accountListingCard(listing, passive = false) {
       </div>
       <div class="listing-photo">
         <img src="${imageSrc}" alt="${listing.title} ilan fotoğrafı" loading="lazy" onerror="this.onerror=null;this.src='assets/listing-placeholder.svg';" />
+        <span class="listing-role-label">${roleLabel}</span>
       </div>
       <div class="listing-card-copy">
         <h3 title="${safeFullTitle}">${safeDisplayTitle}</h3>

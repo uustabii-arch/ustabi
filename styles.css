@@ -1535,6 +1535,22 @@ button:disabled,
   font-weight: 950;
 }
 
+.listing-role-label {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(5, 5, 5, 0.72);
+  color: #fff7da;
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
 .featured-card h3,
 .listing-card h3 {
   display: -webkit-box;
