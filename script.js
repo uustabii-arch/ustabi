@@ -6044,7 +6044,7 @@ if (listingGrid) {
     const roleLabel = getListingRoleLabel(listing);
 
     return `
-      <article class="${featured ? "featured-card" : "listing-card"} ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}"${getHighlightStyle(listing)}>
+      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git"${getHighlightStyle(listing)}>
         <div class="${featured ? "featured-top" : "listing-top"}">
           <span class="category-icon">${categoryMark}</span>
           <strong class="budget">${currency.format(listing.budget)}</strong>
@@ -6067,11 +6067,8 @@ if (listingGrid) {
           <span class="badge">${listing.offers} teklif</span>
           ${promoted ? `<span class="badge promo-badge">Renkli ilan</span>` : ""}
         </div>
-        <div class="listing-bottom">
-            <a class="job-action" href="${offerHref}" aria-label="${listing.title} ilanına teklif ver">Teklif ver</a>
-          </div>
         </div>
-      </article>
+      </a>
     `;
   }
 
