@@ -968,7 +968,7 @@ function getListingImage(listing) {
 
 function getListingRoleLabel(listing = {}) {
   return listing.listingRole === "master" || listing.role === "master" || listing.ownerRole === "master"
-    ? "Hizmet veren"
+    ? "Çalışan"
     : "İş veren";
 }
 
