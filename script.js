@@ -5579,6 +5579,8 @@ if (listingGrid) {
   const closeMarketFilters = document.querySelector("#closeMarketFilters");
   const applyMarketFilters = document.querySelector("#applyMarketFilters");
   const activeFilterSummary = document.querySelector("#activeFilterSummary");
+  const categoryResultsSection = document.querySelector("#categoryResultsSection");
+  const categoryResultsTitle = document.querySelector("#categoryResultsTitle");
   const categoryFilter = document.querySelector("#categoryFilter");
   const budgetMinFilter = document.querySelector("#budgetMinFilter");
   const budgetMaxFilter = document.querySelector("#budgetMaxFilter");
@@ -6069,12 +6071,23 @@ if (listingGrid) {
   function renderHomeCategories() {
     if (!homeCategoryStrip) return;
 
-    homeCategoryStrip.innerHTML = homeCategoryItems
-      .map((category) => {
-        const count = listings.filter((listing) => {
-          if (isUnavailableListing(listing) || !isApprovedListing(listing)) return false;
-          return listing.category === category || listing.categoryGroup === category;
-        }).length;
+    const priorityMap = new Map(homeCategoryItems.map((category, index) => [category, index]));
+    const categoryCounts = new Map();
+    listings.forEach((listing) => {
+      if (isUnavailableListing(listing) || !isApprovedListing(listing)) return;
+      const category = listing.category || listing.categoryGroup || "Diğer";
+      categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    });
+    const categories = [...categoryCounts.entries()].sort((left, right) => {
+      const leftPriority = priorityMap.has(left[0]) ? priorityMap.get(left[0]) : 999;
+      const rightPriority = priorityMap.has(right[0]) ? priorityMap.get(right[0]) : 999;
+      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+      if (right[1] !== left[1]) return right[1] - left[1];
+      return left[0].localeCompare(right[0], "tr");
+    });
+
+    homeCategoryStrip.innerHTML = categories
+      .map(([category, count]) => {
         const mark = categoryMarks[category] || category.slice(0, 2).toLocaleUpperCase("tr-TR");
         const active = categoryFilter?.value === category;
 
@@ -6185,6 +6198,49 @@ if (listingGrid) {
     `;
   }
 
+  function getResultSectionTitle() {
+    const query = marketSearch.value.trim();
+    const category = categoryFilter?.value || "Tümü";
+
+    if (category !== "Tümü") return category;
+    if (query) return `"${query}" araması`;
+    if (selectedTime !== "Tümü") return selectedTime;
+    return "Seçilen işler";
+  }
+
+  function renderCategorizedListings(orderedListings) {
+    const category = categoryFilter?.value || "Tümü";
+
+    if (!orderedListings.length) {
+      return `<article class="listing-card empty-listing-card"><h3>Sonuç bulunamadı</h3></article>`;
+    }
+
+    if (category !== "Tümü") {
+      return `<div class="listing-grid">${orderedListings.map((listing) => listingCard(listing)).join("")}</div>`;
+    }
+
+    const groupedListings = new Map();
+    orderedListings.forEach((listing) => {
+      const groupTitle = listing.category || listing.categoryGroup || "Diğer";
+      if (!groupedListings.has(groupTitle)) groupedListings.set(groupTitle, []);
+      groupedListings.get(groupTitle).push(listing);
+    });
+
+    return [...groupedListings.entries()]
+      .map(
+        ([groupTitle, groupListings]) => `
+          <section class="category-listing-group" aria-label="${escapeHtml(groupTitle)} işleri">
+            <div class="category-listing-head">
+              <h3>${escapeHtml(groupTitle)}</h3>
+              <span>${groupListings.length} ilan</span>
+            </div>
+            <div class="listing-grid">${groupListings.map((listing) => listingCard(listing)).join("")}</div>
+          </section>
+        `,
+      )
+      .join("");
+  }
+
   function getVisibleFeaturedCount() {
     if (window.matchMedia("(max-width: 560px)").matches) return 1;
     if (window.matchMedia("(max-width: 1180px)").matches) return 2;
@@ -6232,6 +6288,7 @@ if (listingGrid) {
 
   function renderListings() {
     const filteredListings = getFilteredListings();
+    const shouldShowResults = getActiveFilterLabels().length > 0;
     const sortByPromotion = (left, right) =>
       Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
       getRecordTimestamp(right) - getRecordTimestamp(left);
@@ -6243,23 +6300,22 @@ if (listingGrid) {
       if (sortValue === "offersAsc") return Number(left.offers || 0) - Number(right.offers || 0);
       return sortByPromotion(left, right);
     };
-    const featured = filteredListings.filter((listing) => listing.featured).sort(sortByPromotion);
     const orderedListings = [...filteredListings].sort(sortBySelectedFilter);
 
-    currentFeatured = featured;
+    currentFeatured = [];
     featuredIndex = 0;
 
-    if (featuredListings) {
-      featuredListings.innerHTML = featured.length
-        ? featured.map((listing) => listingCard(listing, true)).join("")
-        : `<article class="featured-card"><h3>Öne çıkan sonuç yok</h3></article>`;
-      updateFeaturedCarousel();
-      restartCarousel();
+    if (!shouldShowResults) {
+      if (categoryResultsSection) categoryResultsSection.hidden = true;
+      listingGrid.innerHTML = "";
+      updateActiveFilterSummary();
+      renderHomeCategories();
+      return;
     }
 
-    listingGrid.innerHTML = orderedListings.length
-      ? orderedListings.map((listing) => listingCard(listing)).join("")
-      : `<article class="listing-card"><h3>Sonuç bulunamadı</h3></article>`;
+    if (categoryResultsSection) categoryResultsSection.hidden = false;
+    if (categoryResultsTitle) categoryResultsTitle.textContent = getResultSectionTitle();
+    listingGrid.innerHTML = renderCategorizedListings(orderedListings);
     updateActiveFilterSummary();
     renderHomeCategories();
   }

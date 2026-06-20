@@ -216,28 +216,14 @@
             <p>Günlük işler, ev hizmetleri, dijital işler ve uzman destekleri tek akışta.</p>
           </div>
         </div>
-        <div class="home-category-strip" aria-label="Popüler kategoriler" id="homeCategoryStrip"></div>
       </section>
 
-      <section class="featured-section" aria-labelledby="featured-title">
+      <section class="discover-section" aria-labelledby="discoverTitle">
         <div class="list-section-head">
           <div>
-            <p class="eyebrow">Öne çıkan ilanlar</p>
-            <h1 id="featured-title" class="sr-only">Öne çıkan ilanlar</h1>
+            <p class="eyebrow">Keşfet</p>
+            <h2 id="discoverTitle">İş alanları</h2>
           </div>
-        </div>
-
-        <div class="featured-carousel">
-          <button class="carousel-button" id="featuredPrev" type="button" aria-label="Önceki ilan">‹</button>
-          <div class="featured-viewport">
-            <div class="featured-strip" id="featuredListings"></div>
-          </div>
-          <button class="carousel-button" id="featuredNext" type="button" aria-label="Sonraki ilan">›</button>
-        </div>
-      </section>
-
-      <section class="all-listings-section" aria-label="Tüm işler">
-        <div class="list-section-head">
           <div class="quick-filter-row">
             <button
               class="filter-toggle-button"
@@ -254,6 +240,16 @@
               <button class="chip" type="button" data-time="Yarın">Yarın</button>
               <button class="chip" type="button" data-time="Bu hafta">Bu hafta</button>
             </div>
+          </div>
+        </div>
+        <div class="home-category-strip" aria-label="Popüler kategoriler" id="homeCategoryStrip"></div>
+      </section>
+
+      <section class="all-listings-section category-results-section" id="categoryResultsSection" aria-label="Seçilen iş alanı sonuçları" hidden>
+        <div class="list-section-head">
+          <div>
+            <p class="eyebrow">Sonuçlar</p>
+            <h2 id="categoryResultsTitle">Seçilen işler</h2>
           </div>
         </div>
 
@@ -349,7 +345,7 @@
           </div>
         </div>
 
-        <div class="listing-grid" id="listingGrid"></div>
+        <div class="categorized-listings" id="listingGrid"></div>
       </section>
     </main>
 
