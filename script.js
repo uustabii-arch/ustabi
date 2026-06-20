@@ -5556,12 +5556,8 @@ if (listingGrid) {
     "Temizlik",
     "Taşıma",
     "Montaj",
-    "Terzi",
-    "Kuaför",
     "Özel ders",
     "Web sitesi",
-    "Yazılım geliştirme",
-    "Gündelik yardımcı",
   ];
 
   let selectedTime = "Tümü";
@@ -5581,6 +5577,7 @@ if (listingGrid) {
   const activeFilterSummary = document.querySelector("#activeFilterSummary");
   const categoryResultsSection = document.querySelector("#categoryResultsSection");
   const categoryResultsTitle = document.querySelector("#categoryResultsTitle");
+  const categoryFilterSearch = document.querySelector("#categoryFilterSearch");
   const categoryFilter = document.querySelector("#categoryFilter");
   const budgetMinFilter = document.querySelector("#budgetMinFilter");
   const budgetMaxFilter = document.querySelector("#budgetMaxFilter");
@@ -6068,26 +6065,28 @@ if (listingGrid) {
     }, 180);
   }
 
+  function syncCategoryFilterOptions() {
+    if (!categoryFilter) return;
+    populateCategorySelect(categoryFilter, {
+      firstValue: "Tümü",
+      firstText: "Tümü",
+      searchTerm: categoryFilterSearch?.value || "",
+    });
+  }
+
   function renderHomeCategories() {
     if (!homeCategoryStrip) return;
 
-    const priorityMap = new Map(homeCategoryItems.map((category, index) => [category, index]));
     const categoryCounts = new Map();
     listings.forEach((listing) => {
       if (isUnavailableListing(listing) || !isApprovedListing(listing)) return;
       const category = listing.category || listing.categoryGroup || "Diğer";
       categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
     });
-    const categories = [...categoryCounts.entries()].sort((left, right) => {
-      const leftPriority = priorityMap.has(left[0]) ? priorityMap.get(left[0]) : 999;
-      const rightPriority = priorityMap.has(right[0]) ? priorityMap.get(right[0]) : 999;
-      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-      if (right[1] !== left[1]) return right[1] - left[1];
-      return left[0].localeCompare(right[0], "tr");
-    });
 
-    homeCategoryStrip.innerHTML = categories
-      .map(([category, count]) => {
+    homeCategoryStrip.innerHTML = homeCategoryItems
+      .map((category) => {
+        const count = categoryCounts.get(category) || 0;
         const mark = categoryMarks[category] || category.slice(0, 2).toLocaleUpperCase("tr-TR");
         const active = categoryFilter?.value === category;
 
@@ -6415,6 +6414,7 @@ if (listingGrid) {
   });
 
   marketSearch.addEventListener("input", renderListings);
+  categoryFilterSearch?.addEventListener("input", syncCategoryFilterOptions);
   categoryFilter.addEventListener("change", renderListings);
   populateMarketLocationFilters();
   [budgetMinFilter, budgetMaxFilter, workModeFilter, districtFilter, offerCountFilter, sortFilter].forEach((input) => {
@@ -6422,6 +6422,8 @@ if (listingGrid) {
     input?.addEventListener("change", renderListings);
   });
   clearMarketFilters?.addEventListener("click", () => {
+    if (categoryFilterSearch) categoryFilterSearch.value = "";
+    syncCategoryFilterOptions();
     if (categoryFilter) categoryFilter.value = "Tümü";
     if (budgetMinFilter) budgetMinFilter.value = "";
     if (budgetMaxFilter) budgetMaxFilter.value = "";

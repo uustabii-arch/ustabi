@@ -1302,9 +1302,24 @@ button:disabled,
   line-height: 1.55;
 }
 
+.home-hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.home-hero-actions .ghost-link {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  box-shadow: none;
+}
+
 .home-category-strip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1375,12 +1390,24 @@ button:disabled,
 }
 
 .discover-section {
-  padding: 14px;
+  padding: 16px;
   border: 1px solid rgba(222, 216, 205, 0.78);
   border-radius: 10px;
   background:
-    linear-gradient(180deg, rgba(255, 253, 250, 0.96), rgba(255, 248, 234, 0.72)),
+    linear-gradient(135deg, rgba(255, 253, 250, 0.98), rgba(255, 248, 234, 0.78), rgba(234, 245, 239, 0.56)),
     #fffdfa;
+}
+
+.discover-section h2 {
+  margin: 0;
+  font-size: clamp(1.55rem, 2.6vw, 2.4rem);
+  line-height: 1;
+}
+
+.discover-lead {
+  margin: 7px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .featured-section {
