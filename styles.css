@@ -1470,6 +1470,34 @@ button:disabled,
   font-weight: 900;
 }
 
+.explore-feed {
+  display: grid;
+  gap: 18px;
+  width: min(620px, 100%);
+  margin: 0 auto;
+  scroll-snap-type: y proximity;
+}
+
+.explore-feed .home-listing-link.listing-card {
+  width: 100%;
+  min-height: min(680px, calc(100vh - 118px));
+  height: auto;
+  align-content: start;
+  scroll-snap-align: start;
+}
+
+.explore-feed .listing-card .listing-photo {
+  aspect-ratio: 4 / 3;
+}
+
+.explore-feed .listing-card h3 {
+  font-size: 1.22rem;
+}
+
+.explore-feed .card-action-area .job-meta {
+  max-height: none;
+}
+
 .quick-filter-row {
   display: flex;
   align-items: center;
