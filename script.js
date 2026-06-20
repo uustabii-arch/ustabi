@@ -5504,6 +5504,7 @@ const listingGrid = document.querySelector("#listingGrid");
 
 if (listingGrid) {
   let listings = getAllListings();
+  const homeCategoryStrip = document.querySelector("#homeCategoryStrip");
 
   const categoryMarks = {
     "Yazılım geliştirme": "YZ",
@@ -5548,6 +5549,20 @@ if (listingGrid) {
     Bahçe: "BA",
     Diğer: "Dİ",
   };
+  const homeCategoryItems = [
+    "Boya",
+    "Tesisat",
+    "Elektrik",
+    "Temizlik",
+    "Taşıma",
+    "Montaj",
+    "Terzi",
+    "Kuaför",
+    "Özel ders",
+    "Web sitesi",
+    "Yazılım geliştirme",
+    "Gündelik yardımcı",
+  ];
 
   let selectedTime = "Tümü";
   let featuredIndex = 0;
@@ -6051,6 +6066,29 @@ if (listingGrid) {
     }, 180);
   }
 
+  function renderHomeCategories() {
+    if (!homeCategoryStrip) return;
+
+    homeCategoryStrip.innerHTML = homeCategoryItems
+      .map((category) => {
+        const count = listings.filter((listing) => {
+          if (isUnavailableListing(listing) || !isApprovedListing(listing)) return false;
+          return listing.category === category || listing.categoryGroup === category;
+        }).length;
+        const mark = categoryMarks[category] || category.slice(0, 2).toLocaleUpperCase("tr-TR");
+        const active = categoryFilter?.value === category;
+
+        return `
+          <button class="home-category-card ${active ? "active" : ""}" type="button" data-home-category="${escapeHtml(category)}">
+            <span>${mark}</span>
+            <strong>${escapeHtml(category)}</strong>
+            <small>${count} ilan</small>
+          </button>
+        `;
+      })
+      .join("");
+  }
+
   function getFilteredListings() {
     const query = marketSearch.value.trim().toLocaleLowerCase("tr-TR");
     const category = categoryFilter.value;
@@ -6223,6 +6261,7 @@ if (listingGrid) {
       ? orderedListings.map((listing) => listingCard(listing)).join("")
       : `<article class="listing-card"><h3>Sonuç bulunamadı</h3></article>`;
     updateActiveFilterSummary();
+    renderHomeCategories();
   }
 
   subscribeSharedListings((allListings) => {
@@ -6243,6 +6282,14 @@ if (listingGrid) {
   featuredCarousel?.addEventListener("mouseenter", () => window.clearInterval(carouselTimer));
   featuredCarousel?.addEventListener("mouseleave", restartCarousel);
   window.addEventListener("resize", updateFeaturedCarousel);
+  homeCategoryStrip?.addEventListener("click", (event) => {
+    const categoryButton = event.target.closest("[data-home-category]");
+    if (!categoryButton || !categoryFilter) return;
+
+    categoryFilter.value = categoryButton.dataset.homeCategory;
+    renderListings();
+    document.querySelector(".all-listings-section")?.scrollIntoView({ block: "start" });
+  });
   filterToggleButton?.addEventListener("click", () => {
     const expanded = filterToggleButton.getAttribute("aria-expanded") === "true";
     if (expanded) closeMarketFilterPanel();
