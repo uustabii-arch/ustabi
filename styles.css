@@ -1752,6 +1752,17 @@ body.filter-panel-open {
   justify-content: flex-start;
 }
 
+.filter-time-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.filter-time-row .chip {
+  justify-content: center;
+  min-height: 38px;
+}
+
 .carousel-button:hover {
   transform: translateY(-1px);
   border-color: rgba(255, 160, 0, 0.56);
@@ -5070,12 +5081,6 @@ textarea:focus {
     padding-bottom: 2px;
   }
 
-  .quick-filter-row .chip-row {
-    flex: 1 0 auto;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-  }
-
   .filter-toggle-button {
     flex: 0 0 auto;
   }
@@ -5333,10 +5338,6 @@ textarea:focus {
   flex-direction: row;
   justify-content: flex-start;
   gap: 10px;
-}
-
-.market-page .all-listings-section .chip-row {
-  justify-content: flex-start;
 }
 
 .market-page .listing-grid {
