@@ -6029,7 +6029,7 @@ if (listingGrid) {
     cityFilter.addEventListener("change", () => {
       exploreMode = false;
       syncMarketDistrictFilter();
-      renderListings();
+      handleMarketFilterDraftChange();
     });
     syncMarketDistrictFilter();
   }
@@ -6129,6 +6129,18 @@ if (listingGrid) {
       : "";
   }
 
+  function handleMarketFilterDraftChange() {
+    exploreMode = false;
+    if (isCategoryResultsPage) {
+      renderListings();
+      return;
+    }
+
+    listingGrid.innerHTML = "";
+    updateActiveFilterSummary();
+    renderHomeCategories();
+  }
+
   function openMarketFilters() {
     if (!marketFilters || !filterToggleButton) return;
     closeDrawer();
@@ -6154,7 +6166,9 @@ if (listingGrid) {
     window.setTimeout(() => {
       marketFilters.hidden = true;
       if (marketFilterBackdrop) marketFilterBackdrop.hidden = true;
-      if (categoryResultsSection && !isCategoryResultsPage && !exploreMode && !getActiveFilterLabels().length) {
+      if (categoryResultsSection && !isCategoryResultsPage && !exploreMode) {
+        categoryResultsSection.hidden = true;
+      } else if (categoryResultsSection && !exploreMode && !getActiveFilterLabels().length) {
         categoryResultsSection.hidden = true;
       }
     }, 180);
@@ -6411,7 +6425,7 @@ if (listingGrid) {
 
   function renderListings() {
     const filteredListings = getFilteredListings();
-    const shouldShowResults = isCategoryResultsPage || exploreMode || getActiveFilterLabels().length > 0;
+    const shouldShowResults = isCategoryResultsPage || exploreMode;
     const sortByPromotion = (left, right) =>
       Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
       getRecordTimestamp(right) - getRecordTimestamp(left);
@@ -6549,25 +6563,26 @@ if (listingGrid) {
   });
 
   marketSearch?.addEventListener("input", () => {
-    exploreMode = false;
-    renderListings();
+    handleMarketFilterDraftChange();
+  });
+  marketSearch?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || isCategoryResultsPage) return;
+    event.preventDefault();
+    window.location.href = buildMarketFilterUrl();
   });
   categoryFilterSearch?.addEventListener("input", syncCategoryFilterOptions);
   categoryFilter?.addEventListener("change", () => {
-    exploreMode = false;
-    renderListings();
+    handleMarketFilterDraftChange();
   });
   syncCategoryFilterOptions();
   populateMarketLocationFilters();
   hydrateMarketFiltersFromUrl();
   [budgetMinFilter, budgetMaxFilter, workModeFilter, districtFilter, offerCountFilter, sortFilter].forEach((input) => {
     input?.addEventListener("input", () => {
-      exploreMode = false;
-      renderListings();
+      handleMarketFilterDraftChange();
     });
     input?.addEventListener("change", () => {
-      exploreMode = false;
-      renderListings();
+      handleMarketFilterDraftChange();
     });
   });
   clearMarketFilters?.addEventListener("click", () => {
@@ -6581,7 +6596,7 @@ if (listingGrid) {
       chips.forEach((item) => item.classList.remove("active"));
       chip.classList.add("active");
       selectedTime = chip.dataset.time;
-      renderListings();
+      handleMarketFilterDraftChange();
     });
   });
 
