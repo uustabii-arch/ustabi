@@ -6354,7 +6354,7 @@ if (listingGrid) {
 
   function redirectToFilteredListing() {
     if (!getActiveFilterLabels().length) {
-      showToast("Önce en az bir filtre seç.");
+      window.location.href = "kesfet.html";
       return false;
     }
 
