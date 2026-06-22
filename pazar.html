@@ -3,9 +3,68 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ustabii | İlanlar</title>
+    <title>ustabii | Usta bul, günlük iş ilanı ver, çalışan ve iş veren bul</title>
+    <meta
+      name="description"
+      content="ustabii ile boya badana, tesisat, elektrik, temizlik, nakliyat, montaj, özel ders, yazılım ve dijital işler için iş veren ya da çalışan ilanı bul."
+    />
+    <meta
+      name="keywords"
+      content="usta bul, iş ilanı ver, günlük iş, çalışan ilanları, iş veren ilanları, boya badana ustası, tesisatçı, elektrikçi, temizlik, nakliyat, montaj, özel ders, yazılım işi, uzaktan çalışma"
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta property="og:site_name" content="ustabii" />
+    <meta property="og:title" content="ustabii | Usta bul, günlük iş ilanı ver" />
+    <meta
+      property="og:description"
+      content="Yerel hizmet, günlük iş, ev işi, dijital iş ve uzaktan çalışma ilanlarını tek yerde keşfet."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="assets/home-hero.jpg" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "#organization",
+            "name": "ustabii",
+            "url": "/",
+            "logo": "/favicon.svg"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "#website",
+            "name": "ustabii",
+            "url": "/",
+            "inLanguage": "tr-TR",
+            "publisher": { "@id": "#organization" },
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "/kategori.html?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          },
+          {
+            "@type": "Service",
+            "@id": "#marketplace-service",
+            "name": "Yerel hizmet ve günlük iş ilanları",
+            "provider": { "@id": "#organization" },
+            "areaServed": "TR",
+            "serviceType": [
+              "Usta bulma",
+              "Günlük iş ilanı",
+              "Ev hizmetleri",
+              "Dijital hizmetler",
+              "Uzaktan çalışma"
+            ],
+            "description": "ustabii; iş verenlerin ilan paylaşabildiği, çalışanların boya, tesisat, elektrik, temizlik, nakliyat, montaj, özel ders, yazılım ve dijital iş ilanlarını keşfedebildiği ilan platformudur."
+          }
+        ]
+      }
+    </script>
   </head>
   <body class="market-page">
     <header class="topbar market-topbar">
@@ -241,6 +300,29 @@
           </div>
         </div>
         <div class="home-category-strip" aria-label="Popüler kategoriler" id="homeCategoryStrip"></div>
+      </section>
+
+      <section class="seo-intent-section" aria-labelledby="seoIntentTitle">
+        <div>
+          <p class="eyebrow">Aranan işler</p>
+          <h2 id="seoIntentTitle">Usta, çalışan ve iş veren ilanlarını tek yerde bul.</h2>
+          <p>
+            ustabii; ev hizmetleri, günlük iş, yakından çalışma, uzaktan çalışma ve dijital işler için ilan
+            paylaşmak isteyen iş verenlerle çalışanları buluşturur.
+          </p>
+        </div>
+        <div class="seo-keyword-grid" aria-label="Sık aranan hizmetler">
+          <a href="kategori.html?category=Boya">Boya badana ustası</a>
+          <a href="kategori.html?category=Tesisat">Tesisatçı</a>
+          <a href="kategori.html?category=Elektrik">Elektrikçi</a>
+          <a href="kategori.html?category=Temizlik">Ev temizliği</a>
+          <a href="kategori.html?category=Taşıma">Nakliyat ve taşıma</a>
+          <a href="kategori.html?category=Montaj">Mobilya montaj</a>
+          <a href="kategori.html?category=Özel%20ders">Özel ders</a>
+          <a href="kategori.html?category=Yazılım%20geliştirme">Yazılım işi</a>
+          <a href="kategori.html?mode=remote">Uzaktan çalışma</a>
+          <a href="kategori.html?q=günlük%20iş">Günlük iş ilanları</a>
+        </div>
       </section>
 
       <section class="all-listings-section category-results-section" id="categoryResultsSection" aria-label="Seçilen iş alanı sonuçları" hidden>

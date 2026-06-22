@@ -193,6 +193,7 @@ function renderSiteFooter() {
   footer.innerHTML = `
     <div>
       <strong>ustabii</strong>
+      <span>Usta bulma, günlük iş ve yerel hizmet ilan platformu.</span>
       <span>© ${new Date().getFullYear()} Tüm hakları saklıdır.</span>
     </div>
     <nav aria-label="Site politikaları">
