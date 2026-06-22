@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ustabii | Kategori sonuçları</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="market-page category-page">
+    <header class="topbar market-topbar category-page-topbar">
+      <a class="brand" href="pazar.html" aria-label="ustabii ilan sayfası">
+        <span class="brand-mark" aria-hidden="true">U</span>
+      </a>
+
+      <div class="market-toolbar">
+        <div class="market-search" role="search">
+          <span aria-hidden="true">⌕</span>
+          <input id="marketSearch" type="search" placeholder="İlan, sektör, beceri veya ilçe ara" />
+        </div>
+
+        <button
+          class="filter-toggle-button"
+          id="filterToggleButton"
+          type="button"
+          aria-expanded="false"
+          aria-controls="marketFilters"
+        >
+          Filtreler
+        </button>
+      </div>
+
+      <a class="primary-action category-post-action" href="ilan-koy.html">İlan koy</a>
+    </header>
+
+    <main class="listings-shell category-results-shell">
+      <section class="category-page-head" aria-labelledby="categoryResultsTitle">
+        <p class="eyebrow">Sonuçlar</p>
+        <h1 id="categoryResultsTitle">İlanlar</h1>
+        <p>Filtrelerini seç, uygun iş veren ve çalışan ilanlarını aynı yerde gör.</p>
+      </section>
+
+      <section class="all-listings-section category-results-section" id="categoryResultsSection" aria-label="Kategori sonuçları">
+        <div class="active-filter-summary" id="activeFilterSummary" hidden aria-live="polite"></div>
+        <div class="market-filter-backdrop" id="marketFilterBackdrop" hidden></div>
+        <div class="market-filter-panel" id="marketFilters" aria-label="İlan filtreleri" hidden>
+          <div class="market-filter-head">
+            <div>
+              <strong>Filtreler</strong>
+              <small>İlanları aradığın işe göre daralt</small>
+            </div>
+            <button class="close-button" id="closeMarketFilters" type="button" aria-label="Filtreleri kapat">×</button>
+          </div>
+          <div class="market-filter-grid">
+            <fieldset>
+              <legend>Kategori</legend>
+              <label>
+                Kategori ara
+                <input id="categoryFilterSearch" type="search" placeholder="Boya, yazılım, temizlik..." />
+              </label>
+              <label>
+                Kategori seç
+                <select id="categoryFilter" aria-label="Kategori filtresi">
+                  <option value="Tümü">Tümü</option>
+                </select>
+              </label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Zaman</legend>
+              <div class="chip-row filter-time-row" aria-label="Zaman filtresi">
+                <button class="chip active" type="button" data-time="Tümü">Tümü</button>
+                <button class="chip" type="button" data-time="Bugün">Bugün</button>
+                <button class="chip" type="button" data-time="Yarın">Yarın</button>
+                <button class="chip" type="button" data-time="Bu hafta">Bu hafta</button>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Bütçe</legend>
+              <div class="market-filter-pair">
+                <label>
+                  Alt
+                  <input id="budgetMinFilter" type="number" min="0" step="100" placeholder="Min" />
+                </label>
+                <label>
+                  Üst
+                  <input id="budgetMaxFilter" type="number" min="0" step="100" placeholder="Max" />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Çalışma ve konum</legend>
+              <div class="market-filter-pair">
+                <label>
+                  Çalışma
+                  <select id="workModeFilter">
+                    <option value="all">Tümü</option>
+                    <option value="remote">Uzaktan</option>
+                    <option value="onsite">Yakından</option>
+                  </select>
+                </label>
+                <label>
+                  İl
+                  <select id="cityFilter">
+                    <option value="">Tümü</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                İlçe
+                <select id="districtFilter" disabled>
+                  <option value="">Önce il seç</option>
+                </select>
+              </label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Teklif ve sıralama</legend>
+              <div class="market-filter-pair">
+                <label>
+                  Teklif sayısı
+                  <select id="offerCountFilter">
+                    <option value="all">Tümü</option>
+                    <option value="none">Teklifsiz</option>
+                    <option value="low">1-3 teklif</option>
+                    <option value="many">4+ teklif</option>
+                  </select>
+                </label>
+                <label>
+                  Sırala
+                  <select id="sortFilter">
+                    <option value="featured">Öne çıkan</option>
+                    <option value="newest">En yeni</option>
+                    <option value="budgetDesc">Bütçe yüksek</option>
+                    <option value="budgetAsc">Bütçe düşük</option>
+                    <option value="offersAsc">Az teklifli</option>
+                  </select>
+                </label>
+              </div>
+            </fieldset>
+          </div>
+          <div class="market-filter-actions">
+            <button class="ghost-action" id="clearMarketFilters" type="button">Temizle</button>
+            <button class="primary-action" id="applyMarketFilters" type="button">Ara</button>
+          </div>
+        </div>
+
+        <div class="categorized-listings" id="listingGrid"></div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="turkey-locations.js"></script>
+    <script type="module" src="script.js"></script>
+  </body>
+</html>

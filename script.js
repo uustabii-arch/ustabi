@@ -5514,6 +5514,8 @@ if (professionSelect && customProfessionField && customProfessionInput) {
 const listingGrid = document.querySelector("#listingGrid");
 
 if (listingGrid) {
+  const MARKET_RESULTS_PAGE = "kategori.html";
+  const isCategoryResultsPage = document.body.classList.contains("category-page");
   let listings = getAllListings();
   const homeCategoryStrip = document.querySelector("#homeCategoryStrip");
 
@@ -5669,6 +5671,11 @@ if (listingGrid) {
   }
 
   function setupProfile() {
+    if (!profileButton || !profileName || !profileRole || !profileDrawer) {
+      restartSharedFeeds();
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     const user = getUser();
     const registered = isRegisteredUser(user);
@@ -5707,6 +5714,7 @@ if (listingGrid) {
   }
 
   function openProfileDrawer() {
+    if (!profileDrawer || !drawerBackdrop) return;
     closeNotificationPanel();
     updateDrawerCreditBalance();
     updateDrawerVerificationState(getUser());
@@ -5719,6 +5727,7 @@ if (listingGrid) {
   }
 
   function closeDrawer() {
+    if (!profileDrawer || !drawerBackdrop) return;
     drawerBackdrop.classList.remove("open");
     profileDrawer.classList.remove("open");
     profileDrawer.setAttribute("aria-hidden", "true");
@@ -5976,6 +5985,39 @@ if (listingGrid) {
     });
   }
 
+  function setSelectValue(select, value) {
+    if (!select || value === null || value === undefined || value === "") return;
+    const textValue = String(value);
+    if (![...select.options].some((option) => option.value === textValue)) {
+      select.add(new Option(textValue, textValue));
+    }
+    select.value = textValue;
+  }
+
+  function setSelectedTimeFilter(value) {
+    const allowedValues = [...chips].map((chip) => chip.dataset.time);
+    selectedTime = allowedValues.includes(value) ? value : "Tümü";
+    chips.forEach((chip) => chip.classList.toggle("active", chip.dataset.time === selectedTime));
+  }
+
+  function syncMarketDistrictFilter() {
+    if (!cityFilter || !districtFilter || !window.TURKEY_LOCATIONS) return;
+
+    const city = window.TURKEY_LOCATIONS.find((item) => item.name === cityFilter.value);
+    districtFilter.innerHTML = "";
+    if (!city) {
+      districtFilter.add(new Option("Önce il seç", ""));
+      districtFilter.disabled = true;
+      return;
+    }
+
+    districtFilter.add(new Option("Tümü", ""));
+    city.districts.forEach((district) => {
+      districtFilter.add(new Option(district.name, district.name));
+    });
+    districtFilter.disabled = false;
+  }
+
   function populateMarketLocationFilters() {
     if (!cityFilter || !districtFilter || !window.TURKEY_LOCATIONS) return;
 
@@ -5984,33 +6026,68 @@ if (listingGrid) {
       cityFilter.add(new Option(city.name, city.name));
     });
 
-    const syncDistrictFilter = () => {
-      const city = window.TURKEY_LOCATIONS.find((item) => item.name === cityFilter.value);
-      districtFilter.innerHTML = "";
-      if (!city) {
-        districtFilter.add(new Option("Önce il seç", ""));
-        districtFilter.disabled = true;
-        return;
-      }
-
-      districtFilter.add(new Option("Tümü", ""));
-      city.districts.forEach((district) => {
-        districtFilter.add(new Option(district.name, district.name));
-      });
-      districtFilter.disabled = false;
-    };
-
     cityFilter.addEventListener("change", () => {
       exploreMode = false;
-      syncDistrictFilter();
+      syncMarketDistrictFilter();
       renderListings();
     });
-    syncDistrictFilter();
+    syncMarketDistrictFilter();
+  }
+
+  function buildMarketFilterUrl(overrides = {}) {
+    const params = new URLSearchParams();
+    const query = String(overrides.query ?? marketSearch?.value ?? "").trim();
+    const category = overrides.category ?? categoryFilter?.value ?? "Tümü";
+    const time = overrides.time ?? selectedTime;
+    const minBudget = overrides.min ?? budgetMinFilter?.value ?? "";
+    const maxBudget = overrides.max ?? budgetMaxFilter?.value ?? "";
+    const workMode = overrides.mode ?? workModeFilter?.value ?? "all";
+    const city = overrides.city ?? cityFilter?.value ?? "";
+    const district = overrides.district ?? districtFilter?.value ?? "";
+    const offerCount = overrides.offers ?? offerCountFilter?.value ?? "all";
+    const sort = overrides.sort ?? sortFilter?.value ?? "featured";
+
+    if (query) params.set("q", query);
+    if (category && category !== "Tümü") params.set("category", category);
+    if (time && time !== "Tümü") params.set("time", time);
+    if (minBudget) params.set("min", minBudget);
+    if (maxBudget) params.set("max", maxBudget);
+    if (workMode && workMode !== "all") params.set("mode", workMode);
+    if (city) params.set("city", city);
+    if (district) params.set("district", district);
+    if (offerCount && offerCount !== "all") params.set("offers", offerCount);
+    if (sort && sort !== "featured") params.set("sort", sort);
+
+    const queryString = params.toString();
+    return `${MARKET_RESULTS_PAGE}${queryString ? `?${queryString}` : ""}`;
+  }
+
+  function updateMarketResultsUrl() {
+    if (!isCategoryResultsPage) return;
+    window.history.replaceState(null, "", buildMarketFilterUrl());
+  }
+
+  function hydrateMarketFiltersFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.toString()) return;
+
+    if (marketSearch) marketSearch.value = params.get("q") || "";
+    syncCategoryFilterOptions();
+    setSelectValue(categoryFilter, params.get("category") || "Tümü");
+    setSelectedTimeFilter(params.get("time") || "Tümü");
+    if (budgetMinFilter) budgetMinFilter.value = params.get("min") || "";
+    if (budgetMaxFilter) budgetMaxFilter.value = params.get("max") || "";
+    setSelectValue(workModeFilter, params.get("mode") || "all");
+    setSelectValue(cityFilter, params.get("city") || "");
+    syncMarketDistrictFilter();
+    setSelectValue(districtFilter, params.get("district") || "");
+    setSelectValue(offerCountFilter, params.get("offers") || "all");
+    setSelectValue(sortFilter, params.get("sort") || "featured");
   }
 
   function getActiveFilterLabels() {
     const labels = [];
-    const query = marketSearch.value.trim();
+    const query = marketSearch?.value.trim() || "";
     const category = categoryFilter?.value || "Tümü";
     const minBudget = budgetMinFilter?.value || "";
     const maxBudget = budgetMaxFilter?.value || "";
@@ -6077,7 +6154,7 @@ if (listingGrid) {
     window.setTimeout(() => {
       marketFilters.hidden = true;
       if (marketFilterBackdrop) marketFilterBackdrop.hidden = true;
-      if (categoryResultsSection && !exploreMode && !getActiveFilterLabels().length) {
+      if (categoryResultsSection && !isCategoryResultsPage && !exploreMode && !getActiveFilterLabels().length) {
         categoryResultsSection.hidden = true;
       }
     }, 180);
@@ -6141,8 +6218,8 @@ if (listingGrid) {
   }
 
   function getFilteredListings() {
-    const query = marketSearch.value.trim().toLocaleLowerCase("tr-TR");
-    const category = categoryFilter.value;
+    const query = (marketSearch?.value || "").trim().toLocaleLowerCase("tr-TR");
+    const category = categoryFilter?.value || "Tümü";
     const minBudget = Number(budgetMinFilter?.value || 0);
     const maxBudget = Number(budgetMaxFilter?.value || 0);
     const workMode = workModeFilter?.value || "all";
@@ -6237,7 +6314,7 @@ if (listingGrid) {
   }
 
   function getResultSectionTitle() {
-    const query = marketSearch.value.trim();
+    const query = marketSearch?.value.trim() || "";
     const category = categoryFilter?.value || "Tümü";
 
     if (category !== "Tümü") return category;
@@ -6334,7 +6411,7 @@ if (listingGrid) {
 
   function renderListings() {
     const filteredListings = getFilteredListings();
-    const shouldShowResults = exploreMode || getActiveFilterLabels().length > 0;
+    const shouldShowResults = isCategoryResultsPage || exploreMode || getActiveFilterLabels().length > 0;
     const sortByPromotion = (left, right) =>
       Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
       getRecordTimestamp(right) - getRecordTimestamp(left);
@@ -6363,6 +6440,7 @@ if (listingGrid) {
     if (categoryResultsTitle) categoryResultsTitle.textContent = exploreMode ? "Keşfet" : getResultSectionTitle();
     listingGrid.innerHTML = exploreMode ? renderExploreFeed(orderedListings) : renderCategorizedListings(orderedListings);
     updateActiveFilterSummary();
+    updateMarketResultsUrl();
     renderHomeCategories();
   }
 
@@ -6393,12 +6471,9 @@ if (listingGrid) {
   });
   homeCategoryStrip?.addEventListener("click", (event) => {
     const categoryButton = event.target.closest("[data-home-category]");
-    if (!categoryButton || !categoryFilter) return;
+    if (!categoryButton) return;
 
-    exploreMode = false;
-    categoryFilter.value = categoryButton.dataset.homeCategory;
-    renderListings();
-    document.querySelector(".all-listings-section")?.scrollIntoView({ block: "start" });
+    window.location.href = buildMarketFilterUrl({ category: categoryButton.dataset.homeCategory });
   });
   filterToggleButton?.addEventListener("click", () => {
     const expanded = filterToggleButton.getAttribute("aria-expanded") === "true";
@@ -6409,13 +6484,17 @@ if (listingGrid) {
   marketFilterBackdrop?.addEventListener("click", closeMarketFilterPanel);
   applyMarketFilters?.addEventListener("click", () => {
     exploreMode = false;
+    if (!isCategoryResultsPage) {
+      window.location.href = buildMarketFilterUrl();
+      return;
+    }
     renderListings();
     closeMarketFilterPanel();
     activeFilterSummary?.scrollIntoView({ block: "nearest" });
   });
-  profileButton.addEventListener("click", openProfileDrawer);
-  closeProfileDrawer.addEventListener("click", closeDrawer);
-  drawerBackdrop.addEventListener("click", closeDrawer);
+  profileButton?.addEventListener("click", openProfileDrawer);
+  closeProfileDrawer?.addEventListener("click", closeDrawer);
+  drawerBackdrop?.addEventListener("click", closeDrawer);
   const profileActionRoutes = {
     "İlan koy": "ilan-koy.html",
     "Profil özelleştir": "profil-duzenle.html",
@@ -6431,7 +6510,7 @@ if (listingGrid) {
     Güvenlik: "guvenlik.html",
     "Admin panel": "admin.html",
   };
-  profileDrawer.addEventListener("click", (event) => {
+  profileDrawer?.addEventListener("click", (event) => {
     const action = event.target.closest("[data-panel-action]");
     if (action) {
       const route = action.dataset.panelHref || profileActionRoutes[action.dataset.panelAction];
@@ -6454,7 +6533,7 @@ if (listingGrid) {
   window.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
 
-    if (profileDrawer.classList.contains("open")) {
+    if (profileDrawer?.classList.contains("open")) {
       closeDrawer();
       return;
     }
@@ -6469,16 +6548,18 @@ if (listingGrid) {
     }
   });
 
-  marketSearch.addEventListener("input", () => {
+  marketSearch?.addEventListener("input", () => {
     exploreMode = false;
     renderListings();
   });
   categoryFilterSearch?.addEventListener("input", syncCategoryFilterOptions);
-  categoryFilter.addEventListener("change", () => {
+  categoryFilter?.addEventListener("change", () => {
     exploreMode = false;
     renderListings();
   });
+  syncCategoryFilterOptions();
   populateMarketLocationFilters();
+  hydrateMarketFiltersFromUrl();
   [budgetMinFilter, budgetMaxFilter, workModeFilter, districtFilter, offerCountFilter, sortFilter].forEach((input) => {
     input?.addEventListener("input", () => {
       exploreMode = false;
@@ -6508,6 +6589,68 @@ if (listingGrid) {
   setupNotifications();
   setupAdminListingNotifications();
   renderListings();
+}
+
+const explorePageFeed = document.querySelector("#explorePageFeed");
+
+if (explorePageFeed) {
+  const exploreCurrency = new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  });
+
+  function explorePageCard(listing) {
+    const imageSrc = getListingImage(listing);
+    const title = normalizeListingTitle(listing.title) || "İlan";
+    const timeLabel = getTimeLabel(listing.workDate) || listing.time || "Esnek";
+    const roleLabel = getListingRoleLabel(listing);
+    const location =
+      listing.workLocationMode === "remote"
+        ? "Uzaktan"
+        : [listing.city, listing.district].filter(Boolean).join(" / ") || "Konum yok";
+    const detailHref = `ilan-detay.html?id=${encodeURIComponent(String(listing.id))}#listingOfferPanel`;
+
+    return `
+      <article class="explore-page-card">
+        <a class="explore-page-card-link" href="${detailHref}" aria-label="${escapeHtml(title)} ilanını aç">
+          <img src="${imageSrc}" alt="${escapeHtml(title)} ilan görseli" loading="lazy" onerror="this.onerror=null;this.src='assets/listing-placeholder.svg';" />
+          <div class="explore-page-card-shade"></div>
+          <div class="explore-page-card-content">
+            <div class="explore-page-card-top">
+              <span class="listing-role-label">${roleLabel}</span>
+              <strong>${exploreCurrency.format(Number(listing.budget || 0))}</strong>
+            </div>
+            <div class="explore-page-card-copy">
+              <h2>${escapeHtml(title)}</h2>
+              <div class="explore-page-meta">
+                <span>${escapeHtml(listing.category || "Kategori")}</span>
+                <span>${escapeHtml(timeLabel)}</span>
+                <span>${escapeHtml(location)}</span>
+              </div>
+            </div>
+          </div>
+        </a>
+      </article>
+    `;
+  }
+
+  function renderExplorePageFeed() {
+    const listings = getAllListings()
+      .filter((listing) => isApprovedListing(listing) && !isUnavailableListing(listing))
+      .sort(
+        (left, right) =>
+          Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
+          getRecordTimestamp(right) - getRecordTimestamp(left),
+      );
+
+    explorePageFeed.innerHTML = listings.length
+      ? listings.map(explorePageCard).join("")
+      : `<section class="explore-empty"><h1>Keşfedilecek ilan yok</h1></section>`;
+  }
+
+  renderExplorePageFeed();
+  subscribeSharedListings(renderExplorePageFeed);
 }
 
 function accountListingCard(listing, passive = false) {
