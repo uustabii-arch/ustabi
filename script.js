@@ -3926,10 +3926,41 @@ defaultListings.push(
 function getAllListings() {
   const listingMap = new Map();
   [...defaultListings, ...getStoredListings(), ...remoteListings.filter(isAfterDataReset)].forEach((listing) => {
+    const workDate = listing.workDate || "";
+    const category = listing.category || getOtherCategoryValue();
+    const categoryGroup = listing.categoryGroup || getCategoryGroupTitle(category);
+    const workLocationMode = listing.workLocationMode || "onsite";
+    const timeLabel = workDate ? getTimeLabel(workDate) : listing.time || "Esnek";
+    const tags = getListingTags(listing);
+
     listingMap.set(String(listing.id), {
       ...listing,
-      categoryGroup: listing.categoryGroup || getCategoryGroupTitle(listing.category),
-      tags: getListingTags(listing),
+      category,
+      categoryCode: getCategoryCode(category),
+      categoryGroup,
+      workDate,
+      time: timeLabel,
+      budget: Number(listing.budget || 0),
+      offers: Number(listing.offers || 0),
+      workLocationMode,
+      city: listing.city || "",
+      district: listing.district || "",
+      tags,
+      filterText: [
+        listing.title,
+        category,
+        getCategoryCode(category),
+        categoryGroup,
+        listing.city,
+        listing.district,
+        workLocationMode === "remote" ? "uzaktan remote online" : "yakından yerinde adres",
+        listing.addressNote,
+        listing.details,
+        listing.expectations,
+        ...tags,
+      ]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR"),
     });
   });
   return [...listingMap.values()];
@@ -6281,21 +6312,7 @@ if (listingGrid) {
       if (isUnavailableListing(listing)) return false;
       if (!isApprovedListing(listing)) return false;
 
-      const matchesQuery = [
-        listing.title,
-        listing.category,
-        listing.categoryGroup,
-        listing.city,
-        listing.district,
-        listing.workLocationMode === "remote" ? "uzaktan remote online" : "yakından yerinde adres",
-        listing.addressNote,
-        listing.details,
-        listing.expectations,
-        ...getListingTags(listing),
-      ]
-        .join(" ")
-        .toLocaleLowerCase("tr-TR")
-        .includes(query);
+      const matchesQuery = !query || (listing.filterText || "").includes(query);
       const matchesCategory = category === "Tümü" || listing.category === category;
       const matchesTime = selectedTime === "Tümü" || listing.time === selectedTime;
       const listingBudget = Number(listing.budget || 0);
@@ -6314,6 +6331,41 @@ if (listingGrid) {
 
       return matchesQuery && matchesCategory && matchesTime && matchesMinBudget && matchesMaxBudget && matchesWorkMode && matchesCity && matchesDistrict && matchesOfferCount;
     });
+  }
+
+  function sortFilteredListings(filteredListings) {
+    const sortByPromotion = (left, right) =>
+      Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
+      getRecordTimestamp(right) - getRecordTimestamp(left);
+
+    return [...filteredListings].sort((left, right) => {
+      const sortValue = sortFilter?.value || "featured";
+      if (sortValue === "newest") return getRecordTimestamp(right) - getRecordTimestamp(left);
+      if (sortValue === "budgetDesc") return Number(right.budget || 0) - Number(left.budget || 0);
+      if (sortValue === "budgetAsc") return Number(left.budget || 0) - Number(right.budget || 0);
+      if (sortValue === "offersAsc") return Number(left.offers || 0) - Number(right.offers || 0);
+      return sortByPromotion(left, right);
+    });
+  }
+
+  function getOrderedFilteredListings() {
+    return sortFilteredListings(getFilteredListings());
+  }
+
+  function redirectToFilteredListing() {
+    if (!getActiveFilterLabels().length) {
+      showToast("Önce en az bir filtre seç.");
+      return false;
+    }
+
+    const orderedListings = getOrderedFilteredListings();
+    if (!orderedListings.length) {
+      showToast("Bu filtrelerle uygun ilan bulunamadı.");
+      return false;
+    }
+
+    window.location.href = getListingDetailHref(orderedListings[0], true);
+    return true;
   }
 
   function getListingDetailHref(listing, focusOffer = false) {
@@ -6335,9 +6387,25 @@ if (listingGrid) {
     const roleLabel = getListingRoleLabel(listing);
     const sponsored = Boolean(options.sponsored);
     const similar = Boolean(options.similar);
+    const dataAttributes = [
+      ["filter-id", listing.id],
+      ["filter-category", listing.category],
+      ["filter-category-code", listing.categoryCode || getCategoryCode(listing.category)],
+      ["filter-group", listing.categoryGroup],
+      ["filter-work-mode", listing.workLocationMode || "onsite"],
+      ["filter-city", listing.city || ""],
+      ["filter-district", listing.district || ""],
+      ["filter-budget", Number(listing.budget || 0)],
+      ["filter-offers", Number(listing.offers || 0)],
+      ["filter-time", timeLabel],
+      ["filter-role", listing.listingRole || listing.role || ""],
+      ["filter-created-at", getRecordTimestamp(listing)],
+    ]
+      .map(([name, value]) => `data-${name}="${escapeHtml(value)}"`)
+      .join(" ");
 
     return `
-      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""} ${sponsored ? "sponsored-listing-card" : ""} ${similar ? "similar-listing-card" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git"${getHighlightStyle(listing)}>
+      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""} ${sponsored ? "sponsored-listing-card" : ""} ${similar ? "similar-listing-card" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git" ${dataAttributes}${getHighlightStyle(listing)}>
         <div class="${featured ? "featured-top" : "listing-top"}">
           <span class="category-icon">${categoryMark}</span>
           <strong class="budget">${currency.format(listing.budget)}</strong>
@@ -6520,20 +6588,8 @@ if (listingGrid) {
   }
 
   function renderListings() {
-    const filteredListings = getFilteredListings();
+    const orderedListings = getOrderedFilteredListings();
     const shouldShowResults = isCategoryResultsPage || exploreMode;
-    const sortByPromotion = (left, right) =>
-      Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
-      getRecordTimestamp(right) - getRecordTimestamp(left);
-    const sortBySelectedFilter = (left, right) => {
-      const sortValue = sortFilter?.value || "featured";
-      if (sortValue === "newest") return getRecordTimestamp(right) - getRecordTimestamp(left);
-      if (sortValue === "budgetDesc") return Number(right.budget || 0) - Number(left.budget || 0);
-      if (sortValue === "budgetAsc") return Number(left.budget || 0) - Number(right.budget || 0);
-      if (sortValue === "offersAsc") return Number(left.offers || 0) - Number(right.offers || 0);
-      return sortByPromotion(left, right);
-    };
-    const orderedListings = [...filteredListings].sort(sortBySelectedFilter);
 
     currentFeatured = [];
     featuredIndex = 0;
@@ -6594,13 +6650,7 @@ if (listingGrid) {
   marketFilterBackdrop?.addEventListener("click", closeMarketFilterPanel);
   applyMarketFilters?.addEventListener("click", () => {
     exploreMode = false;
-    if (!isCategoryResultsPage) {
-      window.location.href = buildMarketFilterUrl();
-      return;
-    }
-    renderListings();
-    closeMarketFilterPanel();
-    activeFilterSummary?.scrollIntoView({ block: "nearest" });
+    redirectToFilteredListing();
   });
   profileButton?.addEventListener("click", openProfileDrawer);
   closeProfileDrawer?.addEventListener("click", closeDrawer);
@@ -6662,9 +6712,9 @@ if (listingGrid) {
     handleMarketFilterDraftChange();
   });
   marketSearch?.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" || isCategoryResultsPage) return;
+    if (event.key !== "Enter") return;
     event.preventDefault();
-    window.location.href = buildMarketFilterUrl();
+    redirectToFilteredListing();
   });
   categoryFilterSearch?.addEventListener("input", () => {
     syncCategoryFilterOptions();
