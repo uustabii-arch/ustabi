@@ -739,6 +739,22 @@ const professionCategoryGroups = [
 ];
 
 const professionCategories = professionCategoryGroups.flatMap((group) => group.items);
+const categoryCodeMap = Object.fromEntries(
+  professionCategories.map((category, index) => [category, String(index + 1).padStart(3, "0")]),
+);
+const categoryByCodeMap = Object.fromEntries(
+  Object.entries(categoryCodeMap).map(([category, code]) => [code, category]),
+);
+
+function getCategoryCode(category) {
+  return categoryCodeMap[category] || "";
+}
+
+function getCategoryByCode(value) {
+  const code = String(value || "").trim().match(/\d{1,3}/)?.[0];
+  if (!code) return "";
+  return categoryByCodeMap[code.padStart(3, "0")] || categoryByCodeMap[code] || "";
+}
 
 function getOtherCategoryValue() {
   return professionCategoryGroups.at(-1)?.items?.[0] || "Di\u011fer";
@@ -909,14 +925,14 @@ function addGroupedProfessionOptions(select, options = {}) {
     const groupItems = group.items.filter((item) => {
       if (excludeOther && item === "Diğer") return false;
       if (!normalizedSearch) return true;
-      return groupMatchesSearch || normalizeAccountValue(item).includes(normalizedSearch);
+      return groupMatchesSearch || normalizeAccountValue(item).includes(normalizedSearch) || getCategoryCode(item).includes(normalizedSearch);
     });
     if (!groupItems.length) return;
 
     const optionGroup = document.createElement("optgroup");
     optionGroup.label = group.title;
     groupItems.forEach((category) => {
-      optionGroup.append(new Option(category, category));
+      optionGroup.append(new Option(`${getCategoryCode(category)} - ${category}`, category));
     });
     select.append(optionGroup);
   });
@@ -6074,7 +6090,8 @@ if (listingGrid) {
 
     if (marketSearch) marketSearch.value = params.get("q") || "";
     syncCategoryFilterOptions();
-    setSelectValue(categoryFilter, params.get("category") || "Tümü");
+    const categoryParam = params.get("category") || "";
+    setSelectValue(categoryFilter, getCategoryByCode(categoryParam) || categoryParam || "Tümü");
     setSelectedTimeFilter(params.get("time") || "Tümü");
     if (budgetMinFilter) budgetMinFilter.value = params.get("min") || "";
     if (budgetMaxFilter) budgetMaxFilter.value = params.get("max") || "";
@@ -6090,12 +6107,18 @@ if (listingGrid) {
     const selectedCategory = categoryFilter?.value || "Tümü";
     const typedCategory = (categoryFilterSearch?.value || "").trim();
     if (selectedCategory !== "Tümü" || !typedCategory || !categoryFilter) return selectedCategory;
+    const categoryFromCode = getCategoryByCode(typedCategory);
+    if (categoryFromCode) return categoryFromCode;
 
     const categoryOptions = [...categoryFilter.options]
       .map((option) => option.value)
       .filter((value) => value && value !== "Tümü");
     const normalizedTyped = normalizeAccountValue(typedCategory);
-    return categoryOptions.find((value) => normalizeAccountValue(value) === normalizedTyped) || categoryOptions[0] || selectedCategory;
+    return (
+      categoryOptions.find((value) => normalizeAccountValue(value) === normalizedTyped || getCategoryCode(value) === typedCategory.padStart(3, "0")) ||
+      categoryOptions[0] ||
+      selectedCategory
+    );
   }
 
   function getActiveFilterLabels() {
@@ -6111,7 +6134,7 @@ if (listingGrid) {
     const sortValue = sortFilter?.value || "featured";
 
     if (query) labels.push(`Arama: ${query}`);
-    if (category !== "Tümü") labels.push(`Kategori: ${category}`);
+    if (category !== "Tümü") labels.push(`Kategori: ${getCategoryCode(category)} - ${category}`);
     if (selectedTime !== "Tümü") labels.push(`Zaman: ${selectedTime}`);
     if (minBudget) labels.push(`Min: ${Number(minBudget).toLocaleString("tr-TR")} TL`);
     if (maxBudget) labels.push(`Max: ${Number(maxBudget).toLocaleString("tr-TR")} TL`);
@@ -6237,7 +6260,7 @@ if (listingGrid) {
           <button class="home-category-card ${active ? "active" : ""}" type="button" data-home-category="${escapeHtml(category)}">
             <span>${mark}</span>
             <strong>${escapeHtml(category)}</strong>
-            <small>${count} ilan</small>
+            <small>Kod ${getCategoryCode(category)} · ${count} ilan</small>
           </button>
         `;
       })
@@ -6311,9 +6334,10 @@ if (listingGrid) {
     const safeFullTitle = escapeHtml(listing.title || displayTitle);
     const roleLabel = getListingRoleLabel(listing);
     const sponsored = Boolean(options.sponsored);
+    const similar = Boolean(options.similar);
 
     return `
-      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""} ${sponsored ? "sponsored-listing-card" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git"${getHighlightStyle(listing)}>
+      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""} ${sponsored ? "sponsored-listing-card" : ""} ${similar ? "similar-listing-card" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git"${getHighlightStyle(listing)}>
         <div class="${featured ? "featured-top" : "listing-top"}">
           <span class="category-icon">${categoryMark}</span>
           <strong class="budget">${currency.format(listing.budget)}</strong>
@@ -6335,6 +6359,7 @@ if (listingGrid) {
           ${listing.workLocationMode === "remote" ? `<span class="badge">Uzaktan</span>` : ""}
           <span class="badge">${listing.offers} teklif</span>
           ${sponsored ? `<span class="badge sponsored-badge">Reklam</span>` : ""}
+          ${similar ? `<span class="badge similar-badge">Benzer</span>` : ""}
           ${promoted ? `<span class="badge promo-badge">Renkli ilan</span>` : ""}
         </div>
         </div>
@@ -6342,12 +6367,12 @@ if (listingGrid) {
     `;
   }
 
-  function renderSponsoredSimilarListings(category, visibleListings) {
+  function renderSimilarListings(category, visibleListings) {
     if (!category || category === "Tümü") return "";
 
     const visibleIds = new Set(visibleListings.map((listing) => String(listing.id)));
     const selectedGroup = getCategoryGroupTitle(category);
-    const sponsoredListings = listings
+    const sameGroupListings = listings
       .filter((listing) => {
         if (visibleIds.has(String(listing.id))) return false;
         if (isUnavailableListing(listing) || !isApprovedListing(listing)) return false;
@@ -6360,19 +6385,36 @@ if (listingGrid) {
           Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
           Number(right.highlighted || 0) - Number(left.highlighted || 0) ||
           getRecordTimestamp(right) - getRecordTimestamp(left),
-      )
-      .slice(0, 3);
+      );
+    const similarListings = sameGroupListings.slice(0, 6);
+    if (similarListings.length < 6) {
+      const similarIds = new Set(similarListings.map((listing) => String(listing.id)));
+      const fallbackListings = listings
+        .filter((listing) => {
+          if (visibleIds.has(String(listing.id)) || similarIds.has(String(listing.id))) return false;
+          if (isUnavailableListing(listing) || !isApprovedListing(listing)) return false;
+          return listing.category !== category;
+        })
+        .sort(
+          (left, right) =>
+            Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
+            Number(right.highlighted || 0) - Number(left.highlighted || 0) ||
+            getRecordTimestamp(right) - getRecordTimestamp(left),
+        )
+        .slice(0, 6 - similarListings.length);
+      similarListings.push(...fallbackListings);
+    }
 
-    if (!sponsoredListings.length) return "";
+    if (!similarListings.length) return "";
 
     return `
-      <section class="sponsored-similar-section" aria-label="Sponsorlu benzer ilanlar">
+      <section class="similar-jobs-section" aria-label="Benzer işler">
         <div class="category-listing-head">
-          <h3>Benzer ilanlar</h3>
-          <span>Reklam</span>
+          <h3>Benzer işler</h3>
+          <span>${similarListings.length} yakın ilan</span>
         </div>
-        <div class="listing-grid sponsored-similar-grid">
-          ${sponsoredListings.map((listing) => listingCard(listing, false, { sponsored: true })).join("")}
+        <div class="listing-grid similar-jobs-grid">
+          ${similarListings.map((listing) => listingCard(listing, false, { similar: true })).join("")}
         </div>
       </section>
     `;
@@ -6382,7 +6424,7 @@ if (listingGrid) {
     const query = marketSearch?.value.trim() || "";
     const category = getResolvedCategoryFilterValue();
 
-    if (category !== "Tümü") return category;
+    if (category !== "Tümü") return `${getCategoryCode(category)} - ${category}`;
     if (query) return `"${query}" araması`;
     if (selectedTime !== "Tümü") return selectedTime;
     return "Seçilen işler";
@@ -6395,7 +6437,7 @@ if (listingGrid) {
       const resultHtml = orderedListings.length
         ? `<div class="listing-grid">${orderedListings.map((listing) => listingCard(listing)).join("")}</div>`
         : `<article class="listing-card empty-listing-card"><h3>Sonuç bulunamadı</h3></article>`;
-      return `${resultHtml}${renderSponsoredSimilarListings(category, orderedListings)}`;
+      return `${resultHtml}${renderSimilarListings(category, orderedListings)}`;
     }
 
     if (!orderedListings.length) {
@@ -6624,7 +6666,10 @@ if (listingGrid) {
     event.preventDefault();
     window.location.href = buildMarketFilterUrl();
   });
-  categoryFilterSearch?.addEventListener("input", syncCategoryFilterOptions);
+  categoryFilterSearch?.addEventListener("input", () => {
+    syncCategoryFilterOptions();
+    handleMarketFilterDraftChange();
+  });
   categoryFilter?.addEventListener("change", () => {
     handleMarketFilterDraftChange();
   });

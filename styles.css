@@ -1581,7 +1581,8 @@ button:disabled,
   font-weight: 900;
 }
 
-.sponsored-similar-section {
+.sponsored-similar-section,
+.similar-jobs-section {
   display: grid;
   gap: 10px;
   margin-top: 4px;
@@ -1594,13 +1595,16 @@ button:disabled,
 }
 
 .sponsored-similar-section .category-listing-head span,
-.sponsored-badge {
+.sponsored-badge,
+.similar-jobs-section .category-listing-head span,
+.similar-badge {
   border-color: rgba(255, 160, 0, 0.32);
   background: #fff3cf;
   color: var(--brand-orange-dark);
 }
 
-.sponsored-listing-card {
+.sponsored-listing-card,
+.similar-listing-card {
   border-color: rgba(255, 160, 0, 0.3);
 }
 
