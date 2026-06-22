@@ -6037,7 +6037,7 @@ if (listingGrid) {
   function buildMarketFilterUrl(overrides = {}) {
     const params = new URLSearchParams();
     const query = String(overrides.query ?? marketSearch?.value ?? "").trim();
-    const category = overrides.category ?? categoryFilter?.value ?? "Tümü";
+    const category = overrides.category ?? getResolvedCategoryFilterValue();
     const time = overrides.time ?? selectedTime;
     const minBudget = overrides.min ?? budgetMinFilter?.value ?? "";
     const maxBudget = overrides.max ?? budgetMaxFilter?.value ?? "";
@@ -6085,10 +6085,22 @@ if (listingGrid) {
     setSelectValue(sortFilter, params.get("sort") || "featured");
   }
 
+  function getResolvedCategoryFilterValue() {
+    const selectedCategory = categoryFilter?.value || "Tümü";
+    const typedCategory = (categoryFilterSearch?.value || "").trim();
+    if (selectedCategory !== "Tümü" || !typedCategory || !categoryFilter) return selectedCategory;
+
+    const categoryOptions = [...categoryFilter.options]
+      .map((option) => option.value)
+      .filter((value) => value && value !== "Tümü");
+    const normalizedTyped = normalizeAccountValue(typedCategory);
+    return categoryOptions.find((value) => normalizeAccountValue(value) === normalizedTyped) || categoryOptions[0] || selectedCategory;
+  }
+
   function getActiveFilterLabels() {
     const labels = [];
     const query = marketSearch?.value.trim() || "";
-    const category = categoryFilter?.value || "Tümü";
+    const category = getResolvedCategoryFilterValue();
     const minBudget = budgetMinFilter?.value || "";
     const maxBudget = budgetMaxFilter?.value || "";
     const workMode = workModeFilter?.value || "all";
@@ -6218,7 +6230,7 @@ if (listingGrid) {
       .map((category) => {
         const count = categoryCounts.get(category) || 0;
         const mark = categoryMarks[category] || category.slice(0, 2).toLocaleUpperCase("tr-TR");
-        const active = categoryFilter?.value === category;
+        const active = getResolvedCategoryFilterValue() === category;
 
         return `
           <button class="home-category-card ${active ? "active" : ""}" type="button" data-home-category="${escapeHtml(category)}">
@@ -6233,7 +6245,7 @@ if (listingGrid) {
 
   function getFilteredListings() {
     const query = (marketSearch?.value || "").trim().toLocaleLowerCase("tr-TR");
-    const category = categoryFilter?.value || "Tümü";
+    const category = getResolvedCategoryFilterValue();
     const minBudget = Number(budgetMinFilter?.value || 0);
     const maxBudget = Number(budgetMaxFilter?.value || 0);
     const workMode = workModeFilter?.value || "all";
@@ -6260,7 +6272,7 @@ if (listingGrid) {
         .join(" ")
         .toLocaleLowerCase("tr-TR")
         .includes(query);
-      const matchesCategory = category === "Tümü" || listing.category === category || listing.categoryGroup === category;
+      const matchesCategory = category === "Tümü" || listing.category === category;
       const matchesTime = selectedTime === "Tümü" || listing.time === selectedTime;
       const listingBudget = Number(listing.budget || 0);
       const matchesMinBudget = !minBudget || listingBudget >= minBudget;
@@ -6285,7 +6297,7 @@ if (listingGrid) {
     return listingId ? `ilan-detay.html?id=${listingId}${focusOffer ? "#listingOfferPanel" : ""}` : "ilan-detay.html";
   }
 
-  function listingCard(listing, featured = false) {
+  function listingCard(listing, featured = false, options = {}) {
     const imageSrc = getListingImage(listing);
     const categoryMark =
       categoryMarks[listing.category] || listing.category.slice(0, 2).toLocaleUpperCase("tr-TR");
@@ -6297,9 +6309,10 @@ if (listingGrid) {
     const safeDisplayTitle = escapeHtml(displayTitle);
     const safeFullTitle = escapeHtml(listing.title || displayTitle);
     const roleLabel = getListingRoleLabel(listing);
+    const sponsored = Boolean(options.sponsored);
 
     return `
-      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git"${getHighlightStyle(listing)}>
+      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""} ${sponsored ? "sponsored-listing-card" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git"${getHighlightStyle(listing)}>
         <div class="${featured ? "featured-top" : "listing-top"}">
           <span class="category-icon">${categoryMark}</span>
           <strong class="budget">${currency.format(listing.budget)}</strong>
@@ -6320,6 +6333,7 @@ if (listingGrid) {
           ${listing.district ? `<span class="badge">${listing.district}</span>` : ""}
           ${listing.workLocationMode === "remote" ? `<span class="badge">Uzaktan</span>` : ""}
           <span class="badge">${listing.offers} teklif</span>
+          ${sponsored ? `<span class="badge sponsored-badge">Reklam</span>` : ""}
           ${promoted ? `<span class="badge promo-badge">Renkli ilan</span>` : ""}
         </div>
         </div>
@@ -6327,9 +6341,45 @@ if (listingGrid) {
     `;
   }
 
+  function renderSponsoredSimilarListings(category, visibleListings) {
+    if (!category || category === "Tümü") return "";
+
+    const visibleIds = new Set(visibleListings.map((listing) => String(listing.id)));
+    const selectedGroup = getCategoryGroupTitle(category);
+    const sponsoredListings = listings
+      .filter((listing) => {
+        if (visibleIds.has(String(listing.id))) return false;
+        if (isUnavailableListing(listing) || !isApprovedListing(listing)) return false;
+        if (listing.category === category) return false;
+        const listingGroup = listing.categoryGroup || getCategoryGroupTitle(listing.category);
+        return listingGroup === selectedGroup;
+      })
+      .sort(
+        (left, right) =>
+          Number(right.carouselPriority || 0) - Number(left.carouselPriority || 0) ||
+          Number(right.highlighted || 0) - Number(left.highlighted || 0) ||
+          getRecordTimestamp(right) - getRecordTimestamp(left),
+      )
+      .slice(0, 3);
+
+    if (!sponsoredListings.length) return "";
+
+    return `
+      <section class="sponsored-similar-section" aria-label="Sponsorlu benzer ilanlar">
+        <div class="category-listing-head">
+          <h3>Benzer ilanlar</h3>
+          <span>Reklam</span>
+        </div>
+        <div class="listing-grid sponsored-similar-grid">
+          ${sponsoredListings.map((listing) => listingCard(listing, false, { sponsored: true })).join("")}
+        </div>
+      </section>
+    `;
+  }
+
   function getResultSectionTitle() {
     const query = marketSearch?.value.trim() || "";
-    const category = categoryFilter?.value || "Tümü";
+    const category = getResolvedCategoryFilterValue();
 
     if (category !== "Tümü") return category;
     if (query) return `"${query}" araması`;
@@ -6338,14 +6388,17 @@ if (listingGrid) {
   }
 
   function renderCategorizedListings(orderedListings) {
-    const category = categoryFilter?.value || "Tümü";
+    const category = getResolvedCategoryFilterValue();
+
+    if (category !== "Tümü") {
+      const resultHtml = orderedListings.length
+        ? `<div class="listing-grid">${orderedListings.map((listing) => listingCard(listing)).join("")}</div>`
+        : `<article class="listing-card empty-listing-card"><h3>Sonuç bulunamadı</h3></article>`;
+      return `${resultHtml}${renderSponsoredSimilarListings(category, orderedListings)}`;
+    }
 
     if (!orderedListings.length) {
       return `<article class="listing-card empty-listing-card"><h3>Sonuç bulunamadı</h3></article>`;
-    }
-
-    if (category !== "Tümü") {
-      return `<div class="listing-grid">${orderedListings.map((listing) => listingCard(listing)).join("")}</div>`;
     }
 
     const groupedListings = new Map();

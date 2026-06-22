@@ -1528,6 +1528,29 @@ button:disabled,
   font-weight: 900;
 }
 
+.sponsored-similar-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px dashed rgba(255, 160, 0, 0.46);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(255, 248, 234, 0.94), rgba(238, 243, 247, 0.72)),
+    #fffdfa;
+}
+
+.sponsored-similar-section .category-listing-head span,
+.sponsored-badge {
+  border-color: rgba(255, 160, 0, 0.32);
+  background: #fff3cf;
+  color: var(--brand-orange-dark);
+}
+
+.sponsored-listing-card {
+  border-color: rgba(255, 160, 0, 0.3);
+}
+
 .explore-feed {
   display: grid;
   gap: 18px;
