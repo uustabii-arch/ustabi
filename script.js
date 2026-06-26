@@ -6228,12 +6228,6 @@ if (listingGrid) {
     );
   }
 
-  function getCategoryFromSearchQuery(query) {
-    const normalizedQuery = normalizeSearchValue(query);
-    if (!normalizedQuery) return "";
-    return getCategoryBySearchTerm(query);
-  }
-
   function getSearchMatchScore(listing, normalizedQuery) {
     if (!normalizedQuery) return 0;
 
@@ -6242,15 +6236,19 @@ if (listingGrid) {
     const categoryCode = normalizeSearchValue(listing.categoryCode || getCategoryCode(listing.category));
     const tags = getListingTags(listing).map(normalizeSearchValue);
     const filterText = normalizeSearchValue(listing.filterText || "");
+    const textTokens = filterText.split(/\s+/).filter(Boolean);
 
     if (title === normalizedQuery) return 120;
     if (title.startsWith(normalizedQuery)) return 105;
     if (title.includes(normalizedQuery)) return 95;
     if (categoryCode === normalizedQuery.padStart(3, "0")) return 90;
     if (category === normalizedQuery) return 86;
+    if (isCloseSearchMatch(category, normalizedQuery)) return 82;
     if (category.includes(normalizedQuery)) return 72;
     if (tags.some((tag) => tag === normalizedQuery || tag.includes(normalizedQuery))) return 58;
+    if (tags.some((tag) => isCloseSearchMatch(tag, normalizedQuery))) return 52;
     if (filterText.includes(normalizedQuery)) return 42;
+    if (textTokens.some((token) => isCloseSearchMatch(token, normalizedQuery))) return 36;
     return 0;
   }
 
@@ -6271,26 +6269,23 @@ if (listingGrid) {
       )[0]?.listing || null;
   }
 
-  function redirectSearchToCategory() {
+  function redirectSearchToResults() {
     const query = (marketSearch?.value || "").trim();
     if (!query) {
       window.location.href = "kesfet.html";
       return false;
     }
 
-    const directCategory = getCategoryFromSearchQuery(query);
-    const bestListing = getBestSearchListing(query, directCategory) || getBestSearchListing(query);
-    const targetCategory = directCategory || bestListing?.category || "";
-
-    if (!targetCategory) {
+    const bestListing = getBestSearchListing(query);
+    if (!bestListing) {
       showToast("Bu aramaya uygun kategori bulunamadı.");
       return false;
     }
 
     const params = new URLSearchParams();
-    params.set("category", targetCategory);
+    params.set("q", query);
     params.set("search", query);
-    if (bestListing) params.set("focus", String(bestListing.id));
+    params.set("focus", String(bestListing.id));
     window.location.href = `${MARKET_RESULTS_PAGE}?${params.toString()}`;
     return true;
   }
@@ -6443,7 +6438,7 @@ if (listingGrid) {
   }
 
   function getFilteredListings() {
-    const query = (marketSearch?.value || "").trim().toLocaleLowerCase("tr-TR");
+    const query = normalizeSearchValue(marketSearch?.value || "");
     const category = getResolvedCategoryFilterValue();
     const minBudget = Number(budgetMinFilter?.value || 0);
     const maxBudget = Number(budgetMaxFilter?.value || 0);
@@ -6456,7 +6451,7 @@ if (listingGrid) {
       if (isUnavailableListing(listing)) return false;
       if (!isApprovedListing(listing)) return false;
 
-      const matchesQuery = !query || (listing.filterText || "").includes(query);
+      const matchesQuery = !query || getSearchMatchScore(listing, query) > 0;
       const matchesCategory = category === "Tümü" || listing.category === category;
       const matchesTime = selectedTime === "Tümü" || listing.time === selectedTime;
       const listingBudget = Number(listing.budget || 0);
@@ -6870,7 +6865,7 @@ if (listingGrid) {
   marketSearch?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
-    redirectSearchToCategory();
+    redirectSearchToResults();
   });
   categoryFilterSearch?.addEventListener("input", () => {
     syncCategoryFilterOptions();
