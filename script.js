@@ -6155,7 +6155,7 @@ if (listingGrid) {
 
   function buildMarketFilterUrl(overrides = {}) {
     const params = new URLSearchParams();
-    const query = String(overrides.query ?? marketSearch?.value ?? "").trim();
+    const query = String(overrides.query ?? getMarketQueryValue()).trim();
     const category = overrides.category ?? getResolvedCategoryFilterValue();
     const time = overrides.time ?? selectedTime;
     const minBudget = overrides.min ?? budgetMinFilter?.value ?? "";
@@ -6216,16 +6216,17 @@ if (listingGrid) {
     const categoryFromCode = getCategoryByCode(typedCategory);
     if (categoryFromCode) return categoryFromCode;
 
-    const categoryOptions = [...categoryFilter.options]
-      .map((option) => option.value)
-      .filter((value) => value && value !== "Tümü");
-    const normalizedTyped = normalizeSearchValue(typedCategory);
-    return (
-      getCategoryBySearchTerm(typedCategory, categoryOptions) ||
-      categoryOptions.find((value) => normalizeSearchValue(value) === normalizedTyped || getCategoryCode(value) === typedCategory.padStart(3, "0")) ||
-      categoryOptions[0] ||
-      selectedCategory
-    );
+    return selectedCategory;
+  }
+
+  function getCategorySearchQueryValue() {
+    const typedCategory = (categoryFilterSearch?.value || "").trim();
+    if (!typedCategory || getResolvedCategoryFilterValue() !== "Tümü") return "";
+    return typedCategory;
+  }
+
+  function getMarketQueryValue() {
+    return (marketSearch?.value || "").trim() || getCategorySearchQueryValue();
   }
 
   function getSearchMatchScore(listing, normalizedQuery) {
@@ -6292,7 +6293,7 @@ if (listingGrid) {
 
   function getActiveFilterLabels() {
     const labels = [];
-    const query = marketSearch?.value.trim() || "";
+    const query = getMarketQueryValue();
     const category = getResolvedCategoryFilterValue();
     const minBudget = budgetMinFilter?.value || "";
     const maxBudget = budgetMaxFilter?.value || "";
@@ -6438,7 +6439,7 @@ if (listingGrid) {
   }
 
   function getFilteredListings() {
-    const query = normalizeSearchValue(marketSearch?.value || "");
+    const query = normalizeSearchValue(getMarketQueryValue());
     const category = getResolvedCategoryFilterValue();
     const minBudget = Number(budgetMinFilter?.value || 0);
     const maxBudget = Number(budgetMaxFilter?.value || 0);
@@ -6510,6 +6511,26 @@ if (listingGrid) {
     }
 
     window.location.href = getListingDetailHref(orderedListings[0], focusOffer);
+    return true;
+  }
+
+  function redirectFiltersToResults() {
+    if (!getActiveFilterLabels().length) {
+      window.location.href = "kesfet.html";
+      return false;
+    }
+
+    searchFocusListingId = "";
+    searchFocusText = "";
+
+    if (isCategoryResultsPage) {
+      closeMarketFilterPanel();
+      renderListings();
+      categoryResultsSection?.scrollIntoView({ block: "start" });
+      return true;
+    }
+
+    window.location.href = buildMarketFilterUrl();
     return true;
   }
 
@@ -6640,7 +6661,7 @@ if (listingGrid) {
   }
 
   function getResultSectionTitle() {
-    const query = marketSearch?.value.trim() || "";
+    const query = getMarketQueryValue();
     const category = getResolvedCategoryFilterValue();
 
     if (category !== "Tümü") return `${getCategoryCode(category)} - ${category}`;
@@ -6801,7 +6822,7 @@ if (listingGrid) {
   marketFilterBackdrop?.addEventListener("click", closeMarketFilterPanel);
   applyMarketFilters?.addEventListener("click", () => {
     exploreMode = false;
-    redirectToFilteredListing();
+    redirectFiltersToResults();
   });
   profileButton?.addEventListener("click", openProfileDrawer);
   closeProfileDrawer?.addEventListener("click", closeDrawer);
