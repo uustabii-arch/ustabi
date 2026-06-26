@@ -919,13 +919,14 @@ const categoryImageMap = {
 
 function addGroupedProfessionOptions(select, options = {}) {
   const { excludeOther = false, searchTerm = "" } = options;
-  const normalizedSearch = normalizeAccountValue(searchTerm);
+  const normalizedSearch = normalizeSearchValue(searchTerm);
   professionCategoryGroups.forEach((group) => {
-    const groupMatchesSearch = normalizeAccountValue(group.title).includes(normalizedSearch);
+    const groupMatchesSearch = normalizeSearchValue(group.title).includes(normalizedSearch);
     const groupItems = group.items.filter((item) => {
       if (excludeOther && item === "Diğer") return false;
       if (!normalizedSearch) return true;
-      return groupMatchesSearch || normalizeAccountValue(item).includes(normalizedSearch) || getCategoryCode(item).includes(normalizedSearch);
+      const normalizedItem = normalizeSearchValue(item);
+      return groupMatchesSearch || normalizedItem.includes(normalizedSearch) || isCloseSearchMatch(item, normalizedSearch) || getCategoryCode(item).includes(normalizedSearch);
     });
     if (!groupItems.length) return;
 
@@ -1448,6 +1449,73 @@ function getListingPromotionFromCredits(requested = {}) {
 
 function normalizeAccountValue(value) {
   return value ? String(value).trim().toLowerCase() : "";
+}
+
+function normalizeSearchValue(value) {
+  return normalizeAccountValue(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i");
+}
+
+function getSearchDistance(leftValue, rightValue) {
+  const left = normalizeSearchValue(leftValue);
+  const right = normalizeSearchValue(rightValue);
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = Array(right.length + 1).fill(0);
+
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    current[0] = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const cost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      current[rightIndex] = Math.min(
+        previous[rightIndex] + 1,
+        current[rightIndex - 1] + 1,
+        previous[rightIndex - 1] + cost,
+      );
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+
+  return previous[right.length];
+}
+
+function isCloseSearchMatch(candidate, query) {
+  const normalizedCandidate = normalizeSearchValue(candidate);
+  const normalizedQuery = normalizeSearchValue(query);
+  if (normalizedQuery.length < 5) return false;
+  if (normalizedCandidate.includes(normalizedQuery)) return true;
+
+  const allowedDistance = normalizedQuery.length >= 7 ? 2 : 1;
+  return getSearchDistance(normalizedCandidate, normalizedQuery) <= allowedDistance;
+}
+
+function getCategoryBySearchTerm(term, categories = professionCategories) {
+  const normalizedTerm = normalizeSearchValue(term);
+  if (!normalizedTerm) return "";
+
+  const categoryFromCode = getCategoryByCode(term);
+  if (categoryFromCode) return categoryFromCode;
+
+  const exactCategory = categories.find((category) => normalizeSearchValue(category) === normalizedTerm);
+  if (exactCategory) return exactCategory;
+
+  const startsWithCategory = categories.find((category) => normalizeSearchValue(category).startsWith(normalizedTerm));
+  if (startsWithCategory) return startsWithCategory;
+
+  const includesCategory = categories.find((category) => normalizeSearchValue(category).includes(normalizedTerm));
+  if (includesCategory) return includesCategory;
+
+  return (
+    categories
+      .map((category) => ({ category, distance: getSearchDistance(category, normalizedTerm) }))
+      .filter((item) => isCloseSearchMatch(item.category, normalizedTerm))
+      .sort((left, right) => left.distance - right.distance || left.category.length - right.category.length)[0]?.category || ""
+  );
 }
 
 function getAccountEmail(user = getCurrentUser()) {
@@ -6151,36 +6219,29 @@ if (listingGrid) {
     const categoryOptions = [...categoryFilter.options]
       .map((option) => option.value)
       .filter((value) => value && value !== "Tümü");
-    const normalizedTyped = normalizeAccountValue(typedCategory);
+    const normalizedTyped = normalizeSearchValue(typedCategory);
     return (
-      categoryOptions.find((value) => normalizeAccountValue(value) === normalizedTyped || getCategoryCode(value) === typedCategory.padStart(3, "0")) ||
+      getCategoryBySearchTerm(typedCategory, categoryOptions) ||
+      categoryOptions.find((value) => normalizeSearchValue(value) === normalizedTyped || getCategoryCode(value) === typedCategory.padStart(3, "0")) ||
       categoryOptions[0] ||
       selectedCategory
     );
   }
 
   function getCategoryFromSearchQuery(query) {
-    const normalizedQuery = normalizeAccountValue(query);
+    const normalizedQuery = normalizeSearchValue(query);
     if (!normalizedQuery) return "";
-
-    const categoryFromCode = getCategoryByCode(query);
-    if (categoryFromCode) return categoryFromCode;
-
-    return (
-      professionCategories.find((category) => normalizeAccountValue(category) === normalizedQuery) ||
-      professionCategories.find((category) => normalizeAccountValue(category).includes(normalizedQuery)) ||
-      ""
-    );
+    return getCategoryBySearchTerm(query);
   }
 
   function getSearchMatchScore(listing, normalizedQuery) {
     if (!normalizedQuery) return 0;
 
-    const title = normalizeAccountValue(listing.title);
-    const category = normalizeAccountValue(listing.category);
-    const categoryCode = normalizeAccountValue(listing.categoryCode || getCategoryCode(listing.category));
-    const tags = getListingTags(listing).map(normalizeAccountValue);
-    const filterText = listing.filterText || "";
+    const title = normalizeSearchValue(listing.title);
+    const category = normalizeSearchValue(listing.category);
+    const categoryCode = normalizeSearchValue(listing.categoryCode || getCategoryCode(listing.category));
+    const tags = getListingTags(listing).map(normalizeSearchValue);
+    const filterText = normalizeSearchValue(listing.filterText || "");
 
     if (title === normalizedQuery) return 120;
     if (title.startsWith(normalizedQuery)) return 105;
@@ -6194,7 +6255,7 @@ if (listingGrid) {
   }
 
   function getBestSearchListing(query, category = "") {
-    const normalizedQuery = normalizeAccountValue(query);
+    const normalizedQuery = normalizeSearchValue(query);
     if (!normalizedQuery) return null;
 
     return getAllListings()
@@ -6600,7 +6661,7 @@ if (listingGrid) {
       const resultHtml = orderedListings.length
         ? `<div class="listing-grid">${orderedListings.map((listing) => listingCard(listing, false, { searchFocused: isSearchFocusedListing(listing) })).join("")}</div>`
         : `<article class="listing-card empty-listing-card"><h3>Sonuç bulunamadı</h3></article>`;
-      return `${resultHtml}${renderSimilarListings(category, orderedListings)}`;
+      return resultHtml;
     }
 
     if (!orderedListings.length) {
