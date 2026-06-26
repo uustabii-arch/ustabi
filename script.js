@@ -6352,7 +6352,8 @@ if (listingGrid) {
     return sortFilteredListings(getFilteredListings());
   }
 
-  function redirectToFilteredListing() {
+  function redirectToFilteredListing(options = {}) {
+    const { focusOffer = true } = options;
     if (!getActiveFilterLabels().length) {
       window.location.href = "kesfet.html";
       return false;
@@ -6364,7 +6365,7 @@ if (listingGrid) {
       return false;
     }
 
-    window.location.href = getListingDetailHref(orderedListings[0], true);
+    window.location.href = getListingDetailHref(orderedListings[0], focusOffer);
     return true;
   }
 
@@ -6714,7 +6715,7 @@ if (listingGrid) {
   marketSearch?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
-    redirectToFilteredListing();
+    redirectToFilteredListing({ focusOffer: false });
   });
   categoryFilterSearch?.addEventListener("input", () => {
     syncCategoryFilterOptions();
