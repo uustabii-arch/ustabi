@@ -5564,6 +5564,9 @@ const listingGrid = document.querySelector("#listingGrid");
 if (listingGrid) {
   const MARKET_RESULTS_PAGE = "kategori.html";
   const isCategoryResultsPage = document.body.classList.contains("category-page");
+  const initialMarketParams = new URLSearchParams(window.location.search);
+  let searchFocusListingId = initialMarketParams.get("focus") || "";
+  let searchFocusText = initialMarketParams.get("search") || "";
   let listings = getAllListings();
   const homeCategoryStrip = document.querySelector("#homeCategoryStrip");
 
@@ -6105,6 +6108,8 @@ if (listingGrid) {
     if (district) params.set("district", district);
     if (offerCount && offerCount !== "all") params.set("offers", offerCount);
     if (sort && sort !== "featured") params.set("sort", sort);
+    if (searchFocusListingId) params.set("focus", searchFocusListingId);
+    if (searchFocusText) params.set("search", searchFocusText);
 
     const queryString = params.toString();
     return `${MARKET_RESULTS_PAGE}${queryString ? `?${queryString}` : ""}`;
@@ -6119,6 +6124,8 @@ if (listingGrid) {
     const params = new URLSearchParams(window.location.search);
     if (!params.toString()) return;
 
+    searchFocusListingId = params.get("focus") || "";
+    searchFocusText = params.get("search") || "";
     if (marketSearch) marketSearch.value = params.get("q") || "";
     syncCategoryFilterOptions();
     const categoryParam = params.get("category") || "";
@@ -6152,6 +6159,81 @@ if (listingGrid) {
     );
   }
 
+  function getCategoryFromSearchQuery(query) {
+    const normalizedQuery = normalizeAccountValue(query);
+    if (!normalizedQuery) return "";
+
+    const categoryFromCode = getCategoryByCode(query);
+    if (categoryFromCode) return categoryFromCode;
+
+    return (
+      professionCategories.find((category) => normalizeAccountValue(category) === normalizedQuery) ||
+      professionCategories.find((category) => normalizeAccountValue(category).includes(normalizedQuery)) ||
+      ""
+    );
+  }
+
+  function getSearchMatchScore(listing, normalizedQuery) {
+    if (!normalizedQuery) return 0;
+
+    const title = normalizeAccountValue(listing.title);
+    const category = normalizeAccountValue(listing.category);
+    const categoryCode = normalizeAccountValue(listing.categoryCode || getCategoryCode(listing.category));
+    const tags = getListingTags(listing).map(normalizeAccountValue);
+    const filterText = listing.filterText || "";
+
+    if (title === normalizedQuery) return 120;
+    if (title.startsWith(normalizedQuery)) return 105;
+    if (title.includes(normalizedQuery)) return 95;
+    if (categoryCode === normalizedQuery.padStart(3, "0")) return 90;
+    if (category === normalizedQuery) return 86;
+    if (category.includes(normalizedQuery)) return 72;
+    if (tags.some((tag) => tag === normalizedQuery || tag.includes(normalizedQuery))) return 58;
+    if (filterText.includes(normalizedQuery)) return 42;
+    return 0;
+  }
+
+  function getBestSearchListing(query, category = "") {
+    const normalizedQuery = normalizeAccountValue(query);
+    if (!normalizedQuery) return null;
+
+    return getAllListings()
+      .filter((listing) => isApprovedListing(listing) && !isUnavailableListing(listing))
+      .filter((listing) => !category || listing.category === category)
+      .map((listing) => ({ listing, score: getSearchMatchScore(listing, normalizedQuery) }))
+      .filter((item) => item.score > 0)
+      .sort(
+        (left, right) =>
+          right.score - left.score ||
+          Number(right.listing.carouselPriority || 0) - Number(left.listing.carouselPriority || 0) ||
+          getRecordTimestamp(right.listing) - getRecordTimestamp(left.listing),
+      )[0]?.listing || null;
+  }
+
+  function redirectSearchToCategory() {
+    const query = (marketSearch?.value || "").trim();
+    if (!query) {
+      window.location.href = "kesfet.html";
+      return false;
+    }
+
+    const directCategory = getCategoryFromSearchQuery(query);
+    const bestListing = getBestSearchListing(query, directCategory) || getBestSearchListing(query);
+    const targetCategory = directCategory || bestListing?.category || "";
+
+    if (!targetCategory) {
+      showToast("Bu aramaya uygun kategori bulunamadı.");
+      return false;
+    }
+
+    const params = new URLSearchParams();
+    params.set("category", targetCategory);
+    params.set("search", query);
+    if (bestListing) params.set("focus", String(bestListing.id));
+    window.location.href = `${MARKET_RESULTS_PAGE}?${params.toString()}`;
+    return true;
+  }
+
   function getActiveFilterLabels() {
     const labels = [];
     const query = marketSearch?.value.trim() || "";
@@ -6165,6 +6247,7 @@ if (listingGrid) {
     const sortValue = sortFilter?.value || "featured";
 
     if (query) labels.push(`Arama: ${query}`);
+    if (searchFocusText) labels.push(`Öne çıkan başlık: ${searchFocusText}`);
     if (category !== "Tümü") labels.push(`Kategori: ${getCategoryCode(category)} - ${category}`);
     if (selectedTime !== "Tümü") labels.push(`Zaman: ${selectedTime}`);
     if (minBudget) labels.push(`Min: ${Number(minBudget).toLocaleString("tr-TR")} TL`);
@@ -6339,6 +6422,11 @@ if (listingGrid) {
       getRecordTimestamp(right) - getRecordTimestamp(left);
 
     return [...filteredListings].sort((left, right) => {
+      if (searchFocusListingId) {
+        if (String(left.id) === String(searchFocusListingId)) return -1;
+        if (String(right.id) === String(searchFocusListingId)) return 1;
+      }
+
       const sortValue = sortFilter?.value || "featured";
       if (sortValue === "newest") return getRecordTimestamp(right) - getRecordTimestamp(left);
       if (sortValue === "budgetDesc") return Number(right.budget || 0) - Number(left.budget || 0);
@@ -6374,6 +6462,10 @@ if (listingGrid) {
     return listingId ? `ilan-detay.html?id=${listingId}${focusOffer ? "#listingOfferPanel" : ""}` : "ilan-detay.html";
   }
 
+  function isSearchFocusedListing(listing) {
+    return Boolean(searchFocusListingId && String(listing?.id) === String(searchFocusListingId));
+  }
+
   function listingCard(listing, featured = false, options = {}) {
     const imageSrc = getListingImage(listing);
     const categoryMark =
@@ -6388,6 +6480,7 @@ if (listingGrid) {
     const roleLabel = getListingRoleLabel(listing);
     const sponsored = Boolean(options.sponsored);
     const similar = Boolean(options.similar);
+    const searchFocused = Boolean(options.searchFocused);
     const dataAttributes = [
       ["filter-id", listing.id],
       ["filter-category", listing.category],
@@ -6406,7 +6499,7 @@ if (listingGrid) {
       .join(" ");
 
     return `
-      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""} ${sponsored ? "sponsored-listing-card" : ""} ${similar ? "similar-listing-card" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git" ${dataAttributes}${getHighlightStyle(listing)}>
+      <a class="${featured ? "featured-card" : "listing-card"} home-listing-link ${promoted ? "colored-listing" : ""} ${listing.carouselPriority >= 3 ? "premium-listing" : ""} ${sponsored ? "sponsored-listing-card" : ""} ${similar ? "similar-listing-card" : ""} ${searchFocused ? "search-focused-listing" : ""}" href="${offerHref}" aria-label="${safeFullTitle} ilanını aç ve teklif alanına git" ${dataAttributes}${getHighlightStyle(listing)}>
         <div class="${featured ? "featured-top" : "listing-top"}">
           <span class="category-icon">${categoryMark}</span>
           <strong class="budget">${currency.format(listing.budget)}</strong>
@@ -6427,6 +6520,7 @@ if (listingGrid) {
           ${listing.district ? `<span class="badge">${listing.district}</span>` : ""}
           ${listing.workLocationMode === "remote" ? `<span class="badge">Uzaktan</span>` : ""}
           <span class="badge">${listing.offers} teklif</span>
+          ${searchFocused ? `<span class="badge search-focus-badge">Aranan başlık</span>` : ""}
           ${sponsored ? `<span class="badge sponsored-badge">Reklam</span>` : ""}
           ${similar ? `<span class="badge similar-badge">Benzer</span>` : ""}
           ${promoted ? `<span class="badge promo-badge">Renkli ilan</span>` : ""}
@@ -6504,7 +6598,7 @@ if (listingGrid) {
 
     if (category !== "Tümü") {
       const resultHtml = orderedListings.length
-        ? `<div class="listing-grid">${orderedListings.map((listing) => listingCard(listing)).join("")}</div>`
+        ? `<div class="listing-grid">${orderedListings.map((listing) => listingCard(listing, false, { searchFocused: isSearchFocusedListing(listing) })).join("")}</div>`
         : `<article class="listing-card empty-listing-card"><h3>Sonuç bulunamadı</h3></article>`;
       return `${resultHtml}${renderSimilarListings(category, orderedListings)}`;
     }
@@ -6528,7 +6622,7 @@ if (listingGrid) {
               <h3>${escapeHtml(groupTitle)}</h3>
               <span>${groupListings.length} ilan</span>
             </div>
-            <div class="listing-grid">${groupListings.map((listing) => listingCard(listing)).join("")}</div>
+            <div class="listing-grid">${groupListings.map((listing) => listingCard(listing, false, { searchFocused: isSearchFocusedListing(listing) })).join("")}</div>
           </section>
         `,
       )
@@ -6715,7 +6809,7 @@ if (listingGrid) {
   marketSearch?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
-    redirectToFilteredListing({ focusOffer: false });
+    redirectSearchToCategory();
   });
   categoryFilterSearch?.addEventListener("input", () => {
     syncCategoryFilterOptions();

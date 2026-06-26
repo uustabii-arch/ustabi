@@ -1608,6 +1608,19 @@ button:disabled,
   border-color: rgba(255, 160, 0, 0.3);
 }
 
+.search-focused-listing {
+  border-color: rgba(47, 143, 107, 0.42);
+  box-shadow:
+    0 0 0 3px rgba(47, 143, 107, 0.12),
+    0 18px 36px rgba(37, 31, 22, 0.12);
+}
+
+.search-focus-badge {
+  border-color: rgba(47, 143, 107, 0.24);
+  background: #eaf5ef;
+  color: var(--green);
+}
+
 .explore-feed {
   display: grid;
   gap: 18px;
