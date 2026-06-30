@@ -6214,7 +6214,7 @@ if (listingGrid) {
 
     searchFocusListingId = params.get("focus") || "";
     searchFocusText = params.get("search") || "";
-    if (marketSearch) marketSearch.value = params.get("q") || "";
+    if (marketSearch) marketSearch.value = params.get("q") || searchFocusText || "";
     syncCategoryFilterOptions();
     const categoryParam = params.get("category") || "";
     setSelectValue(categoryFilter, getCategoryByCode(categoryParam) || categoryParam || "Tümü");
@@ -6314,7 +6314,7 @@ if (listingGrid) {
     const sortValue = sortFilter?.value || "featured";
 
     if (query) labels.push(`Arama: ${query}`);
-    if (searchFocusText) labels.push(`Öne çıkan başlık: ${searchFocusText}`);
+    if (searchFocusText && normalizeSearchValue(searchFocusText) !== normalizeSearchValue(query)) labels.push(`Öne çıkan başlık: ${searchFocusText}`);
     if (category !== "Tümü") labels.push(`Kategori: ${getCategoryCode(category)} - ${category}`);
     if (selectedTime !== "Tümü") labels.push(`Zaman: ${selectedTime}`);
     if (minBudget) labels.push(`Min: ${Number(minBudget).toLocaleString("tr-TR")} TL`);
