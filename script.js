@@ -548,6 +548,7 @@ const colorPromotionCard = document.querySelector("#colorPromotionCard");
 const citySelect = document.querySelector("#citySelect");
 const districtSelect = document.querySelector("#districtSelect");
 const workDateInput = document.querySelector("#workDateInput");
+const workDateGroup = document.querySelector(".work-date-group");
 const profileEditForm = document.querySelector("#profileEditForm");
 const profilePhotoInput = document.querySelector("#profilePhotoInput");
 const profilePhotoPreview = document.querySelector("#profilePhotoPreview");
@@ -1013,6 +1014,13 @@ function addTwoMonths() {
   return toDateInputValue(date);
 }
 
+function addThreeMonths() {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  date.setMonth(date.getMonth() + 3);
+  return date.toISOString();
+}
+
 function getWorkDateYear() {
   return new Date().getFullYear();
 }
@@ -1029,7 +1037,7 @@ function todayValue() {
 }
 
 function getTimeLabel(workDate) {
-  if (!workDate) return "Esnek";
+  if (!workDate) return "Sürekli";
 
   const today = new Date(`${todayValue()}T00:00:00`);
   const target = new Date(`${workDate}T00:00:00`);
@@ -1041,7 +1049,20 @@ function getTimeLabel(workDate) {
   return target.toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
 }
 
+function isContinuousListing(listing) {
+  return listing?.listingDurationType === "continuous";
+}
+
+function getListingTimeLabel(listing = {}) {
+  return isContinuousListing(listing) ? "Sürekli" : getTimeLabel(listing.workDate) || listing.time || "Esnek";
+}
+
 function isExpiredListing(listing) {
+  if (isContinuousListing(listing)) {
+    if (!listing.expiresAt) return false;
+    return new Date(listing.expiresAt).getTime() < Date.now();
+  }
+
   return Boolean(listing.workDate && listing.workDate < todayValue());
 }
 
@@ -4017,8 +4038,9 @@ function getAllListings() {
     const workDate = listing.workDate || "";
     const category = listing.category || getOtherCategoryValue();
     const categoryGroup = listing.categoryGroup || getCategoryGroupTitle(category);
+    const listingDurationType = listing.listingDurationType || (workDate ? "short" : "continuous");
     const workLocationMode = listing.workLocationMode || "onsite";
-    const timeLabel = workDate ? getTimeLabel(workDate) : listing.time || "Esnek";
+    const timeLabel = getListingTimeLabel({ ...listing, workDate, listingDurationType });
     const tags = getListingTags(listing);
 
     listingMap.set(String(listing.id), {
@@ -4026,6 +4048,8 @@ function getAllListings() {
       category,
       categoryCode: getCategoryCode(category),
       categoryGroup,
+      listingDurationType,
+      expiresAt: listing.expiresAt || "",
       workDate,
       time: timeLabel,
       budget: Number(listing.budget || 0),
@@ -5118,6 +5142,7 @@ if (listingCreateForm) {
   let editListing = null;
   let editFormHydrated = false;
   const workLocationModeInputs = [...listingCreateForm.querySelectorAll('input[name="workLocationMode"]')];
+  const listingDurationTypeInputs = [...listingCreateForm.querySelectorAll('input[name="listingDurationType"]')];
 
   if (listingTitleInput) {
     listingTitleInput.maxLength = listingTitleMaxLength;
@@ -5155,6 +5180,33 @@ if (listingCreateForm) {
 
   function getSelectedWorkLocationMode() {
     return listingCreateForm.querySelector('input[name="workLocationMode"]:checked')?.value || "onsite";
+  }
+
+  function getSelectedListingDurationType() {
+    return listingCreateForm.querySelector('input[name="listingDurationType"]:checked')?.value || "continuous";
+  }
+
+  function syncListingDurationFields() {
+    const shortTerm = getSelectedListingDurationType() === "short";
+    if (workDateGroup) {
+      workDateGroup.hidden = !shortTerm;
+      workDateGroup.classList.toggle("is-hidden", !shortTerm);
+    }
+
+    [workDateDay, workDateMonth].forEach((input) => {
+      if (!input) return;
+      input.disabled = !shortTerm;
+      input.required = shortTerm;
+    });
+    if (workDateYear) workDateYear.disabled = !shortTerm;
+    if (workDateInput) {
+      workDateInput.required = shortTerm;
+      if (!shortTerm) workDateInput.value = "";
+      else if (!workDateInput.value && workDateMonth?.value && workDateDay?.value) {
+        const year = workDateYear?.value || String(getWorkDateYear());
+        workDateInput.value = `${year}-${String(workDateMonth.value).padStart(2, "0")}-${String(workDateDay.value).padStart(2, "0")}`;
+      }
+    }
   }
 
   function syncAddressNoteField() {
@@ -5196,7 +5248,11 @@ if (listingCreateForm) {
   }
 
   function setListingWorkDateValue(value) {
-    if (!value || !workDateDay || !workDateMonth || !workDateYear || !workDateInput) return;
+    if (!workDateDay || !workDateMonth || !workDateYear || !workDateInput) return;
+    if (!value) {
+      workDateInput.value = "";
+      return;
+    }
     const date = new Date(`${value}T00:00:00`);
     if (Number.isNaN(date.getTime())) return;
 
@@ -5258,7 +5314,14 @@ if (listingCreateForm) {
     syncCustomCategoryField();
 
     setListingLocationValue(listing.city || "", listing.district || "");
+    const listingDurationType = listing.listingDurationType || (listing.workDate ? "short" : "continuous");
+    const listingDurationInput = listingCreateForm.querySelector(
+      `input[name="listingDurationType"][value="${listingDurationType}"]`,
+    );
+    if (listingDurationInput) listingDurationInput.checked = true;
+    syncListingDurationFields();
     setListingWorkDateValue(listing.workDate || "");
+    syncListingDurationFields();
     const workLocationMode = listing.workLocationMode || (listing.addressNote ? "onsite" : "remote");
     const workLocationInput = listingCreateForm.querySelector(
       `input[name="workLocationMode"][value="${workLocationMode}"]`,
@@ -5348,8 +5411,10 @@ if (listingCreateForm) {
   categorySearchInput?.addEventListener("input", filterListingCategories);
   categorySelect?.addEventListener("change", syncCustomCategoryField);
   workLocationModeInputs.forEach((input) => input.addEventListener("change", syncAddressNoteField));
+  listingDurationTypeInputs.forEach((input) => input.addEventListener("change", syncListingDurationFields));
   syncCustomCategoryField();
   syncAddressNoteField();
+  syncListingDurationFields();
   initListingEditMode();
   subscribeSharedListings(() => {
     if (!editListingId || editFormHydrated) return;
@@ -5361,7 +5426,8 @@ if (listingCreateForm) {
     const formData = new FormData(listingCreateForm);
     const submitButton = listingCreateForm.querySelector('button[type="submit"]');
     const imageDataUrl = await compressImageAsDataUrl(formData.get("image"));
-    const workDate = formData.get("workDate");
+    const listingDurationType = String(formData.get("listingDurationType") || "continuous");
+    const workDate = listingDurationType === "short" ? String(formData.get("workDate") || "") : "";
     const listings = getStoredListings();
     let currentUser = {};
 
@@ -5379,7 +5445,12 @@ if (listingCreateForm) {
       return;
     }
 
-    if (!isAllowedWorkDate(workDate)) {
+    if (!["continuous", "short"].includes(listingDurationType)) {
+      showToast("İlan süresini sürekli veya kısa vadeli olarak seçmelisin.");
+      return;
+    }
+
+    if (listingDurationType === "short" && !isAllowedWorkDate(workDate)) {
       showToast("İlan tarihi bugünden eski, bu yılın dışında veya 2 aydan ileri olamaz.");
       return;
     }
@@ -5435,8 +5506,13 @@ if (listingCreateForm) {
         tags,
         city,
         district,
+        listingDurationType,
+        expiresAt:
+          listingDurationType === "continuous"
+            ? (isContinuousListing(existingListing) && existingListing.expiresAt) || addThreeMonths()
+            : "",
         workDate,
-        time: getTimeLabel(workDate),
+        time: getListingTimeLabel({ workDate, listingDurationType }),
         duration: formData.get("duration"),
         budget: Number(formData.get("budget")),
         materials: formData.get("materials"),
@@ -5531,8 +5607,10 @@ if (listingCreateForm) {
       tags,
       city,
       district,
+      listingDurationType,
+      expiresAt: listingDurationType === "continuous" ? addThreeMonths() : "",
       workDate,
-      time: getTimeLabel(workDate),
+      time: getListingTimeLabel({ workDate, listingDurationType }),
       duration: formData.get("duration"),
       budget: Number(formData.get("budget")),
       materials: formData.get("materials"),
@@ -6560,7 +6638,7 @@ if (listingGrid) {
     const imageSrc = getListingImage(listing);
     const categoryMark =
       categoryMarks[listing.category] || listing.category.slice(0, 2).toLocaleUpperCase("tr-TR");
-    const timeLabel = getTimeLabel(listing.workDate) || listing.time;
+    const timeLabel = getListingTimeLabel(listing);
     const promoted = Boolean(listing.highlighted);
     const priorityLabel = listing.carouselPriorityLabel || (listing.carouselPriority ? "Öne çıkan sıra" : "");
     const offerHref = getListingDetailHref(listing, true);
@@ -6952,7 +7030,7 @@ if (explorePageFeed) {
   function explorePageCard(listing) {
     const imageSrc = getListingImage(listing);
     const title = normalizeListingTitle(listing.title) || "İlan";
-    const timeLabel = getTimeLabel(listing.workDate) || listing.time || "Esnek";
+    const timeLabel = getListingTimeLabel(listing);
     const roleLabel = getListingRoleLabel(listing);
     const location =
       listing.workLocationMode === "remote"
@@ -7038,7 +7116,7 @@ function accountListingCard(listing, passive = false) {
           ${listing.city ? `<span class="badge">${listing.city}</span>` : ""}
           ${listing.district ? `<span class="badge">${listing.district}</span>` : ""}
           ${listing.workLocationMode === "remote" ? `<span class="badge">Uzaktan</span>` : ""}
-          <span class="badge">${getTimeLabel(listing.workDate)}</span>
+          <span class="badge">${getListingTimeLabel(listing)}</span>
         </div>
         <div class="listing-bottom">
           <span class="badge">${listing.offers || 0} teklif</span>
@@ -7289,7 +7367,6 @@ if (listingDetail) {
     const canEditListing = isListingOwnedByUser(listing) && !assigned && !isCompletedListing(listing);
     lastAlreadyOfferedState = alreadyOffered;
     const tagBadges = renderTagBadges(listing.tags, 8);
-
     listingDetail.innerHTML = `
       <div class="detail-toolbar">
         <a class="detail-back-link" href="pazar.html">
