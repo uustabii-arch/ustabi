@@ -6253,23 +6253,13 @@ if (listingGrid) {
     if (!normalizedQuery) return 0;
 
     const title = normalizeSearchValue(listing.title);
-    const category = normalizeSearchValue(listing.category);
-    const categoryCode = normalizeSearchValue(listing.categoryCode || getCategoryCode(listing.category));
     const tags = getListingTags(listing).map(normalizeSearchValue);
-    const filterText = normalizeSearchValue(listing.filterText || "");
-    const textTokens = filterText.split(/\s+/).filter(Boolean);
 
     if (title === normalizedQuery) return 120;
     if (title.startsWith(normalizedQuery)) return 105;
     if (title.includes(normalizedQuery)) return 95;
-    if (categoryCode === normalizedQuery.padStart(3, "0")) return 90;
-    if (category === normalizedQuery) return 86;
-    if (isCloseSearchMatch(category, normalizedQuery)) return 82;
-    if (category.includes(normalizedQuery)) return 72;
     if (tags.some((tag) => tag === normalizedQuery || tag.includes(normalizedQuery))) return 58;
     if (tags.some((tag) => isCloseSearchMatch(tag, normalizedQuery))) return 52;
-    if (filterText.includes(normalizedQuery)) return 42;
-    if (textTokens.some((token) => isCloseSearchMatch(token, normalizedQuery))) return 36;
     return 0;
   }
 
