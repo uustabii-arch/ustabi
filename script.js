@@ -4895,6 +4895,8 @@ if (adminModerationList) {
       ? moderatedListings
           .map((listing) => {
             const status = getModerationStatus(listing);
+            const adminPreviewHref = `ilan-detay.html?id=${encodeURIComponent(String(listing.id))}&preview=admin`;
+            const viewActionLabel = status === "approved" ? "Görüntüle" : "Ön görüntüleme";
             return `
               <article class="admin-moderation-item ${String(listing.id) === String(adminFocusListingId) ? "focused-admin-listing" : ""}" data-admin-listing="${listing.id}">
                 <div class="admin-moderation-head">
@@ -4919,6 +4921,7 @@ if (adminModerationList) {
                 </div>
                 ${listing.moderationReason ? `<p><strong>Ret sebebi:</strong> ${listing.moderationReason}</p>` : ""}
                 <div class="admin-moderation-actions">
+                  <a class="ghost-action" href="${adminPreviewHref}">${viewActionLabel}</a>
                   <button class="primary-action" type="button" data-approve-listing="${listing.id}" ${status === "approved" ? "disabled" : ""}>Onayla</button>
                   <button class="ghost-action" type="button" data-reject-listing="${listing.id}" ${status === "rejected" ? "disabled" : ""}>Reddet</button>
                   <button class="danger-action" type="button" data-delete-listing="${listing.id}">Sil</button>
