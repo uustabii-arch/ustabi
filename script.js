@@ -1518,6 +1518,26 @@ function getCategoryBySearchTerm(term, categories = professionCategories) {
   );
 }
 
+function getStrictCategoryBySearchTerm(term, categories = professionCategories) {
+  const normalizedTerm = normalizeSearchValue(term);
+  if (!normalizedTerm) return "";
+
+  const categoryFromCode = getCategoryByCode(term);
+  if (categoryFromCode) return categoryFromCode;
+
+  const exactCategory = categories.find((category) => normalizeSearchValue(category) === normalizedTerm);
+  if (exactCategory) return exactCategory;
+
+  if (normalizedTerm.length < 5) return "";
+
+  return (
+    categories
+      .map((category) => ({ category, distance: getSearchDistance(category, normalizedTerm) }))
+      .filter((item) => isCloseSearchMatch(item.category, normalizedTerm))
+      .sort((left, right) => left.distance - right.distance || left.category.length - right.category.length)[0]?.category || ""
+  );
+}
+
 function getAccountEmail(user = getCurrentUser()) {
   return normalizeAccountValue(user.email);
 }
@@ -6216,7 +6236,7 @@ if (listingGrid) {
     const categoryFromCode = getCategoryByCode(typedCategory);
     if (categoryFromCode) return categoryFromCode;
 
-    return selectedCategory;
+    return getStrictCategoryBySearchTerm(typedCategory) || selectedCategory;
   }
 
   function getCategorySearchQueryValue() {
